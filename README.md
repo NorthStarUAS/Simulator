@@ -1,6 +1,7 @@
 # rc-sim
 
-Flight dynamics model creation and simulation--based on a novel data-driven approach.
+Flight dynamics model creation and simulation--based on a novel
+data-driven approach.
 
 ## Overview
 
@@ -40,15 +41,15 @@ expect.
 ### Independent states
 
 * Throttle command
-* Aileron, Elevator, Rudder (flight controls)
-* Roll and Pitch angles (phi and theta)
+* Aileron, Elevator, Rudder commands (flight controls)
+* Roll and Pitch angles (phi, theta)
 
 ### Dependent states
 
 * Airspeed
 * Vertical velocity (experimental)
-* Body accelerations (with gravity removed.)
-* Rotational rates
+* Body accelerations (ax, ay, az with gravity removed.)
+* Rotational rates (p, q, r)
 
 That's it, that's all it is!
 
