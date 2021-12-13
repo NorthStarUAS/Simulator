@@ -107,7 +107,7 @@ def quaternion_backTransform(quat, v):
     tmp3 = (r*qr)*np.cross(qimag, v)
     return tmp1 + tmp2 + tmp3
 
-airspeed_kt = 20
+airspeed_kt = 25
 vd = 0
 pos_ned = np.array( [0.0, 0.0, 0.0] )
 vel_ned = np.array( [10.0, 0.0, 0.0] )
@@ -125,9 +125,9 @@ r = 0
 dt = 0.01
 t = 0.0
 
-throttle = 0.1
+throttle = 0.5
 aileron = 0.0
-elevator = 0.2
+elevator = -0.05
 rudder = 0.0
 
 data = []
@@ -185,6 +185,9 @@ plt.plot( data[:,0], data[:,1], label="Airspeed (kt)" )
 plt.legend()
 plt.figure()
 plt.plot( data[:,0], data[:,7], label="Pitch (rad)" )
+plt.legend()
+plt.figure()
+plt.plot( data[:,0], data[:,11], label="az (mps^2)" )
 plt.legend()
 plt.figure()
 plt.plot( data[:,0], data[:,13], label="Pitch rate (rad/sec)" )

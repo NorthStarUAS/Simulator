@@ -113,6 +113,7 @@ for i in tqdm(range(iter.size())):
             airpt = record['air']
         if 'filter' in record:
             navpt = record['filter']
+            #print(navpt)
         if 'gps' in record:
             gpspt = record['gps']
             gs_mps = math.sqrt( gpspt['vn']**2 + gpspt['ve']**2 )
@@ -125,7 +126,9 @@ for i in tqdm(range(iter.size())):
         if 'time' in actpt and 'time' in navpt and 'time' in airpt:
             ned2body = eul2quat( navpt['phi'], navpt['the'], navpt['psi'] )
             g_body = quaternion_transform(ned2body, g)
-            sensed_accel = np.array( [ imupt['ax'], imupt['ay'], imupt['az'] ] )
+            sensed_accel = np.array( [ imupt['ax'] - navpt['ax_bias'],
+                                       imupt['ay'] - navpt['ay_bias'],
+                                       imupt['az'] - navpt['az_bias'] ] )
             body_accel = sensed_accel - g_body
             # airspeed and throttle values are proxies for qbar, alpha, thrust
             state = [ airpt['airspeed']**2, actpt['throttle'],
@@ -134,7 +137,9 @@ for i in tqdm(range(iter.size())):
                       math.sin(navpt['phi']), math.sin(navpt['the']),
                       navpt['vd'],
                       body_accel[0], body_accel[1], body_accel[2],
-                      imupt['p'], imupt['q'], imupt['r'] ]
+                      imupt['p'] - navpt['p_bias'],
+                      imupt['q'] - navpt['q_bias'],
+                      imupt['r'] - navpt['r_bias'] ]
             fulldata.append(state)
 
 states = len(fulldata[0])
