@@ -130,6 +130,9 @@ for i in tqdm(range(iter.size())):
                                        imupt['ay'] - navpt['ay_bias'],
                                        imupt['az'] - navpt['az_bias'] ] )
             body_accel = sensed_accel - g_body
+            v_ned = np.array( [ navpt['vn'], navpt['ve'], navpt['vd'] ] )
+            v_body = quaternion_transform(ned2body, v_ned)
+            print("v(body):", v_body)
             # airspeed and throttle values are proxies for qbar, alpha, thrust
             state = [ airpt['airspeed']**2, actpt['throttle'],
                       actpt['aileron'], actpt['elevator'], actpt['rudder'],
