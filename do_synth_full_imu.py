@@ -20,6 +20,7 @@ import json
 
 from rcUAS_flightdata import flight_loader, flight_interp
 
+d2r = math.pi / 180.0
 kt2mps = 0.5144444444444444444
 mps2kt = 1.0 / kt2mps
 
@@ -97,7 +98,7 @@ def quaternion_transform(quat, v):
     tmp3 = (r*qr)*np.cross(qimag, v)
     return tmp1 + tmp2 - tmp3
 
-print("Generating synthetic imu model:")
+print("Generating synthetic flight dynamics model:")
 fulldata = []
 actpt = {}
 airpt = {}
@@ -108,49 +109,76 @@ g = np.array( [ 0, 0, -9.81 ] )
 gs_mps = 0
 asi_mps = 0
 
+# iterate through the flight data log
 for i in tqdm(range(iter.size())):
     record = iter.next()
-    if len(record):
+    if len(record) == 0:
+        continue
+    if 'imu' in record:
         imupt = record['imu']
-        if 'act' in record:
-            actpt = record['act']
-            asi_mps = airpt['airspeed'] * airpt['pitot_scale'] * kt2mps
-        if 'air' in record:
-            airpt = record['air']
-            #print(airpt)
-        if 'filter' in record:
-            navpt = record['filter']
-            #print(navpt)
-        if 'gps' in record:
-            gpspt = record['gps']
-            gs_mps = math.sqrt( gpspt['vn']**2 + gpspt['ve']**2 )
-        if gs_mps > 10 and asi_mps > 7:
-            flying = True
-        elif gs_mps < 5 and asi_mps < 3:
-            flying = False
-        if not flying:
-            continue
-        if 'time' in actpt and 'time' in navpt and 'time' in airpt:
-            ned2body = eul2quat( navpt['phi'], navpt['the'], navpt['psi'] )
-            g_body = quaternion_transform(ned2body, g)
-            sensed_accel = np.array( [ imupt['ax'] - navpt['ax_bias'],
-                                       imupt['ay'] - navpt['ay_bias'],
-                                       imupt['az'] - navpt['az_bias'] ] )
-            body_accel = sensed_accel - g_body
-            v_ned = np.array( [ navpt['vn'], navpt['ve'], navpt['vd'] ] )
-            v_body = quaternion_transform(ned2body, v_ned)
-            print("v(body):", v_body)
-            # airspeed and throttle values are proxies for qbar, alpha, thrust
-            state = [ asi_mps**2, actpt['throttle'],
-                      actpt['aileron'], actpt['elevator'], actpt['rudder'],
-                      math.cos(navpt['phi']), math.cos(navpt['the']),
-                      math.sin(navpt['phi']), math.sin(navpt['the']),
-                      navpt['vd'],
-                      body_accel[0], body_accel[1], body_accel[2],
-                      imupt['p'] - navpt['p_bias'],
-                      imupt['q'] - navpt['q_bias'],
-                      imupt['r'] - navpt['r_bias'] ]
-            fulldata.append(state)
+        #print(imupt)
+    if 'act' in record:
+        actpt = record['act']
+    if 'air' in record:
+        airpt = record['air']
+        asi_mps = airpt['airspeed'] * airpt['pitot_scale'] * kt2mps
+        #print(airpt)
+    if 'filter' in record:
+        navpt = record['filter']
+        #print(navpt)
+    if 'gps' in record:
+        gpspt = record['gps']
+        gs_mps = math.sqrt( gpspt['vn']**2 + gpspt['ve']**2 )
+
+    # simulation is only modeled for "in flight" conditions
+    if gs_mps > 10 and asi_mps > 7:
+        flying = True
+    elif gs_mps < 5 and asi_mps < 3:
+        flying = False
+    if not flying:
+        continue
+
+    # transformation between NED coordations and body coordinates
+    ned2body = eul2quat( navpt['phi'], navpt['the'], navpt['psi'] )
+
+    # ax, ay, az are 'callibrated' but do not include imu bias estimates
+    sensed_accel = np.array( [ imupt['ax'] - navpt['ax_bias'],
+                               imupt['ay'] - navpt['ay_bias'],
+                               imupt['az'] - navpt['az_bias'] ] )
+    
+    # rotate gravity into body frame and remove it from sensed accelerations
+    g_body = quaternion_transform(ned2body, g)
+    body_accel = sensed_accel - g_body
+
+    # our best estimate of wind velocity in the ned coordinate frame
+    wind_psi = 0.5*math.pi - airpt['wind_dir'] * d2r
+    wind_mps = airpt['wind_speed'] * kt2mps
+    we = math.cos(wind_psi) * wind_mps
+    wn = math.sin(wind_psi) * wind_mps
+
+    # ned velocity with wind effects removed
+    v_ned = np.array( [ navpt['vn'] + wn, navpt['ve'] + we, navpt['vd'] ] )
+
+    # velocity in body frame
+    v_body = quaternion_transform(ned2body, v_ned)
+
+    # alpha/beta estimates
+    alpha = math.atan2( v_body[2], v_body[0] )
+    beta = math.atan2( v_body[1], v_body[0] )
+    print("v(body):", v_body, "alpha = %.1f" % (alpha/d2r), "beta = %.1f" % (beta/d2r))
+
+    # airspeed and throttle values are proxies for qbar, alpha, thrust
+    state = [ asi_mps**2, actpt['throttle'],
+              actpt['aileron'], actpt['elevator'], actpt['rudder'],
+              math.cos(navpt['phi']), math.cos(navpt['the']),
+              math.sin(navpt['phi']), math.sin(navpt['the']),
+              #navpt['vd'],
+              alpha, beta,
+              body_accel[0], body_accel[1], body_accel[2],
+              imupt['p'] - navpt['p_bias'],
+              imupt['q'] - navpt['q_bias'],
+              imupt['r'] - navpt['r_bias'] ]
+    fulldata.append(state)
 
 states = len(fulldata[0])
 print("Number of states:", len(fulldata[0]))
@@ -217,7 +245,8 @@ plt.legend()
 plt.show()
 
 pred = []
-vd_est = 0
+alpha_est = 0
+beta_est = 0
 ax_est = 0
 ay_est = 0
 az_est = 0
@@ -227,7 +256,8 @@ r_est = 0
 v = []
 for i in range(len(fulldata)):
     v.extend(fulldata[i])
-    v[-7] = vd_est
+    v[-8] = alpha_est
+    v[-7] = beta_est
     v[-6] = ax_est
     v[-5] = ay_est
     v[-4] = az_est
@@ -240,7 +270,8 @@ for i in range(len(fulldata)):
         #print("v:", np.array(v).shape, np.array(v))
         p = A @ np.array(v)
         #print("p:", p)
-        vd_est = p[-7]
+        alpha_est = p[-8]
+        beta_est = p[-7]
         ax_est = p[-6]
         ay_est = p[-5]
         az_est = p[-4]

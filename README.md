@@ -56,4 +56,20 @@ That's it, that's all it is!
 ## Simulation
 
 Once the **A** matrix is computed, this can form the heart of a
-simulation.  
+simulation.
+
+# Limitations
+
+This system is not a perfect complete answer to creating flight
+simulations from real flight data.  There are many limitations and
+disclaimers, here are a few:
+
+* Only works for in-flight state (no ground reactions modeled.)
+* Common variables (like air density, aircraft mass, aircraft cg) get
+  cooked directly into the model and cannot be varied in the
+  simulation.
+* Simulation results are most valid within the range of flight
+  conditions that were recorded.  Extrapolating beyond these ranges
+  may or may not produce useful results, definitely do not depend on
+  useful results outside the range of state data collected in the
+  flight.

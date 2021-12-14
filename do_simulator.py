@@ -5,6 +5,8 @@ import math
 from matplotlib import pyplot as plt
 import numpy as np
 
+d2r = math.pi / 180
+r2d = 180 / math.pi
 kt2mps = 0.5144444444444444444
 mps2kt = 1.0 / kt2mps
 
@@ -106,8 +108,9 @@ def quaternion_backTransform(quat, v):
     tmp3 = (r*qr)*np.cross(qimag, v)
     return tmp1 + tmp2 + tmp3
 
-airspeed_kt = 25
-vd = 0
+airspeed_mps = 25 * kt2mps
+alpha = 0
+beta = 0
 pos_ned = np.array( [0.0, 0.0, 0.0] )
 vel_ned = np.array( [10.0, 0.0, 0.0] )
 phi_rad = 0.0
@@ -126,17 +129,16 @@ t = 0.0
 
 throttle = 0.5
 aileron = 0.0
-elevator = -0.05
+elevator = -0.07
 rudder = 0.0
 
 data = []
 while t < 60:
-    #airspeed_kt = np.linalg.norm(vel_ned) * mps2kt
-    state = np.array( [ airspeed_kt**2, throttle,
+    state = np.array( [ airspeed_mps**2, throttle,
                         aileron, elevator, rudder,
                         math.cos(phi_rad), math.cos(the_rad),
                         math.sin(phi_rad), math.sin(the_rad),
-                        vd,
+                        alpha, beta,
                         bax, bay, baz,
                         p, q, r ] )
     
@@ -146,16 +148,17 @@ while t < 60:
     #print()
 
     if next[0] > 0:
-        airspeed_kt = math.sqrt(next[0])
+        airspeed_mps = math.sqrt(next[0])
     else:
-        airspeed_kt = 0
-    vd = next[9]
-    bax = next[10]
-    #bay = next[11]
-    baz = next[12]
-    #p = next[13]
-    q = next[14]
-    #r = next[15]
+        airspeed_mps = 0
+    alpha = next[9]
+    beta = next[10]
+    bax = next[11]
+    #bay = next[12]
+    baz = next[13]
+    #p = next[14]
+    q = next[15]
+    #r = next[16]
     
     # update attitude
     rot_body = eul2quat(p*dt, q*dt, r*dt)
@@ -163,15 +166,18 @@ while t < 60:
     #phi_rad, the_rad, psi_rad = quat2eul(ned2body)
     lock_phi_rad, the_rad, lock_psi_rad = quat2eul(ned2body)
 
-    # update velocity
-    accel_ned = quaternion_backTransform(ned2body, np.array([bax, bay, baz]) )
-    vel_ned += accel_ned * dt
-    vel_ned[2] = vd
+    # velocity in body frame
+    bd = math.sin(alpha) * airspeed_mps
+    be = math.sin(beta) * airspeed_mps
+    bn = math.sqrt( airspeed_mps**2 - bd**2 - be**2 )
 
+    # velocity in ned fram
+    vel_ned = quaternion_backTransform( ned2body, np.array([bn, be, bd]) )
+                                     
     # update position
     pos_ned += vel_ned * dt
 
-    data.append( [t, airspeed_kt, throttle, aileron, elevator, rudder, phi_rad, the_rad, psi_rad, bax, bay, baz, p, q, r] )
+    data.append( [t, airspeed_mps, throttle, aileron, elevator, rudder, phi_rad, the_rad, psi_rad, alpha, beta, bax, bay, baz, p, q, r] )
     data[-1].extend( pos_ned.tolist() )
     data[-1].extend( vel_ned.tolist() )
     
@@ -180,23 +186,24 @@ while t < 60:
 data = np.array(data)
 print(data[:,0])
 plt.figure()
-plt.plot( data[:,0], data[:,1], label="Airspeed (kt)" )
+plt.plot( data[:,0], data[:,1], label="Airspeed (mps)" )
 plt.legend()
 plt.figure()
-plt.plot( data[:,0], data[:,7], label="Pitch (rad)" )
+plt.plot( data[:,0], data[:,7]*r2d, label="Pitch (deg)" )
 plt.legend()
 plt.figure()
-plt.plot( data[:,0], data[:,11], label="az (mps^2)" )
+plt.plot( data[:,0], data[:,9]*r2d, label="alpha (deg)" )
+plt.plot( data[:,0], data[:,10]*r2d, label="beta (deg)" )
 plt.legend()
 plt.figure()
-plt.plot( data[:,0], data[:,13], label="Pitch rate (rad/sec)" )
+plt.plot( data[:,0], data[:,15]*r2d, label="Pitch rate (deg/sec)" )
 plt.legend()
 plt.figure()
-plt.plot( data[:,0], data[:,17], label="Pos 'down' (m)" )
+plt.plot( data[:,0], data[:,19], label="Pos 'down' (m)" )
 plt.legend()
 plt.figure()
-plt.plot( data[:,0], data[:,18], label="Vel 'north' (m)" )
-plt.plot( data[:,0], data[:,19], label="Vel 'east' (m)" )
-plt.plot( data[:,0], data[:,20], label="Vel 'down' (m)" )
+plt.plot( data[:,0], data[:,20], label="Vel 'north' (m)" )
+plt.plot( data[:,0], data[:,21], label="Vel 'east' (m)" )
+plt.plot( data[:,0], data[:,22], label="Vel 'down' (m)" )
 plt.legend()
 plt.show()
