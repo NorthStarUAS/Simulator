@@ -108,6 +108,7 @@ iter = flight_interp.IterateGroup(data)
 g = np.array( [ 0, 0, -9.81 ] )
 gs_mps = 0
 asi_mps = 0
+v_body_last = np.array( [0.0, 0.0, 0.0] )
 
 # iterate through the flight data log
 for i in tqdm(range(iter.size())):
@@ -141,14 +142,14 @@ for i in tqdm(range(iter.size())):
     # transformation between NED coordations and body coordinates
     ned2body = eul2quat( navpt['phi'], navpt['the'], navpt['psi'] )
 
-    # ax, ay, az are 'callibrated' but do not include imu bias estimates
-    sensed_accel = np.array( [ imupt['ax'] - navpt['ax_bias'],
-                               imupt['ay'] - navpt['ay_bias'],
-                               imupt['az'] - navpt['az_bias'] ] )
+    # # ax, ay, az are 'callibrated' but do not include imu bias estimates
+    # sensed_accel = np.array( [ imupt['ax'] - navpt['ax_bias'],
+    #                            imupt['ay'] - navpt['ay_bias'],
+    #                            imupt['az'] - navpt['az_bias'] ] )
     
-    # rotate gravity into body frame and remove it from sensed accelerations
-    g_body = quaternion_transform(ned2body, g)
-    body_accel = sensed_accel - g_body
+    # # rotate gravity into body frame and remove it from sensed accelerations
+    # g_body = quaternion_transform(ned2body, g)
+    # body_accel = sensed_accel - g_body
 
     # our best estimate of wind velocity in the ned coordinate frame
     wind_psi = 0.5*math.pi - airpt['wind_dir'] * d2r
@@ -162,19 +163,23 @@ for i in tqdm(range(iter.size())):
     # velocity in body frame
     v_body = quaternion_transform(ned2body, v_ned)
 
+    # estimate accelerations in body frame (imu accels may be too
+    # biased to be useful)
+    accel_body = (v_body - v_body_last) / imu_dt
+    v_body_last = v_body.copy()
+    
     # alpha/beta estimates
     alpha = math.atan2( v_body[2], v_body[0] )
     beta = math.atan2( v_body[1], v_body[0] )
-    print("v(body):", v_body, "alpha = %.1f" % (alpha/d2r), "beta = %.1f" % (beta/d2r))
+    #print("v(body):", v_body, "alpha = %.1f" % (alpha/d2r), "beta = %.1f" % (beta/d2r))
 
     # airspeed and throttle values are proxies for qbar, alpha, thrust
     state = [ asi_mps**2, actpt['throttle'],
               actpt['aileron'], actpt['elevator'], actpt['rudder'],
               math.cos(navpt['phi']), math.cos(navpt['the']),
               math.sin(navpt['phi']), math.sin(navpt['the']),
-              #navpt['vd'],
               alpha, beta,
-              body_accel[0], body_accel[1], body_accel[2],
+              accel_body[0], accel_body[1], accel_body[2],
               imupt['p'] - navpt['p_bias'],
               imupt['q'] - navpt['q_bias'],
               imupt['r'] - navpt['r_bias'] ]

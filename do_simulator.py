@@ -108,7 +108,7 @@ def quaternion_backTransform(quat, v):
     tmp3 = (r*qr)*np.cross(qimag, v)
     return tmp1 + tmp2 + tmp3
 
-airspeed_mps = 25 * kt2mps
+airspeed_mps = 16.5
 alpha = 0
 beta = 0
 pos_ned = np.array( [0.0, 0.0, 0.0] )
@@ -129,8 +129,9 @@ t = 0.0
 
 throttle = 0.5
 aileron = 0.0
-elevator = -0.07
+elevator = -0.08
 rudder = 0.0
+last_vel_body = None
 
 data = []
 while t < 60:
@@ -153,9 +154,9 @@ while t < 60:
         airspeed_mps = 0
     alpha = next[9]
     beta = next[10]
-    bax = next[11]
+    #bax = next[11]
     #bay = next[12]
-    baz = next[13]
+    #baz = next[13]
     #p = next[14]
     q = next[15]
     #r = next[16]
@@ -170,6 +171,16 @@ while t < 60:
     bd = math.sin(alpha) * airspeed_mps
     be = math.sin(beta) * airspeed_mps
     bn = math.sqrt( airspeed_mps**2 - bd**2 - be**2 )
+
+    # accel in body frame
+    vel_body = np.array( [bn, be, bd] )
+    if last_vel_body is None:
+        last_vel_body = vel_body.copy()
+    accel_body = vel_body - last_vel_body
+    last_vel_body = vel_body.copy()
+    bax = accel_body[0]
+    #bay = accel_body[1]
+    baz = accel_body[2]
 
     # velocity in ned fram
     vel_ned = quaternion_backTransform( ned2body, np.array([bn, be, bd]) )
@@ -194,6 +205,11 @@ plt.legend()
 plt.figure()
 plt.plot( data[:,0], data[:,9]*r2d, label="alpha (deg)" )
 plt.plot( data[:,0], data[:,10]*r2d, label="beta (deg)" )
+plt.legend()
+plt.figure()
+plt.plot( data[:,0], data[:,11]*r2d, label="body ax (mps^2)" )
+plt.plot( data[:,0], data[:,12]*r2d, label="body ay (mps^2)" )
+plt.plot( data[:,0], data[:,13]*r2d, label="body az (mps^2)" )
 plt.legend()
 plt.figure()
 plt.plot( data[:,0], data[:,15]*r2d, label="Pitch rate (deg/sec)" )
