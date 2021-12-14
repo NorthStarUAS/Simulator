@@ -15,10 +15,13 @@ from matplotlib import pyplot as plt
 import numpy as np
 import os
 from tqdm import tqdm
-import dask.array as da
+import dask.array as da         # dnf install python3-dask+array
 import json
 
 from rcUAS_flightdata import flight_loader, flight_interp
+
+kt2mps = 0.5144444444444444444
+mps2kt = 1.0 / kt2mps
 
 # command line arguments
 parser = argparse.ArgumentParser(description='nav filter')
@@ -102,6 +105,8 @@ navpt = {}
 flying = False
 iter = flight_interp.IterateGroup(data)
 g = np.array( [ 0, 0, -9.81 ] )
+gs_mps = 0
+asi_mps = 0
 
 for i in tqdm(range(iter.size())):
     record = iter.next()
@@ -109,18 +114,20 @@ for i in tqdm(range(iter.size())):
         imupt = record['imu']
         if 'act' in record:
             actpt = record['act']
+            asi_mps = airpt['airspeed'] * airpt['pitot_scale'] * kt2mps
         if 'air' in record:
             airpt = record['air']
+            #print(airpt)
         if 'filter' in record:
             navpt = record['filter']
             #print(navpt)
         if 'gps' in record:
             gpspt = record['gps']
             gs_mps = math.sqrt( gpspt['vn']**2 + gpspt['ve']**2 )
-            if gs_mps > 10 and airpt['airspeed'] > 10:
-                flying = True
-            elif gs_mps < 5 and airpt['airspeed'] < 5:
-                flying = False
+        if gs_mps > 10 and asi_mps > 7:
+            flying = True
+        elif gs_mps < 5 and asi_mps < 3:
+            flying = False
         if not flying:
             continue
         if 'time' in actpt and 'time' in navpt and 'time' in airpt:
@@ -134,7 +141,7 @@ for i in tqdm(range(iter.size())):
             v_body = quaternion_transform(ned2body, v_ned)
             print("v(body):", v_body)
             # airspeed and throttle values are proxies for qbar, alpha, thrust
-            state = [ airpt['airspeed']**2, actpt['throttle'],
+            state = [ asi_mps**2, actpt['throttle'],
                       actpt['aileron'], actpt['elevator'], actpt['rudder'],
                       math.cos(navpt['phi']), math.cos(navpt['the']),
                       math.sin(navpt['phi']), math.sin(navpt['the']),
@@ -210,6 +217,7 @@ plt.legend()
 plt.show()
 
 pred = []
+vd_est = 0
 ax_est = 0
 ay_est = 0
 az_est = 0
@@ -219,6 +227,7 @@ r_est = 0
 v = []
 for i in range(len(fulldata)):
     v.extend(fulldata[i])
+    v[-7] = vd_est
     v[-6] = ax_est
     v[-5] = ay_est
     v[-4] = az_est
@@ -231,6 +240,7 @@ for i in range(len(fulldata)):
         #print("v:", np.array(v).shape, np.array(v))
         p = A @ np.array(v)
         #print("p:", p)
+        vd_est = p[-7]
         ax_est = p[-6]
         ay_est = p[-5]
         az_est = p[-4]

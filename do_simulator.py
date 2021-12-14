@@ -11,7 +11,6 @@ mps2kt = 1.0 / kt2mps
 f = open("skywalker_model.json", "r")
 A_list = json.load(f)
 f.close()
-
 A = np.array(A_list)
 print(A)
 
