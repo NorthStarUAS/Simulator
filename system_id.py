@@ -10,6 +10,22 @@
 # specific aero parameters but the simulation may not perfom like the
 # real aircraft.)
 
+# The underlying "secret sauce" is we assemble a matrix X that is all
+# the v_i (state vectors) except the last one.  We make a matrix Y
+# that is all the v_i except the first one.)  X and Y are identical,
+# except Y is shifted over by one.
+#
+# We write Y = A * X
+#
+# If we can solve for A (in a least squares best fit senses) then we
+# have a state transition matrix that maps the set of current states
+# to the set of next states.
+#
+# With this matrix we can predict the next state given any current
+# state.  This can be used for system integerity validataion, flight
+# simulation, possibly extracting traditional aero coefficients, and
+# possibly optimal flight control.
+
 import dask.array as da         # dnf install python3-dask+array
 import json
 import numpy as np
