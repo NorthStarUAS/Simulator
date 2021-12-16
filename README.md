@@ -73,3 +73,4 @@ disclaimers, here are a few:
   may or may not produce useful results, definitely do not depend on
   useful results outside the range of state data collected in the
   flight.
+* When things blow up for whichever reason, it can be quite spectacular!

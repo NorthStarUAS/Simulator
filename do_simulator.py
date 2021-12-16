@@ -108,9 +108,9 @@ def quaternion_backTransform(quat, v):
     tmp3 = (r*qr)*np.cross(qimag, v)
     return tmp1 + tmp2 + tmp3
 
-airspeed_mps = 16.5
+airspeed_mps = 12
 alpha = 0
-beta = 0
+beta = 0.0
 pos_ned = np.array( [0.0, 0.0, 0.0] )
 vel_ned = np.array( [10.0, 0.0, 0.0] )
 phi_rad = 0.0
@@ -129,7 +129,7 @@ t = 0.0
 
 throttle = 0.5
 aileron = 0.0
-elevator = -0.08
+elevator = -0.11
 rudder = 0.0
 last_vel_body = None
 
@@ -159,18 +159,22 @@ while t < 60:
     #baz = next[13]
     #p = next[14]
     q = next[15]
-    #r = next[16]
+    r = next[16]
     
     # update attitude
     rot_body = eul2quat(p*dt, q*dt, r*dt)
     ned2body = quaternion_multiply(ned2body, rot_body)
     #phi_rad, the_rad, psi_rad = quat2eul(ned2body)
-    lock_phi_rad, the_rad, lock_psi_rad = quat2eul(ned2body)
+    lock_phi_rad, the_rad, psi_rad = quat2eul(ned2body)
 
     # velocity in body frame
     bd = math.sin(alpha) * airspeed_mps
-    be = math.sin(beta) * airspeed_mps
-    bn = math.sqrt( airspeed_mps**2 - bd**2 - be**2 )
+    be = -math.sin(beta) * airspeed_mps
+    bn2 = airspeed_mps**2 - bd**2 - be**2
+    if bn2 > 0:
+        bn = math.sqrt( bn2 )
+    else:
+        bn = 0
 
     # accel in body frame
     vel_body = np.array( [bn, be, bd] )
@@ -179,7 +183,7 @@ while t < 60:
     accel_body = vel_body - last_vel_body
     last_vel_body = vel_body.copy()
     bax = accel_body[0]
-    #bay = accel_body[1]
+    bay = accel_body[1]
     baz = accel_body[2]
 
     # velocity in ned fram

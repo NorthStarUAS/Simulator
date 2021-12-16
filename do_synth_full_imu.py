@@ -108,7 +108,9 @@ iter = flight_interp.IterateGroup(data)
 g = np.array( [ 0, 0, -9.81 ] )
 gs_mps = 0
 asi_mps = 0
-v_body_last = np.array( [0.0, 0.0, 0.0] )
+v_body_last = None
+wn_filt = 0
+we_filt = 0
 
 # iterate through the flight data log
 for i in tqdm(range(iter.size())):
@@ -122,7 +124,10 @@ for i in tqdm(range(iter.size())):
         actpt = record['act']
     if 'air' in record:
         airpt = record['air']
-        asi_mps = airpt['airspeed'] * airpt['pitot_scale'] * kt2mps
+        if 'pitot_scale' in airpt:
+            asi_mps = airpt['airspeed'] * airpt['pitot_scale'] * kt2mps
+        else:
+            asi_mps = airpt['airspeed'] * kt2mps
         #print(airpt)
     if 'filter' in record:
         navpt = record['filter']
@@ -132,10 +137,13 @@ for i in tqdm(range(iter.size())):
         gs_mps = math.sqrt( gpspt['vn']**2 + gpspt['ve']**2 )
 
     # simulation is only modeled for "in flight" conditions
-    if gs_mps > 10 and asi_mps > 7:
+    if not flying and gs_mps > 10 and asi_mps > 7:
+        print("Start flying @", i)
         flying = True
-    elif gs_mps < 5 and asi_mps < 3:
+    elif flying and gs_mps < 5 and asi_mps < 3:
+        print("Stop flying @", i)
         flying = False
+        v_body_last = None
     if not flying:
         continue
 
@@ -152,27 +160,39 @@ for i in tqdm(range(iter.size())):
     # body_accel = sensed_accel - g_body
 
     # our best estimate of wind velocity in the ned coordinate frame
-    wind_psi = 0.5*math.pi - airpt['wind_dir'] * d2r
-    wind_mps = airpt['wind_speed'] * kt2mps
-    we = math.cos(wind_psi) * wind_mps
-    wn = math.sin(wind_psi) * wind_mps
+    if 'wind_dir' in airpt:
+        wind_psi = 0.5*math.pi - airpt['wind_dir'] * d2r
+        wind_mps = airpt['wind_speed'] * kt2mps
+        we = math.cos(wind_psi) * wind_mps
+        wn = math.sin(wind_psi) * wind_mps
+        # smooth abrubt wind changes (usually due to low precision of logging)
+        wn_filt = 0.95 * wn_filt + 0.05 * wn
+        we_filt = 0.95 * we_filt + 0.05 * we
+    else:
+        wn_filt = 0
+        wn_filt = 0
 
     # ned velocity with wind effects removed
-    v_ned = np.array( [ navpt['vn'] + wn, navpt['ve'] + we, navpt['vd'] ] )
+    v_ned = np.array( [ navpt['vn'] + wn_filt,
+                        navpt['ve'] + we_filt,
+                        navpt['vd'] ] )
+    #print(i, v_ned)
 
     # velocity in body frame
     v_body = quaternion_transform(ned2body, v_ned)
 
+    # alpha/beta estimates
+    alpha = math.atan2( v_body[2], v_body[0] )
+    beta = math.atan2( -v_body[1], v_body[0] )
+    #print("v(body):", v_body, "alpha = %.1f" % (alpha/d2r), "beta = %.1f" % (beta/d2r))
+
     # estimate accelerations in body frame (imu accels may be too
     # biased to be useful)
+    if v_body_last is None:
+        v_body_last = v_body.copy()
     accel_body = (v_body - v_body_last) / imu_dt
     v_body_last = v_body.copy()
     
-    # alpha/beta estimates
-    alpha = math.atan2( v_body[2], v_body[0] )
-    beta = math.atan2( v_body[1], v_body[0] )
-    #print("v(body):", v_body, "alpha = %.1f" % (alpha/d2r), "beta = %.1f" % (beta/d2r))
-
     # airspeed and throttle values are proxies for qbar, alpha, thrust
     state = [ asi_mps**2, actpt['throttle'],
               actpt['aileron'], actpt['elevator'], actpt['rudder'],
@@ -249,6 +269,8 @@ for j in range(states):
 plt.legend()
 plt.show()
 
+moving_est = False
+
 pred = []
 alpha_est = 0
 beta_est = 0
@@ -261,28 +283,30 @@ r_est = 0
 v = []
 for i in range(len(fulldata)):
     v.extend(fulldata[i])
-    v[-8] = alpha_est
-    v[-7] = beta_est
-    v[-6] = ax_est
-    v[-5] = ay_est
-    v[-4] = az_est
-    v[-3] = p_est
-    v[-2] = q_est
-    v[-1] = r_est
+    if moving_est:
+        v[-8] = alpha_est
+        v[-7] = beta_est
+        v[-6] = ax_est
+        v[-5] = ay_est
+        v[-4] = az_est
+        v[-3] = p_est
+        v[-2] = q_est
+        v[-1] = r_est
     v = v[-(k+1)*states:]       # trim old state values if needed
     if len(v) == (k+1)*states:
         #print("A:", A.shape, A)
         #print("v:", np.array(v).shape, np.array(v))
         p = A @ np.array(v)
         #print("p:", p)
-        alpha_est = p[-8]
-        beta_est = p[-7]
-        ax_est = p[-6]
-        ay_est = p[-5]
-        az_est = p[-4]
-        p_est = p[-3]
-        q_est = p[-2]
-        r_est = p[-1]
+        if moving_est:
+            alpha_est = p[-8]
+            beta_est = p[-7]
+            ax_est = p[-6]
+            ay_est = p[-5]
+            az_est = p[-4]
+            p_est = p[-3]
+            q_est = p[-2]
+            r_est = p[-1]
         pred.append(p)
 Ypred = np.array(pred).T
 
