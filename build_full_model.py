@@ -5,7 +5,8 @@
 Attempt to use a DMD-esque (FTW) approach to fitting a matrix that
 maps previous state to next state.
 
-Author: Curtis L. Olson, University of Minnesota
+Author: Curtis L. Olson, University of Minnesota, Dept of Aerospace
+Engineering and Mechanics, UAV Lab.
 
 """
 

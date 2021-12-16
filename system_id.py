@@ -1,30 +1,39 @@
-# system identification
+"""system identification
 
-# system id is a very broad topic that covers a multitude of
-# approaches, input/output parameters, system models, etc.
+There is nothing new under the sun, but I haven't seen a system
+identification process that is this easy with this much bang for the
+buck myself.
 
-# Here we implement a very specific approach to building a very
-# specific type of model.  The advantage is the approach is completely
-# data driven, very simple, very fast, and accurately approximates the
-# aircraft performance (versus some models that accurately estimate
-# specific aero parameters but the simulation may not perfom like the
-# real aircraft.)
+Author: Curtis L. Olson, University of Minnesota, Dept of Aerospace
+Engineering and Mechanics, UAV Lab.
 
-# The underlying "secret sauce" is we assemble a matrix X that is all
-# the v_i (state vectors) except the last one.  We make a matrix Y
-# that is all the v_i except the first one.)  X and Y are identical,
-# except Y is shifted over by one.
-#
-# We write Y = A * X
-#
-# If we can solve for A (in a least squares best fit senses) then we
-# have a state transition matrix that maps the set of current states
-# to the set of next states.
-#
-# With this matrix we can predict the next state given any current
-# state.  This can be used for system integerity validataion, flight
-# simulation, possibly extracting traditional aero coefficients, and
-# possibly optimal flight control.
+system id is a very broad topic that covers a multitude of approaches,
+input/output parameters, system models, etc.
+
+Here we implement a very specific approach to building a very specific
+type of model.  The advantage is the approach is completely data
+driven, very simple, very fast, and accurately approximates the
+aircraft performance (versus some models that accurately estimate
+specific aero parameters but the simulation may not perfom like the
+real aircraft.)
+
+The underlying "secret sauce" is we assemble a matrix X that is all
+the v_i (state vectors) except the last one.  We make a matrix Y that
+is all the v_i except the first one.)  X and Y are identical, except Y
+is shifted over by one.
+
+We write Y = A * X
+
+If we can solve for A (in a least squares best fit senses) then we
+have a state transition matrix that maps the set of current states to
+the set of next states.
+
+With this matrix we can predict the next state given any current
+state.  This can be used for system integerity validataion, flight
+simulation, possibly extracting traditional aero coefficients, and
+possibly optimal flight control.
+
+"""
 
 import dask.array as da         # dnf install python3-dask+array
 import json

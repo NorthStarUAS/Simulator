@@ -1,5 +1,15 @@
 #!/usr/bin/env python3
 
+"""sim
+
+Uses the system model derived by the system_id module to perform a
+flight simulation.
+
+Author: Curtis L. Olson, University of Minnesota, Dept of Aerospace
+Engineering and Mechanics, UAV Lab.
+
+"""
+
 import json
 import math
 from matplotlib import pyplot as plt
