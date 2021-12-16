@@ -15,6 +15,7 @@ sim = Simulator()
 sim.load("skywalker_model.json")
 sim.reset()
 
+# run the sim with fixed inputs for a number of seconds.
 while sim.time < 120:
     sim.update()
 

@@ -49,7 +49,7 @@ if len(data['imu']) == 0 and len(data['gps']) == 0:
     quit()
 
 # dt estimation
-print("Estimating dt from IMU records:")
+print("Estimating median dt from IMU records:")
 iter = flight_interp.IterateGroup(data)
 last_time = None
 dt_data = []
@@ -69,7 +69,6 @@ imu_dt = float("%.4f" % np.median(dt_data))
 print("imu dt:", imu_dt)
             
 print("Parsing flight data log:")
-#fulldata = []
 actpt = {}
 airpt = {}
 navpt = {}
@@ -82,14 +81,16 @@ v_body_last = None
 wn_filt = 0
 we_filt = 0
 
-# iterate through the flight data log
+# iterate through the flight data log, cherry pick the imporant
+# parameters that are sensed directly and estimate other important
+# parameters as best as we can.
+
 for i in tqdm(range(iter.size())):
     record = iter.next()
     if len(record) == 0:
         continue
     if 'imu' in record:
         imupt = record['imu']
-        #print(imupt)
     if 'act' in record:
         actpt = record['act']
     if 'air' in record:
@@ -98,15 +99,13 @@ for i in tqdm(range(iter.size())):
             asi_mps = airpt['airspeed'] * airpt['pitot_scale'] * kt2mps
         else:
             asi_mps = airpt['airspeed'] * kt2mps
-        #print(airpt)
     if 'filter' in record:
         navpt = record['filter']
-        #print(navpt)
     if 'gps' in record:
         gpspt = record['gps']
         gs_mps = math.sqrt( gpspt['vn']**2 + gpspt['ve']**2 )
 
-    # simulation is only modeled for "in flight" conditions
+    # include only "in flight" data
     if not flying and gs_mps > 10 and asi_mps > 7:
         print("Start flying @", i)
         flying = True
@@ -142,26 +141,36 @@ for i in tqdm(range(iter.size())):
         wn_filt = 0
         wn_filt = 0
 
-    # ned velocity with wind effects removed
+    # compute ned velocity with wind vector removed
     v_ned = np.array( [navpt['vn']+wn_filt, navpt['ve']+we_filt, navpt['vd']] )
     #print(i, v_ned)
 
-    # velocity in body frame
+    # rotate ned velocity vector into body frame
     v_body = quaternion.transform(ned2body, v_ned)
 
-    # alpha/beta estimates
+    # estimate alpha and beta (requires a decent wind estimate)
     alpha = math.atan2( v_body[2], v_body[0] )
     beta = math.atan2( -v_body[1], v_body[0] )
     #print("v(body):", v_body, "alpha = %.1f" % (alpha/d2r), "beta = %.1f" % (beta/d2r))
 
     # estimate accelerations in body frame using velocity difference
-    # (imu accels may be too biased to be useful)
+    # (imu accel biases are too problematic)
     if v_body_last is None:
         v_body_last = v_body.copy()
     accel_body = (v_body - v_body_last) / imu_dt
     v_body_last = v_body.copy()
     
-    # airspeed and throttle values are proxies for qbar, thrust
+    # build the state vector:
+    # airspeed**2 is essentially qbar (without air density)
+    # throttle command is our best proxy for thrust
+    # cos() and sin() of both phi(roll) and theta(pitch) help
+    # linearize around multiple regions.
+    # alpha and beta are our best estimate from flight data, it's ok
+    # if these are somewhat noisy becasue we are doing a best fit.
+    # accel_body are computed from change in ned velocity rotated into the
+    # body frame.
+    # p, q, r are gyro rates corrected by ekf bias estates.
+    
     state = [ asi_mps**2, actpt['throttle'],
               actpt['aileron'], actpt['elevator'], actpt['rudder'],
               math.cos(navpt['phi']), math.cos(navpt['the']),
@@ -171,7 +180,6 @@ for i in tqdm(range(iter.size())):
               imupt['p'] - navpt['p_bias'],
               imupt['q'] - navpt['q_bias'],
               imupt['r'] - navpt['r_bias'] ]
-    #fulldata.append(state)
     sysid.add_state_vec(state)
 
 states = len(sysid.traindata[0])
@@ -184,11 +192,21 @@ for j in range(states):
 plt.legend()
 plt.show()
 
+# k > 0 will cascade/stack that many additional previous state vectors
+# into the model.  Essentially this means our prediction can be a
+# function of "n" (where n = k + 1) previous states.  This could be
+# helpful for an integrity monitoring system, but may lead to
+# diverging state values in a simulation when most of the states are
+# being propagated forward from previous estimates.
 k = 0
+
 sysid.fit(k)
+sysid.save("idun2_model.json", imu_dt)
+
+# check the fit of the original data versus a selection of
+# estimated/propagated states.
 
 moving_est = False
-
 pred = []
 alpha_est = 0
 beta_est = 0
@@ -235,4 +253,3 @@ for j in range(states):
     plt.legend()
     plt.show()
 
-sysid.save("idun2_model.json", imu_dt)

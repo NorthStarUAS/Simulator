@@ -51,15 +51,12 @@ class Simulator():
         self.p = 0
         self.q = 0
         self.r = 0
-
         self.time = 0.0
-
         self.throttle = 0.5
         self.aileron = 0.0
         self.elevator = -0.11
         self.rudder = 0.0
         self.last_vel_body = None
-
         self.data = []
 
     def update(self):

@@ -33,6 +33,13 @@ state.  This can be used for system integerity validataion, flight
 simulation, possibly extracting traditional aero coefficients, and
 possibly optimal flight control.
 
+Note for fluids people: the problem setup is exactly the same as
+performed with Dynamic Mode Decomposition (DMD), however in this
+use-case we compute the fuil A matrix, whereas DMD is primarliy
+interested in finding the leading eigenvalues and eigenvectors of the
+A matrix, so that method employs a similarity transform to reduce the
+computational effort.
+
 """
 
 import dask.array as da         # dnf install python3-dask+array
