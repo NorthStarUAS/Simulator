@@ -11,13 +11,16 @@ from constants import r2d
 class Simulator():
     def __init__(self):
         self.A = None
+        self.dt = 0.01
         self.reset()
 
     def load(self, model):
         f = open(model, "r")
-        A_list = json.load(f)
+        model = json.load(f)
+        print(model)
         f.close()
-        self.A = np.array(A_list)
+        self.dt = model["dt"]
+        self.A = np.array(model["A"])
         #print(self.A)
         
     def reset(self):
@@ -37,7 +40,6 @@ class Simulator():
         self.q = 0
         self.r = 0
 
-        self.dt = 0.01
         self.time = 0.0
 
         self.throttle = 0.5

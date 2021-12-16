@@ -20,15 +20,12 @@ import json
 
 from rcUAS_flightdata import flight_loader, flight_interp
 
-d2r = math.pi / 180.0
-kt2mps = 0.5144444444444444444
-mps2kt = 1.0 / kt2mps
+import quaternion
+from constants import d2r, kt2mps
 
 # command line arguments
 parser = argparse.ArgumentParser(description='nav filter')
 parser.add_argument('flight', help='flight data log')
-parser.add_argument('--gps-lag-sec', type=float, default=0.2,
-                    help='gps lag (sec)')
 args = parser.parse_args()
 
 # parameters we decided are relevant to airspeed: theta (pitch angle),
@@ -40,9 +37,6 @@ path = args.flight
 data, flight_format = flight_loader.load(path)
 
 print("imu records:", len(data['imu']))
-imu_dt = (data['imu'][-1]['time'] - data['imu'][0]['time']) \
-    / float(len(data['imu']))
-print("imu dt: %.3f" % imu_dt)
 print("gps records:", len(data['gps']))
 if 'air' in data:
     print("airdata records:", len(data['air']))
@@ -52,52 +46,26 @@ if len(data['imu']) == 0 and len(data['gps']) == 0:
     print("not enough data loaded to continue.")
     quit()
 
-# computes a quaternion from the given euler angles
-def eul2quat(phi_rad, the_rad, psi_rad):
-    sin_psi = math.sin(psi_rad * 0.5)
-    cos_psi = math.cos(psi_rad * 0.5)
-    sin_the = math.sin(the_rad * 0.5)
-    cos_the = math.cos(the_rad * 0.5)
-    sin_phi = math.sin(phi_rad * 0.5)
-    cos_phi = math.cos(phi_rad * 0.5)
-
-    q = np.zeros(4)
-    q[0] = cos_psi*cos_the*cos_phi + sin_psi*sin_the*sin_phi  
-    q[1] = cos_psi*cos_the*sin_phi - sin_psi*sin_the*cos_phi
-    q[2] = cos_psi*sin_the*cos_phi + sin_psi*cos_the*sin_phi  
-    q[3] = sin_psi*cos_the*cos_phi - cos_psi*sin_the*sin_phi
-    
-    return q
-
-def quaternion_real(quaternion):
-    """Return real part of quaternion.
-
-    >>> quaternion_real([3, 0, 1, 2])
-    3.0
-
-    """
-    return float(quaternion[0])
-
-def quaternion_imag(quaternion):
-    """Return imaginary part of quaternion.
-
-    >>> quaternion_imag([3, 0, 1, 2])
-    array([ 0.,  1.,  2.])
-
-    """
-    return np.array(quaternion[1:4], dtype=np.float64, copy=True)
-
-def quaternion_transform(quat, v):
-    # Transform a vector from the current coordinate frame to a coordinate
-    # frame rotated with the quaternion
-    r = 2.0 / np.dot(quat, quat)
-    qimag = quaternion_imag(quat)
-    qr = quaternion_real(quat)
-    tmp1 = (r*qr*qr - 1.0)*np.array(v, dtype=np.float64, copy=True)
-    tmp2 = (r*np.dot(qimag, v))*qimag
-    tmp3 = (r*qr)*np.cross(qimag, v)
-    return tmp1 + tmp2 - tmp3
-
+# dt estimation
+print("estimating dt from IMU records..")
+iter = flight_interp.IterateGroup(data)
+last_time = None
+dt_data = []
+for i in tqdm(range(iter.size())):
+    record = iter.next()
+    if len(record):
+        if 'imu' in record:
+            imupt = record['imu']
+            if last_time is None:
+                last_time = imupt['time']
+            dt_data.append(imupt['time'] - last_time)
+            last_time = imupt['time']
+dt_data = np.array(dt_data)
+print("IMU mean:", np.mean(dt_data))
+print("IMU median:", np.median(dt_data))
+imu_dt = float("%.4f" % np.median(dt_data))
+print("imu dt:", imu_dt)
+            
 print("Generating synthetic flight dynamics model:")
 fulldata = []
 actpt = {}
@@ -148,7 +116,7 @@ for i in tqdm(range(iter.size())):
         continue
 
     # transformation between NED coordations and body coordinates
-    ned2body = eul2quat( navpt['phi'], navpt['the'], navpt['psi'] )
+    ned2body = quaternion.eul2quat( navpt['phi'], navpt['the'], navpt['psi'] )
 
     # # ax, ay, az are 'callibrated' but do not include imu bias estimates
     # sensed_accel = np.array( [ imupt['ax'] - navpt['ax_bias'],
@@ -156,7 +124,7 @@ for i in tqdm(range(iter.size())):
     #                            imupt['az'] - navpt['az_bias'] ] )
     
     # # rotate gravity into body frame and remove it from sensed accelerations
-    # g_body = quaternion_transform(ned2body, g)
+    # g_body = quaternion.transform(ned2body, g)
     # body_accel = sensed_accel - g_body
 
     # our best estimate of wind velocity in the ned coordinate frame
@@ -179,7 +147,7 @@ for i in tqdm(range(iter.size())):
     #print(i, v_ned)
 
     # velocity in body frame
-    v_body = quaternion_transform(ned2body, v_ned)
+    v_body = quaternion.transform(ned2body, v_ned)
 
     # alpha/beta estimates
     alpha = math.atan2( v_body[2], v_body[0] )
@@ -317,6 +285,11 @@ for j in range(states):
     plt.legend()
     plt.show()
 
+model = {
+    "dt": imu_dt,
+    "A": A.tolist()
+}
+
 f = open("skywalker_model.json", "w")
-json.dump(A.tolist(), f, indent=4)
+json.dump(model, f, indent=4)
 f.close()
