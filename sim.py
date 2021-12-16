@@ -32,7 +32,9 @@ class Simulator():
         self.phi_rad = 0.0
         self.the_rad = 0.0
         self.psi_rad = 0.0
-        self.ned2body = quaternion.eul2quat(self.phi_rad, self.the_rad, self.psi_rad)
+        self.ned2body = quaternion.eul2quat(self.phi_rad,
+                                            self.the_rad,
+                                            self.psi_rad)
         self.bax = 0.0
         self.bay = 0.0
         self.baz = 0.0
@@ -78,10 +80,13 @@ class Simulator():
         self.r = next[16]
 
         # update attitude
-        rot_body = quaternion.eul2quat(self.p * self.dt, self.q * self.dt, self.r * self.dt)
+        rot_body = quaternion.eul2quat(self.p * self.dt,
+                                       self.q * self.dt,
+                                       self.r * self.dt)
         self.ned2body = quaternion.multiply(self.ned2body, rot_body)
         #self.phi_rad, self.the_rad, self.psi_rad = quat2eul(self.ned2body)
-        lock_phi_rad, self.the_rad, self.psi_rad = quaternion.quat2eul(self.ned2body)
+        lock_phi_rad, self.the_rad, self.psi_rad = \
+            quaternion.quat2eul(self.ned2body)
 
         # velocity in body frame
         bd = math.sin(self.alpha) * self.airspeed_mps
@@ -103,15 +108,24 @@ class Simulator():
         self.baz = accel_body[2]
 
         # velocity in ned fram
-        self.vel_ned = quaternion.backTransform( self.ned2body, np.array([bn, be, bd]) )
+        self.vel_ned = quaternion.backTransform( self.ned2body,
+                                                 np.array([bn, be, bd]) )
 
         # update position
         self.pos_ned += self.vel_ned * self.dt
 
-        self.data.append( [self.time, self.airspeed_mps, self.throttle, self.aileron, self.elevator, self.rudder, self.phi_rad, self.the_rad, self.psi_rad, self.alpha, self.beta, self.bax, self.bay, self.baz, self.p, self.q, self.r] )
+        # store data point
+        self.data.append(
+            [ self.time, self.airspeed_mps,
+              self.throttle, self.aileron, self.elevator, self.rudder,
+              self.phi_rad, self.the_rad, self.psi_rad,
+              self.alpha, self.beta,
+              self.bax, self.bay, self.baz,
+              self.p, self.q, self.r] )
         self.data[-1].extend( self.pos_ned.tolist() )
         self.data[-1].extend( self.vel_ned.tolist() )
 
+        # update time
         self.time += self.dt
 
     def plot(self):
