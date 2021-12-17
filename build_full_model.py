@@ -175,7 +175,8 @@ for i in tqdm(range(iter.size())):
     # accel_body are computed from change in ned velocity rotated into the
     # body frame.
     # p, q, r are gyro rates corrected by ekf bias estates.
-    
+
+    # add cos(aileron) and cos(rudder) or abs(aileron & rudder)?
     state = [ asi_mps**2, actpt["throttle"],
               actpt["aileron"], actpt["elevator"], actpt["rudder"],
               navpt["phi"], math.cos(navpt["phi"]), navpt["the"],
@@ -259,6 +260,8 @@ if False:
 # vel_body estimates because all that is interelated, those need to
 # also be reestimated as well or the results aren't valid (way over
 # optimistic).
+
+# think about using norm(velocity body) to estimate airspeed?
 if True:
     pred = []
     asi_est = 0
