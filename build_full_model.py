@@ -85,6 +85,13 @@ we_filt = 0
 # parameters that are sensed directly and estimate other important
 # parameters as best as we can.
 
+state_names = [ "airspeed**2 (mps)", "throttle",
+                "aileron", "elevator", "rudder",
+                "cos(phi)", "cos(the)", "sin(phi)", "sin(the)",
+                "alpha", "beta",
+                "accel_body[0]", "accel_body[1]", "accel_body[2]",
+                "p", "q", "r" ]
+
 for i in tqdm(range(iter.size())):
     record = iter.next()
     if len(record) == 0:
@@ -188,7 +195,7 @@ print("Input state vectors:", len(sysid.traindata))
 
 plt.figure()
 for j in range(states):
-    plt.plot(np.array(sysid.traindata).T[j,:], label="%d" % j)
+    plt.plot(np.array(sysid.traindata).T[j,:], label="%s" % state_names[j])
 plt.legend()
 plt.show()
 
@@ -201,12 +208,13 @@ plt.show()
 k = 0
 
 sysid.fit(k)
+
 sysid.save("idun2_model.json", imu_dt)
 
 # check the fit of the original data versus a selection of
 # estimated/propagated states.
 
-moving_est = False
+moving_est = True
 pred = []
 alpha_est = 0
 beta_est = 0
@@ -248,8 +256,8 @@ Ypred = np.array(pred).T
 
 for j in range(states):
     plt.figure()
-    plt.plot(np.array(sysid.traindata).T[j,k:], label="orig %d" % j)
-    plt.plot(Ypred[j,:], label="pred %d" % j)
+    plt.plot(np.array(sysid.traindata).T[j,k:], label="orig %s" % state_names[j])
+    plt.plot(Ypred[j,:], label="pred %s" % state_names[j])
     plt.legend()
     plt.show()
 
