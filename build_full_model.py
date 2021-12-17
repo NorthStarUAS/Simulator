@@ -84,10 +84,11 @@ we_filt = 0
 
 state_names = [ "airspeed**2 (mps)", "throttle",
                 "aileron", "elevator", "rudder",
-                "cos(phi)", "cos(the)", "sin(phi)", "sin(the)", # gravity vector here?
-                "alpha", "beta",
+                "phi", "cos(phi)", "the", # gravity vector here?
+                "alpha", "beta", "cos(beta)",
                 "accel_body[0]", "accel_body[1]", "accel_body[2]",
                 "p", "q", "r" ]
+sysid.set_state_names(state_names)
 
 for i in tqdm(range(iter.size())):
     record = iter.next()
@@ -177,9 +178,8 @@ for i in tqdm(range(iter.size())):
     
     state = [ asi_mps**2, actpt["throttle"],
               actpt["aileron"], actpt["elevator"], actpt["rudder"],
-              math.cos(navpt["phi"]), math.cos(navpt["the"]),
-              math.sin(navpt["phi"]), math.sin(navpt["the"]),
-              alpha, beta,
+              navpt["phi"], math.cos(navpt["phi"]), navpt["the"],
+              alpha, beta, math.cos(beta),
               accel_body[0], accel_body[1], accel_body[2],
               imupt["p"] - navpt["p_bias"],
               imupt["q"] - navpt["q_bias"],
@@ -204,7 +204,9 @@ plt.show()
 # being propagated forward from previous estimates.
 k = 0
 
-sysid.fit(k, state_names)
+sysid.fit(k)
+
+sysid.analyze()
 
 sysid.save("idun2_model.json", imu_dt)
 
@@ -226,8 +228,9 @@ if True:
     for i in range(len(sysid.traindata)):
         v.extend(sysid.traindata[i])
         if moving_est:
-            v[-8] = alpha_est
-            v[-7] = beta_est
+            v[-9] = alpha_est
+            v[-8] = beta_est
+            v[-7] = math.cos(beta_est)
             v[-6] = ax_est
             v[-5] = ay_est
             v[-4] = az_est
@@ -241,8 +244,8 @@ if True:
             p = sysid.A @ np.array(v)
             #print("p:", p)
             if moving_est:
-                alpha_est = p[-8]
-                beta_est = p[-7]
+                alpha_est = p[-9]
+                beta_est = p[-8]
                 ax_est = p[-6]
                 ay_est = p[-5]
                 az_est = p[-4]
@@ -268,8 +271,8 @@ if False:
     for i in range(len(sysid.traindata)):
         v.extend(sysid.traindata[i])
         v[0] = asi_est**2
-        v[-8] = alpha_est
-        v[-7] = beta_est
+        v[-9] = alpha_est
+        v[-8] = beta_est
         v[-6] = ax_est
         v[-5] = ay_est
         v[-4] = az_est
@@ -283,8 +286,8 @@ if False:
                 asi_est = math.sqrt(p[0])
             else:
                 asi_est = 0
-            alpha_est = p[-8]
-            beta_est = p[-7]
+            alpha_est = p[-9]
+            beta_est = p[-8]
             ax_est = p[-6]
             ay_est = p[-5]
             az_est = p[-4]

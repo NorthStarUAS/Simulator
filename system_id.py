@@ -52,11 +52,15 @@ class SystemIdentification():
         self.A = None
         self.k = 0
         self.model = {}
+        self.state_names = []
 
+    def set_state_names(self, state_names):
+        self.state_names = state_names
+        
     def add_state_vec(self, state_vec):
         self.traindata.append( state_vec )
         
-    def fit(self, k, state_names):
+    def fit(self, k):
         states = len(self.traindata[0])
         data1 = []
         self.k = k              # add this many previous states
@@ -110,11 +114,41 @@ class SystemIdentification():
             min = np.min(row)
             max = np.max(row)
             mean = np.mean(row)
-            self.model["parameters"].append( { "name": state_names[i],
+            self.model["parameters"].append( { "name": self.state_names[i],
                                                "min": np.min(row),
                                                "max": np.max(row),
-                                               "median": np.median(row) } )
+                                               "median": np.median(row),
+                                               "std": np.std(row) } )
 
+    def analyze(self):
+        states = len(self.traindata[0])
+        params = self.model["parameters"]
+        for i in range(states):
+            print(self.state_names[i])
+            row = self.A[i,:]
+            energy = []
+            for j in range(states):
+                e = row[j] * params[j]["std"]
+                energy.append(e)
+                print(" ", self.state_names[j], e)
+            idx = np.argsort(-np.abs(energy))
+            total = np.sum(np.abs(energy))
+            print("%s: " % self.state_names[i], end='')
+            first = True
+            for j in idx:
+                perc = 100 * energy[j] / total
+                if abs(perc) > 0.05:
+                    if not first:
+                        if perc >= 0:
+                            print(" + ", end='')
+                        else:
+                            print(" - ", end='')
+                    first = False
+                    print(self.state_names[j],
+                          "%.1f%% " % abs(perc),
+                          end='')
+            print("")
+                
     def save(self, model_name, dt):
         # we ask for the data delta t at this point to save it with
         # the state transition matrix, A.  Later it's important to

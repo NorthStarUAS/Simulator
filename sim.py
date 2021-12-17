@@ -62,9 +62,8 @@ class Simulator():
     def update(self):
         state = np.array( [ self.airspeed_mps**2, self.throttle,
                             self.aileron, self.elevator, self.rudder,
-                            math.cos(self.phi_rad), math.cos(self.the_rad),
-                            math.sin(self.phi_rad), math.sin(self.the_rad),
-                            self.alpha, self.beta,
+                            self.phi_rad, math.cos(self.phi_rad), self.the_rad,
+                            self.alpha, self.beta, math.cos(self.beta),
                             self.bax, self.bay, self.baz,
                             self.p, self.q, self.r ] )
 
@@ -77,8 +76,8 @@ class Simulator():
             self.airspeed_mps = math.sqrt(next[0])
         else:
             self.airspeed_mps = 0
-        self.alpha = next[9]
-        self.beta = next[10]
+        self.alpha = next[8]
+        self.beta = next[9]
         #self.bax = next[11]
         #self.bay = next[12]
         #self.baz = next[13]
