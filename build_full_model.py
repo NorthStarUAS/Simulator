@@ -87,7 +87,7 @@ we_filt = 0
 
 state_names = [ "airspeed**2 (mps)", "throttle",
                 "aileron", "elevator", "rudder",
-                "cos(phi)", "cos(the)", "sin(phi)", "sin(the)",
+                "cos(phi)", "cos(the)", "sin(phi)", "sin(the)", # gravity vector here?
                 "alpha", "beta",
                 "accel_body[0]", "accel_body[1]", "accel_body[2]",
                 "p", "q", "r" ]
@@ -214,46 +214,83 @@ sysid.save("idun2_model.json", imu_dt)
 # check the fit of the original data versus a selection of
 # estimated/propagated states.
 
-moving_est = True
-pred = []
-alpha_est = 0
-beta_est = 0
-ax_est = 0
-ay_est = 0
-az_est = 0
-p_est = 0
-q_est = 0
-r_est = 0
-v = []
-for i in range(len(sysid.traindata)):
-    v.extend(sysid.traindata[i])
-    if moving_est:
+if False:
+    moving_est = True
+    pred = []
+    alpha_est = 0
+    beta_est = 0
+    ax_est = 0
+    ay_est = 0
+    az_est = 0
+    p_est = 0
+    q_est = 0
+    r_est = 0
+    v = []
+    for i in range(len(sysid.traindata)):
+        v.extend(sysid.traindata[i])
+        if moving_est:
+            v[-8] = alpha_est
+            v[-7] = beta_est
+            v[-6] = ax_est
+            v[-5] = ay_est
+            v[-4] = az_est
+            v[-3] = p_est
+            v[-2] = q_est
+            v[-1] = r_est
+        v = v[-(k+1)*states:]       # trim old state values if needed
+        if len(v) == (k+1)*states:
+            #print("A:", A.shape, A)
+            #print("v:", np.array(v).shape, np.array(v))
+            p = sysid.A @ np.array(v)
+            #print("p:", p)
+            if moving_est:
+                alpha_est = p[-8]
+                beta_est = p[-7]
+                ax_est = p[-6]
+                ay_est = p[-5]
+                az_est = p[-4]
+                p_est = p[-3]
+                q_est = p[-2]
+                r_est = p[-1]
+            pred.append(p)
+    Ypred = np.array(pred).T
+
+# airspeed estimator? but need to think through alpha/beta and
+# vel_body estimates because all that is interelated, those need to
+# also be reestimated as well or the results aren't valid (way over
+# optimistic).
+if True:
+    pred = []
+    asi_est = 0
+    alpha_est = 0
+    beta_est = 0
+    ax_est = 0
+    ay_est = 0
+    az_est = 0
+    v = []
+    for i in range(len(sysid.traindata)):
+        v.extend(sysid.traindata[i])
+        v[0] = asi_est**2
         v[-8] = alpha_est
         v[-7] = beta_est
         v[-6] = ax_est
         v[-5] = ay_est
         v[-4] = az_est
-        v[-3] = p_est
-        v[-2] = q_est
-        v[-1] = r_est
-    v = v[-(k+1)*states:]       # trim old state values if needed
-    if len(v) == (k+1)*states:
-        #print("A:", A.shape, A)
-        #print("v:", np.array(v).shape, np.array(v))
-        p = sysid.A @ np.array(v)
-        #print("p:", p)
-        if moving_est:
+        v = v[-(k+1)*states:]       # trim old state values if needed
+        if len(v) == (k+1)*states:
+            #print("A:", A.shape, A)
+            #print("v:", np.array(v).shape, np.array(v))
+            p = sysid.A @ np.array(v)
+            #print("p:", p)
+            asi_est = math.sqrt(p[0])
             alpha_est = p[-8]
             beta_est = p[-7]
             ax_est = p[-6]
             ay_est = p[-5]
             az_est = p[-4]
-            p_est = p[-3]
-            q_est = p[-2]
-            r_est = p[-1]
-        pred.append(p)
-Ypred = np.array(pred).T
-
+            pred.append(p)
+    Ypred = np.array(pred).T
+    
 for j in range(states):
     plt.figure()
     plt.plot(np.array(sysid.traindata).T[j,k:], label="orig %s" % state_names[j])
