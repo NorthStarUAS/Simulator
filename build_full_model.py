@@ -213,7 +213,7 @@ sysid.save("idun2_model.json", imu_dt)
 # check the fit of the original data versus a selection of
 # estimated/propagated states.
 
-if True:
+if False:
     moving_est = True
     pred = []
     alpha_est = 0
@@ -259,7 +259,7 @@ if True:
 # vel_body estimates because all that is interelated, those need to
 # also be reestimated as well or the results aren't valid (way over
 # optimistic).
-if False:
+if True:
     pred = []
     asi_est = 0
     alpha_est = 0
@@ -270,7 +270,7 @@ if False:
     v = []
     for i in range(len(sysid.traindata)):
         v.extend(sysid.traindata[i])
-        v[0] = asi_est**2
+        v[-17] = asi_est**2
         v[-9] = alpha_est
         v[-8] = beta_est
         v[-6] = ax_est
