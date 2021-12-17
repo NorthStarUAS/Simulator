@@ -2,8 +2,9 @@
 
 """build_full_model
 
-Attempt to use a DMD-esque (FTW) approach to fitting a matrix that
-maps previous state to next state.
+Attempt to use a DMD-esque approach to fit a state transition matrix
+that maps previous state to next state, thereby modeling/simulating
+flight that closely approximates the original real aircraft.
 
 Author: Curtis L. Olson, University of Minnesota, Dept of Aerospace
 Engineering and Mechanics, UAV Lab.
@@ -14,7 +15,6 @@ import argparse
 import math
 from matplotlib import pyplot as plt
 import numpy as np
-import os
 from tqdm import tqdm
 
 from rcUAS_flightdata import flight_loader, flight_interp
@@ -24,27 +24,24 @@ import quaternion
 from system_id import SystemIdentification
 
 # command line arguments
-parser = argparse.ArgumentParser(description='nav filter')
-parser.add_argument('flight', help='flight data log')
+parser = argparse.ArgumentParser(description="nav filter")
+parser.add_argument("flight", help="flight data log")
+parser.add_argument("--write", required=True, help="write model file name")
 args = parser.parse_args()
 
 sysid = SystemIdentification()
-
-# parameters we decided are relevant to airspeed: theta (pitch angle),
-# q (pitch rate), az (z axis accel), phi (roll angle), elevator_cmd,
-# throttle_cmd, measured airspeed
 
 # load the flight data
 path = args.flight
 data, flight_format = flight_loader.load(path)
 
-print("imu records:", len(data['imu']))
-print("gps records:", len(data['gps']))
-if 'air' in data:
-    print("airdata records:", len(data['air']))
-if 'act' in data:
-    print("actuator records:", len(data['act']))
-if len(data['imu']) == 0 and len(data['gps']) == 0:
+print("imu records:", len(data["imu"]))
+print("gps records:", len(data["gps"]))
+if "air" in data:
+    print("airdata records:", len(data["air"]))
+if "act" in data:
+    print("actuator records:", len(data["act"]))
+if len(data["imu"]) == 0 and len(data["gps"]) == 0:
     print("not enough data loaded to continue.")
     quit()
 
@@ -56,12 +53,12 @@ dt_data = []
 for i in tqdm(range(iter.size())):
     record = iter.next()
     if len(record):
-        if 'imu' in record:
-            imupt = record['imu']
+        if "imu" in record:
+            imupt = record["imu"]
             if last_time is None:
-                last_time = imupt['time']
-            dt_data.append(imupt['time'] - last_time)
-            last_time = imupt['time']
+                last_time = imupt["time"]
+            dt_data.append(imupt["time"] - last_time)
+            last_time = imupt["time"]
 dt_data = np.array(dt_data)
 print("IMU mean:", np.mean(dt_data))
 print("IMU median:", np.median(dt_data))
@@ -96,21 +93,21 @@ for i in tqdm(range(iter.size())):
     record = iter.next()
     if len(record) == 0:
         continue
-    if 'imu' in record:
-        imupt = record['imu']
-    if 'act' in record:
-        actpt = record['act']
-    if 'air' in record:
-        airpt = record['air']
-        if 'pitot_scale' in airpt:
-            asi_mps = airpt['airspeed'] * airpt['pitot_scale'] * kt2mps
+    if "imu" in record:
+        imupt = record["imu"]
+    if "act" in record:
+        actpt = record["act"]
+    if "air" in record:
+        airpt = record["air"]
+        if "pitot_scale" in airpt:
+            asi_mps = airpt["airspeed"] * airpt["pitot_scale"] * kt2mps
         else:
-            asi_mps = airpt['airspeed'] * kt2mps
-    if 'filter' in record:
-        navpt = record['filter']
-    if 'gps' in record:
-        gpspt = record['gps']
-        gs_mps = math.sqrt( gpspt['vn']**2 + gpspt['ve']**2 )
+            asi_mps = airpt["airspeed"] * kt2mps
+    if "filter" in record:
+        navpt = record["filter"]
+    if "gps" in record:
+        gpspt = record["gps"]
+        gs_mps = math.sqrt( gpspt["vn"]**2 + gpspt["ve"]**2 )
 
     # include only "in flight" data
     if not flying and gs_mps > 10 and asi_mps > 7:
@@ -124,21 +121,21 @@ for i in tqdm(range(iter.size())):
         continue
 
     # transformation between NED coordations and body coordinates
-    ned2body = quaternion.eul2quat( navpt['phi'], navpt['the'], navpt['psi'] )
+    ned2body = quaternion.eul2quat( navpt["phi"], navpt["the"], navpt["psi"] )
 
     # # ax, ay, az are 'callibrated' but do not include imu bias estimates
-    # sensed_accel = np.array( [ imupt['ax'] - navpt['ax_bias'],
-    #                            imupt['ay'] - navpt['ay_bias'],
-    #                            imupt['az'] - navpt['az_bias'] ] )
+    # sensed_accel = np.array( [ imupt["ax"] - navpt["ax_bias"],
+    #                            imupt["ay"] - navpt["ay_bias"],
+    #                            imupt["az"] - navpt["az_bias"] ] )
     
     # # rotate gravity into body frame and remove it from sensed accelerations
     # g_body = quaternion.transform(ned2body, g)
     # body_accel = sensed_accel - g_body
 
     # our best estimate of wind velocity in the ned coordinate frame
-    if 'wind_dir' in airpt:
-        wind_psi = 0.5*math.pi - airpt['wind_dir'] * d2r
-        wind_mps = airpt['wind_speed'] * kt2mps
+    if "wind_dir" in airpt:
+        wind_psi = 0.5*math.pi - airpt["wind_dir"] * d2r
+        wind_mps = airpt["wind_speed"] * kt2mps
         we = math.cos(wind_psi) * wind_mps
         wn = math.sin(wind_psi) * wind_mps
         # smooth abrubt wind changes (usually due to low precision of logging)
@@ -149,7 +146,7 @@ for i in tqdm(range(iter.size())):
         wn_filt = 0
 
     # compute ned velocity with wind vector removed
-    v_ned = np.array( [navpt['vn']+wn_filt, navpt['ve']+we_filt, navpt['vd']] )
+    v_ned = np.array( [navpt["vn"]+wn_filt, navpt["ve"]+we_filt, navpt["vd"]] )
     #print(i, v_ned)
 
     # rotate ned velocity vector into body frame
@@ -178,15 +175,15 @@ for i in tqdm(range(iter.size())):
     # body frame.
     # p, q, r are gyro rates corrected by ekf bias estates.
     
-    state = [ asi_mps**2, actpt['throttle'],
-              actpt['aileron'], actpt['elevator'], actpt['rudder'],
-              math.cos(navpt['phi']), math.cos(navpt['the']),
-              math.sin(navpt['phi']), math.sin(navpt['the']),
+    state = [ asi_mps**2, actpt["throttle"],
+              actpt["aileron"], actpt["elevator"], actpt["rudder"],
+              math.cos(navpt["phi"]), math.cos(navpt["the"]),
+              math.sin(navpt["phi"]), math.sin(navpt["the"]),
               alpha, beta,
               accel_body[0], accel_body[1], accel_body[2],
-              imupt['p'] - navpt['p_bias'],
-              imupt['q'] - navpt['q_bias'],
-              imupt['r'] - navpt['r_bias'] ]
+              imupt["p"] - navpt["p_bias"],
+              imupt["q"] - navpt["q_bias"],
+              imupt["r"] - navpt["r_bias"] ]
     sysid.add_state_vec(state)
 
 states = len(sysid.traindata[0])
@@ -207,14 +204,14 @@ plt.show()
 # being propagated forward from previous estimates.
 k = 0
 
-sysid.fit(k)
+sysid.fit(k, state_names)
 
 sysid.save("idun2_model.json", imu_dt)
 
 # check the fit of the original data versus a selection of
 # estimated/propagated states.
 
-if False:
+if True:
     moving_est = True
     pred = []
     alpha_est = 0
@@ -259,7 +256,7 @@ if False:
 # vel_body estimates because all that is interelated, those need to
 # also be reestimated as well or the results aren't valid (way over
 # optimistic).
-if True:
+if False:
     pred = []
     asi_est = 0
     alpha_est = 0
@@ -282,7 +279,10 @@ if True:
             #print("v:", np.array(v).shape, np.array(v))
             p = sysid.A @ np.array(v)
             #print("p:", p)
-            asi_est = math.sqrt(p[0])
+            if p[0] > 0:
+                asi_est = math.sqrt(p[0])
+            else:
+                asi_est = 0
             alpha_est = p[-8]
             beta_est = p[-7]
             ax_est = p[-6]
@@ -293,8 +293,8 @@ if True:
     
 for j in range(states):
     plt.figure()
-    plt.plot(np.array(sysid.traindata).T[j,k:], label="orig %s" % state_names[j])
-    plt.plot(Ypred[j,:], label="pred %s" % state_names[j])
+    plt.plot(np.array(sysid.traindata).T[j,k:], label="%s (orig)" % state_names[j])
+    plt.plot(Ypred[j,:], label="%s (pred)" % state_names[j])
     plt.legend()
     plt.show()
 

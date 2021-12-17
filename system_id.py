@@ -50,12 +50,13 @@ class SystemIdentification():
     def __init__(self):
         self.traindata = []
         self.A = None
-        self.k = 1
+        self.k = 0
+        self.model = {}
 
     def add_state_vec(self, state_vec):
         self.traindata.append( state_vec )
         
-    def fit(self, k):
+    def fit(self, k, state_names):
         states = len(self.traindata[0])
         data1 = []
         self.k = k              # add this many previous states
@@ -102,18 +103,28 @@ class SystemIdentification():
         print("A rank:", np.linalg.matrix_rank(self.A))
         print("A:\n", self.A.shape, self.A)
 
+        # compute input state parameter ranges
+        self.model["parameters"] = []
+        for i in range(states):
+            row = X[i,:]
+            min = np.min(row)
+            max = np.max(row)
+            mean = np.mean(row)
+            self.model["parameters"].append( { "name": state_names[i],
+                                               "min": np.min(row),
+                                               "max": np.max(row),
+                                               "median": np.median(row) } )
+
     def save(self, model_name, dt):
         # we ask for the data delta t at this point to save it with
         # the state transition matrix, A.  Later it's important to
         # know the input data dt when estimating future states for
         # simulation, system integrity, flight control, etc.
         
-        model = {
-            "dt": dt,
-            "k": self.k,
-            "A": self.A.tolist()
-        }
+        self.model["dt"] = dt
+        self.model["k"] = self.k
+        self.model["A"] = self.A.tolist()
 
         f = open(model_name, "w")
-        json.dump(model, f, indent=4)
+        json.dump(self.model, f, indent=4)
         f.close()

@@ -9,10 +9,16 @@ Engineering and Mechanics, UAV Lab.
 
 """
 
+import argparse
 from sim import Simulator
 
+# command line arguments
+parser = argparse.ArgumentParser(description="simulation front end")
+parser.add_argument("model", help="flight model")
+args = parser.parse_args()
+
 sim = Simulator()
-sim.load("skywalker_model.json")
+sim.load(args.model)
 sim.reset()
 
 # run the sim with fixed inputs for a number of seconds.
