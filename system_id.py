@@ -124,16 +124,17 @@ class SystemIdentification():
         states = len(self.traindata[0])
         params = self.model["parameters"]
         for i in range(states):
-            print(self.state_names[i])
+            #print(self.state_names[i])
             row = self.A[i,:]
             energy = []
             for j in range(states):
                 e = row[j] * params[j]["std"]
                 energy.append(e)
-                print(" ", self.state_names[j], e)
+                #print(" ", self.state_names[j], e)
             idx = np.argsort(-np.abs(energy))
             total = np.sum(np.abs(energy))
-            print("%s: " % self.state_names[i], end='')
+            print("%s: " % self.state_names[i])
+            print("  ", end='')
             first = True
             for j in idx:
                 perc = 100 * energy[j] / total

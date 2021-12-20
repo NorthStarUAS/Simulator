@@ -34,13 +34,13 @@ class Simulator():
         #print(self.A)
         
     def reset(self):
-        self.airspeed_mps = 12
-        self.alpha = 0
+        self.airspeed_mps = 17.3
+        self.alpha = 0.07
         self.beta = 0.0
         self.pos_ned = np.array( [0.0, 0.0, 0.0] )
         self.vel_ned = np.array( [10.0, 0.0, 0.0] )
         self.phi_rad = 0.0
-        self.the_rad = 0.0
+        self.the_rad = -0.04
         self.psi_rad = 0.0
         self.ned2body = quaternion.eul2quat(self.phi_rad,
                                             self.the_rad,
@@ -54,16 +54,21 @@ class Simulator():
         self.time = 0.0
         self.throttle = 0.5
         self.aileron = 0.0
-        self.elevator = -0.11
+        self.elevator = -0.05
         self.rudder = 0.0
         self.last_vel_body = None
         self.data = []
 
     def update(self):
-        state = np.array( [ self.airspeed_mps**2, self.throttle,
-                            self.aileron, self.elevator, self.rudder,
-                            self.phi_rad, math.cos(self.phi_rad), self.the_rad,
-                            self.alpha, self.beta, math.cos(self.beta),
+        state = np.array( [ self.airspeed_mps**2,
+                            self.throttle,
+                            self.aileron, abs(self.aileron),
+                            self.elevator,
+                            self.rudder, abs(self.rudder),
+                            self.phi_rad, math.cos(self.phi_rad),
+                            self.the_rad,
+                            self.alpha,
+                            self.beta, math.cos(self.beta),
                             self.bax, self.bay, self.baz,
                             self.p, self.q, self.r ] )
 
@@ -76,14 +81,14 @@ class Simulator():
             self.airspeed_mps = math.sqrt(next[0])
         else:
             self.airspeed_mps = 0
-        self.alpha = next[8]
-        self.beta = next[9]
-        #self.bax = next[11]
-        #self.bay = next[12]
-        #self.baz = next[13]
-        #self.p = next[14]
-        self.q = next[15]
-        self.r = next[16]
+        self.alpha = next[10]
+        self.beta = next[11]
+        #self.bax = next[13]
+        #self.bay = next[14]
+        #self.baz = next[15]
+        #self.p = next[16]
+        self.q = next[17]
+        self.r = next[18]
 
         # update attitude
         rot_body = quaternion.eul2quat(self.p * self.dt,
