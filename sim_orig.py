@@ -34,13 +34,13 @@ class Simulator():
         #print(self.A)
         
     def reset(self):
-        self.airspeed_mps = 17.3
-        self.alpha = 0.07
+        self.airspeed_mps = 15.0
+        self.alpha = 0.0
         self.beta = 0.0
         self.pos_ned = np.array( [0.0, 0.0, 0.0] )
         self.vel_ned = np.array( [10.0, 0.0, 0.0] )
         self.phi_rad = 0.0
-        self.the_rad = -0.04
+        self.the_rad = 0.0
         self.psi_rad = 0.0
         self.ned2body = quaternion.eul2quat(self.phi_rad,
                                             self.the_rad,
@@ -48,9 +48,9 @@ class Simulator():
         self.bax = 0.0
         self.bay = 0.0
         self.baz = 0.0
-        self.p = 0
-        self.q = 0
-        self.r = 0
+        self.p = 0.0
+        self.q = 0.0
+        self.r = 0.0
         self.time = 0.0
         self.throttle = 0.5
         self.aileron = 0.0
@@ -73,7 +73,6 @@ class Simulator():
                             self.p, self.q, self.r ] )
 
         next = self.A @ state
-        #print("state:", state)
         #print("next:", next)
         #print()
 
@@ -121,6 +120,7 @@ class Simulator():
         # velocity in ned fram
         self.vel_ned = quaternion.backTransform( self.ned2body,
                                                  np.array([bn, be, bd]) )
+        print("vel_ned:", self.vel_ned)
 
         # update position
         self.pos_ned += self.vel_ned * self.dt
@@ -153,9 +153,9 @@ class Simulator():
         plt.plot( self.data[:,0], self.data[:,10]*r2d, label="self.beta (deg)" )
         plt.legend()
         plt.figure()
-        plt.plot( self.data[:,0], self.data[:,11]*r2d, label="body ax (mps^2)" )
-        plt.plot( self.data[:,0], self.data[:,12]*r2d, label="body ay (mps^2)" )
-        plt.plot( self.data[:,0], self.data[:,13]*r2d, label="body az (mps^2)" )
+        plt.plot( self.data[:,0], self.data[:,11], label="body ax (mps^2)" )
+        plt.plot( self.data[:,0], self.data[:,12], label="body ay (mps^2)" )
+        plt.plot( self.data[:,0], self.data[:,13], label="body az (mps^2)" )
         plt.legend()
         plt.figure()
         plt.plot( self.data[:,0], self.data[:,15]*r2d, label="Pitch rate (deg/sec)" )
