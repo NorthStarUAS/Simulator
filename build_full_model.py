@@ -41,6 +41,7 @@ state_names = [ "airspeed**2",
                 "the",
                 "alpha",
                 "beta", "cos(beta)",
+                "vd",
                 "accel_body[0]", "accel_body[1]", "accel_body[2]",
                 "p", "q", "r" ]
 

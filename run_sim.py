@@ -10,7 +10,7 @@ Engineering and Mechanics, UAV Lab.
 """
 
 import argparse
-from sim1 import Simulator
+from simulator import Simulator
 
 # command line arguments
 parser = argparse.ArgumentParser(description="simulation front end")

@@ -147,11 +147,9 @@ class Simulator():
         self.bax = input["accel_body[0]"]
         self.bay = input["accel_body[1]"]
         self.baz = input["accel_body[2]"]
-        print("top accel_body:", self.bax, self.bay, self.baz)
         # velocity in ned fram
         self.vel_ned = quaternion.backTransform( self.ned2body,
                                                  np.array([bn, be, bd]) )
-        print("vel_ned:", self.vel_ned)
         self.state_mgr.set_ned_velocity( self.vel_ned[0],
                                          self.vel_ned[1],
                                          self.vel_ned[2] )
@@ -178,7 +176,6 @@ class Simulator():
 
     def plot(self):
         self.data = np.array(self.data)
-        print(self.data[:,0])
         plt.figure()
         plt.plot( self.data[:,0], self.data[:,1], label="Airspeed (mps)" )
         plt.legend()
