@@ -112,7 +112,7 @@ class Simulator():
         vel_body = np.array( [bn, be, bd] )
         if self.last_vel_body is None:
             self.last_vel_body = vel_body.copy()
-        accel_body = vel_body - self.last_vel_body
+        accel_body = (vel_body - self.last_vel_body) / self.dt
         self.last_vel_body = vel_body.copy()
         self.bax = accel_body[0]
         self.bay = accel_body[1]
