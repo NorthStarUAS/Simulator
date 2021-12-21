@@ -84,17 +84,6 @@ class Simulator():
     def update(self):
         state = self.state_mgr.gen_state_vector(flight_check=False)
         #print(self.state2dict(state))
-        # state = np.array( [ self.airspeed_mps**2,
-        #                     self.throttle,
-        #                     self.aileron, abs(self.aileron),
-        #                     self.elevator,
-        #                     self.rudder, abs(self.rudder),
-        #                     self.phi_rad, math.cos(self.phi_rad),
-        #                     self.the_rad,
-        #                     self.alpha,
-        #                     self.beta, math.cos(self.beta),
-        #                     self.bax, self.bay, self.baz,
-        #                     self.p, self.q, self.r ] )
 
         next = self.A @ state
 
@@ -111,9 +100,6 @@ class Simulator():
         self.alpha = result["alpha"]
         self.beta = result["beta"]
         self.state_mgr.set_airdata(self.airspeed_mps, self.alpha, self.beta)
-        #self.bax = next[13]
-        #self.bay = next[14]
-        #self.baz = next[15]
         #self.p = result["p"]
         self.q = result["q"]
         self.r = result["r"]
@@ -124,9 +110,8 @@ class Simulator():
                                        self.q * self.dt,
                                        self.r * self.dt)
         self.ned2body = quaternion.multiply(self.ned2body, rot_body)
-        #self.phi_rad, self.the_rad, self.psi_rad = quat2eul(self.ned2body)
-        lock_phi_rad, self.the_rad, self.psi_rad = \
-            quaternion.quat2eul(self.ned2body)
+        #self.phi_rad, self.the_rad, self.psi_rad = quaternion.quat2eul(self.ned2body)
+        lock_phi_rad, self.the_rad, self.psi_rad = quaternion.quat2eul(self.ned2body)
         self.state_mgr.set_orientation(lock_phi_rad, self.the_rad, self.psi_rad)
         
         # velocity in body frame
@@ -138,15 +123,10 @@ class Simulator():
         else:
             bn = 0
 
-        # accel in body frame
-        # vel_body = np.array( [bn, be, bd] )
-        # if self.last_vel_body is None:
-        #     self.last_vel_body = vel_body.copy()
-        # accel_body = vel_body - self.last_vel_body
-        # self.last_vel_body = vel_body.copy()
         self.bax = input["accel_body[0]"]
         self.bay = input["accel_body[1]"]
         self.baz = input["accel_body[2]"]
+        
         # velocity in ned fram
         self.vel_ned = quaternion.backTransform( self.ned2body,
                                                  np.array([bn, be, bd]) )
@@ -181,6 +161,7 @@ class Simulator():
         plt.legend()
         plt.figure()
         plt.plot( self.data[:,0], self.data[:,7]*r2d, label="Pitch (deg)" )
+        plt.plot( self.data[:,0], self.data[:,6]*r2d, label="Roll (deg)" )
         plt.legend()
         plt.figure()
         plt.plot( self.data[:,0], self.data[:,9]*r2d, label="self.alpha (deg)" )
@@ -193,6 +174,7 @@ class Simulator():
         plt.legend()
         plt.figure()
         plt.plot( self.data[:,0], self.data[:,15]*r2d, label="Pitch rate (deg/sec)" )
+        plt.plot( self.data[:,0], self.data[:,16]*r2d, label="Yaw rate (deg/sec)" )
         plt.legend()
         plt.figure()
         plt.plot( self.data[:,0], self.data[:,19], label="Pos 'down' (m)" )
