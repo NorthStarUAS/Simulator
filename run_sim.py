@@ -20,6 +20,7 @@ args = parser.parse_args()
 sim = Simulator()
 sim.load(args.model)
 sim.reset()
+sim.trim(15)
 
 # run the sim with fixed inputs for a number of seconds.
 while sim.time < 120:

@@ -14,6 +14,7 @@ import json
 import math
 from matplotlib import pyplot as plt
 import numpy as np
+from scipy.optimize import least_squares
 
 import quaternion
 from constants import r2d
@@ -33,7 +34,7 @@ class Simulator():
         f.close()
         self.dt = model["dt"]
         self.A = np.array(model["A"])
-        #print(self.A)
+        print(self.A)
         state_names = []
         for param in model["parameters"]:
             state_names.append( param["name"] )
@@ -75,14 +76,45 @@ class Simulator():
         #self.last_vel_body = None
         self.data = []
 
-    from scipy.optimize import least_squares
     def trim_error(self, xk):
-        return 0
+        self.state_mgr.set_throttle( xk[0] )
+        self.state_mgr.set_flight_surfaces(xk[1], xk[2], 0)
+        self.state_mgr.set_orientation(xk[3], xk[4], 0)
+        self.state_mgr.set_airdata(self.trim_airspeed_mps, alpha=xk[5], beta=xk[6])
+        self.state_mgr.set_wind(0.0, 0.0)
+        self.state_mgr.set_gyros(0.0, 0.0, 0.0)
+        self.state_mgr.set_ned_velocity(self.trim_airspeed_mps, 0.0, 0.0)
+        self.state_mgr.accel_body = np.array( [0.0, 0.0, 0.0] )
+        state = self.state_mgr.gen_state_vector()
+        next = self.A @ state
+        current = self.state2dict(state)
+        result = self.state2dict(next)
+        errors = []
+        errors.append(self.trim_airspeed_mps - math.sqrt(result["airspeed**2"]))
+        errors.append(current["alpha"] - result["alpha"])
+        errors.append(current["beta"] - result["beta"])
+        errors.append(result["vd"])
+        errors.append(result["accel_body[0]"])
+        errors.append(result["accel_body[1]"])
+        errors.append(result["accel_body[2]"])
+        errors.append(result["p"])
+        errors.append(result["q"])
+        errors.append(result["r"])
+        print(errors)
+        return errors
     
     def trim(self, airspeed_mps):
         self.trim_airspeed_mps = airspeed_mps
-        initial = [0.0, 0.0, 0.0, 0.0]
+        initial = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
         res = least_squares(self.trim_error, initial, verbose=2)
+        print("res:", res)
+        print("throttle:", res["x"][0])
+        print("aileron:", res["x"][1])
+        print("elevator:", res["x"][2])
+        print("phi:", res["x"][3])
+        print("theta:", res["x"][4])
+        print("alpha:", res["x"][5])
+        print("beta:", res["x"][6])
         
     def state2dict(self, state):
         result = {}
