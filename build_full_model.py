@@ -132,10 +132,10 @@ for i in tqdm(range(iter.size())):
     if "gps" in record:
         gpspt = record["gps"]
 
-    state = state_mgr.gen_state_vector()
-    # print(state)
-    
-    if state is not None:
+    if state_mgr.is_flying():
+        state_mgr.compute_body_frame_values(alpha_beta=True, body_accels=True)
+        state = state_mgr.gen_state_vector()
+        # print(state)
         sysid.add_state_vec(state)
 
 states = len(sysid.traindata[0])

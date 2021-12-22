@@ -19,8 +19,8 @@ class StateManager():
         self.we_filt = 0
         self.alpha = 0
         self.beta = 0
-        self.compute_alpha_beta = True
         self.flying = False
+        self.accel_body = np.array( [0.0, 0.0, 0.0] )
         self.v_body_last = None
 
     def set_state_names(self, state_list):
@@ -60,8 +60,8 @@ class StateManager():
         self.airspeed_mps = airspeed_mps
         if alpha is not None:
             self.alpha = alpha
+        if beta is not None:
             self.beta = beta
-            self.compute_alpha_beta = False
 
     def set_wind(self, wn, we):
         self.wn_filt = 0.95 * self.wn_filt + 0.05 * wn
@@ -76,29 +76,26 @@ class StateManager():
         self.vn = vn
         self.ve = ve
         self.vd = vd
-        
-    def gen_state_vector(self, flight_check=True):
-        if self.dt is None:
-            print("Did you forget to set dt for this system?")
-            return None
-        
+
+    def is_flying(self):
         # ground speed mps (ned)
         gs_mps = math.sqrt( self.vn**2 + self.ve**2 )
 
         # test if we are flying?
-        if flight_check:
-            if not self.flying and gs_mps > 10 and self.airspeed_mps > 7:
-                print("Start flying @ %.2f" % self.time)
-                self.flying = True
-            elif self.flying and gs_mps < 5 and self.airspeed_mps < 3:
-                print("Stop flying @ %.2f" % self.time)
-                self.flying = False
-                self.v_body_last = None
-            if not self.flying:
-                return None
-        else:
+        if not self.flying and gs_mps > 10 and self.airspeed_mps > 7:
+            print("Start flying @ %.2f" % self.time)
             self.flying = True
-        
+        elif self.flying and gs_mps < 5 and self.airspeed_mps < 3:
+            print("Stop flying @ %.2f" % self.time)
+            self.flying = False
+            self.v_body_last = None
+        return self.flying
+
+    def compute_body_frame_values(self, alpha_beta=True, body_accels=True):
+        if self.dt is None:
+            print("Did you forget to set dt for this system?")
+            return None
+
         # transformation between NED coordations and body coordinates
         ned2body = quaternion.eul2quat( self.phi_rad, self.the_rad,
                                         self.psi_rad )
@@ -111,18 +108,46 @@ class StateManager():
         # rotate ned velocity vector into body frame
         v_body = quaternion.transform(ned2body, v_ned)
 
-        if self.compute_alpha_beta:
+        if alpha_beta:
             # estimate alpha and beta (requires a decent wind estimate)
             self.alpha = math.atan2( v_body[2], v_body[0] )
             self.beta = math.atan2( -v_body[1], v_body[0] )
             #print("v(body):", v_body, "alpha = %.1f" % (self.alpha/d2r), "beta = %.1f" % (self.beta/d2r))
 
-        # estimate accelerations in body frame using velocity difference
-        # (imu accel biases are too problematic)
-        if self.v_body_last is None:
+        if body_accels:
+            # estimate accelerations in body frame using velocity difference
+            # (imu accel biases are too problematic)
+            if self.v_body_last is None:
+                self.v_body_last = v_body.copy()
+            self.accel_body = (v_body - self.v_body_last) / self.dt
             self.v_body_last = v_body.copy()
-        accel_body = (v_body - self.v_body_last) / self.dt
-        self.v_body_last = v_body.copy()
+
+    def gen_state_vector(self):
+        if False:
+            # transformation between NED coordations and body coordinates
+            ned2body = quaternion.eul2quat( self.phi_rad, self.the_rad,
+                                            self.psi_rad )
+
+            # compute ned velocity with wind vector removed
+            v_ned = np.array( [self.vn + self.wn_filt, self.ve + self.we_filt,
+                               self.vd] )
+            #print(v_ned)
+
+            # rotate ned velocity vector into body frame
+            v_body = quaternion.transform(ned2body, v_ned)
+
+            if self.compute_alpha_beta:
+                # estimate alpha and beta (requires a decent wind estimate)
+                self.alpha = math.atan2( v_body[2], v_body[0] )
+                self.beta = math.atan2( -v_body[1], v_body[0] )
+                #print("v(body):", v_body, "alpha = %.1f" % (self.alpha/d2r), "beta = %.1f" % (self.beta/d2r))
+
+            # estimate accelerations in body frame using velocity difference
+            # (imu accel biases are too problematic)
+            if self.v_body_last is None:
+                self.v_body_last = v_body.copy()
+            accel_body = (v_body - self.v_body_last) / self.dt
+            self.v_body_last = v_body.copy()
 
         result = []
         for field in self.state_list:
@@ -161,11 +186,11 @@ class StateManager():
             elif field == "cos(beta)":
                 result.append( math.cos(self.beta) )
             elif field == "accel_body[0]":
-                result.append( accel_body[0] )
+                result.append( self.accel_body[0] )
             elif field == "accel_body[1]":
-                result.append( accel_body[1] )
+                result.append( self.accel_body[1] )
             elif field == "accel_body[2]":
-                result.append( accel_body[2] )
+                result.append( self.accel_body[2] )
             elif field == "p":
                 result.append( self.p )
             elif field == "q":

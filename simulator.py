@@ -41,11 +41,11 @@ class Simulator():
         self.state_mgr.set_dt( self.dt )
 
     def reset(self):
-        initial_airspeed_mps = 15.0
+        initial_airspeed_mps = 10.0
         self.state_mgr.set_airdata( initial_airspeed_mps )
         self.state_mgr.set_throttle( 0.5 )
         self.state_mgr.set_flight_surfaces( aileron=0.0,
-                                            elevator=-0.05,
+                                            elevator=-0.1,
                                             rudder=0.0 )
         self.alpha = 0.0
         self.beta = 0.0
@@ -75,6 +75,15 @@ class Simulator():
         #self.last_vel_body = None
         self.data = []
 
+    from scipy.optimize import least_squares
+    def trim_error(self, xk):
+        return 0
+    
+    def trim(self, airspeed_mps):
+        self.trim_airspeed_mps = airspeed_mps
+        initial = [0.0, 0.0, 0.0, 0.0]
+        res = least_squares(self.trim_error, initial, verbose=2)
+        
     def state2dict(self, state):
         result = {}
         for i in range(len(state)):
@@ -82,7 +91,7 @@ class Simulator():
         return result
         
     def update(self):
-        state = self.state_mgr.gen_state_vector(flight_check=False)
+        state = self.state_mgr.gen_state_vector()
         #print(self.state2dict(state))
 
         next = self.A @ state
@@ -100,7 +109,7 @@ class Simulator():
         self.alpha = result["alpha"]
         self.beta = result["beta"]
         self.state_mgr.set_airdata(self.airspeed_mps, self.alpha, self.beta)
-        #self.p = result["p"]
+        self.p = result["p"]
         self.q = result["q"]
         self.r = result["r"]
         self.state_mgr.set_gyros(self.p, self.q, self.r)
@@ -110,11 +119,11 @@ class Simulator():
                                        self.q * self.dt,
                                        self.r * self.dt)
         self.ned2body = quaternion.multiply(self.ned2body, rot_body)
-        #self.phi_rad, self.the_rad, self.psi_rad = quaternion.quat2eul(self.ned2body)
-        lock_phi_rad, self.the_rad, self.psi_rad = quaternion.quat2eul(self.ned2body)
-        self.state_mgr.set_orientation(lock_phi_rad, self.the_rad, self.psi_rad)
+        self.phi_rad, self.the_rad, self.psi_rad = quaternion.quat2eul(self.ned2body)
+        self.state_mgr.set_orientation(self.phi_rad, self.the_rad, self.psi_rad)
         
-        # velocity in body frame
+        # velocity in body frame (computed from alpha/beta estimate
+        # and airspeed)
         bd = math.sin(self.alpha) * self.airspeed_mps
         be = -math.sin(self.beta) * self.airspeed_mps
         bn2 = self.airspeed_mps**2 - bd**2 - be**2
@@ -123,9 +132,10 @@ class Simulator():
         else:
             bn = 0
 
-        self.bax = input["accel_body[0]"]
-        self.bay = input["accel_body[1]"]
-        self.baz = input["accel_body[2]"]
+        self.bax = result["accel_body[0]"]
+        self.bay = result["accel_body[1]"]
+        self.baz = result["accel_body[2]"]
+        self.state_mgr.accel_body = np.array( [self.bax, self.bay, self.baz] )
         
         # velocity in ned fram
         self.vel_ned = quaternion.backTransform( self.ned2body,
