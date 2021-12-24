@@ -1,0 +1,58 @@
+<?xml version="1.0"?>
+
+<!-- Example usage: <dash><dash>generic=file,out,50,fgfs.truth,insgns-truth -->
+
+<PropertyList>
+
+ <generic>
+
+  <input>
+    <binary_mode>true</binary_mode>
+    <binary_footer>none</binary_footer>
+
+    <chunk>
+      <name>latitude</name>
+      <type>double</type>
+      <node>/position/latitude-deg</node>
+    </chunk>
+
+    <chunk>
+      <name>longitude</name>
+      <type>double</type>
+      <node>/position/longitude-deg</node>
+    </chunk>
+
+    <chunk>
+      <name>altitiude (ft)</name>
+      <type>float</type>
+      <node>/position/altitude-ft</node>
+    </chunk>
+    
+    <chunk>
+      <name>roll</name>
+      <type>float</type>
+      <node>/orientation/roll-deg</node>
+    </chunk>
+
+    <chunk>
+      <name>pitch</name>
+      <type>float</type>
+      <node>/orientation/pitch-deg</node>
+    </chunk>
+
+    <chunk>
+      <name>yaw</name>
+      <type>float</type>
+      <node>/orientation/heading-deg</node>
+    </chunk>
+    
+    <chunk>
+      <name>airspeed</name>
+      <type>float</type>
+      <node>/velocities/airspeed-kt</node>
+    </chunk>
+ </input>
+
+ </generic>
+
+</PropertyList>
