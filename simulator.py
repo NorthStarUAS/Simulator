@@ -55,6 +55,7 @@ class Simulator():
         self.state_mgr.set_ned_velocity( self.vel_ned[0],
                                          self.vel_ned[1],
                                          self.vel_ned[2] )
+        self.state_mgr.set_body_velocity( initial_airspeed_mps, 0.0, 0.0 )
         self.phi_rad = 0.0
         self.the_rad = 0.0
         self.psi_rad = 0.0
@@ -64,9 +65,6 @@ class Simulator():
         self.ned2body = quaternion.eul2quat( self.phi_rad,
                                              self.the_rad,
                                              self.psi_rad )
-        self.bax = 0.0
-        self.bay = 0.0
-        self.baz = 0.0
         self.p = 0.0
         self.q = 0.0
         self.r = 0.0
@@ -84,7 +82,6 @@ class Simulator():
         self.state_mgr.set_wind(0.0, 0.0)
         self.state_mgr.set_gyros(0.0, 0.0, 0.0)
         self.state_mgr.set_ned_velocity(self.trim_airspeed_mps, 0.0, 0.0)
-        self.state_mgr.accel_body = np.array( [0.0, 0.0, 0.0] )
         state = self.state_mgr.gen_state_vector()
         next = self.A @ state
         current = self.state_mgr.state2dict(state)
@@ -93,13 +90,11 @@ class Simulator():
         next_asi = result["airspeed**2"]
         if next_asi < 0: next_asi = 0
         errors.append(self.trim_airspeed_mps - sqrt(next_asi))
-        errors.append(current["alpha"] - result["alpha"])
-        errors.append(current["beta"] - result["beta"])
+        errors.append(current["bvx"] - result["bvx"])
+        errors.append(current["bvz"] - result["bvz"])
+        errors.append(current["bvy"] - result["bvy"])
         if "vd" in result:
             errors.append(result["vd"])
-        errors.append(result["accel_body[0]"])
-        errors.append(result["accel_body[1]"])
-        errors.append(result["accel_body[2]"])
         errors.append(result["p"])
         errors.append(result["q"])
         errors.append(result["r"])
@@ -127,8 +122,8 @@ class Simulator():
 
         input = self.state_mgr.state2dict(state)
         result = self.state_mgr.state2dict(next)
-        #print("state:", state)
-        #print("next:", next)
+        print("state:", state)
+        print("next:", result)
         #print()
 
         if True:
@@ -143,13 +138,13 @@ class Simulator():
                 print("%.3f (%s) " % (e[j], self.state_mgr.state_list[j]), end="")
             print("")
 
-        if result["airspeed**2"] > 0:
-            self.airspeed_mps = sqrt(result["airspeed**2"])
-        else:
-            self.airspeed_mps = 0
-        self.alpha = result["alpha"]
-        self.beta = result["beta"]
-        self.state_mgr.set_airdata(self.airspeed_mps, self.alpha, self.beta)
+        self.bvx = result["bvx"]
+        self.bvy = result["bvy"]
+        self.bvz = result["bvz"]
+        self.airspeed_mps = sqrt( self.bvx**2 + self.bvy**2 + self.bvz**2 )
+        self.state_mgr.set_airdata(self.airspeed_mps)
+        self.state_mgr.set_body_velocity( self.bvx, self.bvy, self.bvz )
+        
         self.p = result["p"]
         self.q = result["q"]
         self.r = result["r"]
@@ -163,27 +158,11 @@ class Simulator():
         self.phi_rad, self.the_rad, self.psi_rad = quaternion.quat2eul(self.ned2body)
         self.state_mgr.set_orientation(self.phi_rad, self.the_rad, self.psi_rad)
 
-        self.state_mgr.compute_body_frame_values(alpha_beta=False,
-                                                 body_accels=False)
+        self.state_mgr.compute_body_frame_values(body_vel=False)
         
-        # velocity in body frame (computed from alpha/beta estimate
-        # and airspeed)
-        bd = sin(self.alpha) * self.airspeed_mps
-        be = -sin(self.beta) * self.airspeed_mps
-        bn2 = self.airspeed_mps**2 - bd**2 - be**2
-        if bn2 > 0:
-            bn = sqrt( bn2 )
-        else:
-            bn = 0
-
-        self.bax = result["accel_body[0]"]
-        self.bay = result["accel_body[1]"]
-        self.baz = result["accel_body[2]"]
-        self.state_mgr.accel_body = np.array( [self.bax, self.bay, self.baz] )
-        
-        # velocity in ned fram
+        # velocity in ned frame
         self.vel_ned = quaternion.backTransform( self.ned2body,
-                                                 np.array([bn, be, bd]) )
+                                                 np.array([self.bvx, self.bvy, self.bvz]) )
         self.state_mgr.set_ned_velocity( self.vel_ned[0],
                                          self.vel_ned[1],
                                          self.vel_ned[2] )
@@ -200,7 +179,6 @@ class Simulator():
               self.state_mgr.rudder,
               self.phi_rad, self.the_rad, self.psi_rad,
               self.alpha, self.beta,
-              self.bax, self.bay, self.baz,
               self.p, self.q, self.r] )
         self.data[-1].extend( self.pos_ned.tolist() )
         self.data[-1].extend( self.vel_ned.tolist() )

@@ -32,15 +32,14 @@ args = parser.parse_args()
 state_mgr = StateManager()
 sysid = SystemIdentification()
 
-state_names = [ "airspeed**2",
+state_names = [ "qbar",
                 "sqrt(throttle)",
                 "aileron", "abs(aileron)",
                 "elevator",
                 "rudder", "abs(rudder)",
                 "bgx", "bgy", "bgz",
-                "alpha",
-                "beta", "abs(beta)",
-                "accel_body[0]", "accel_body[1]", "accel_body[2]",
+                "bvx", "bvy", "bvz",
+                "bvy*qbar", "bvz*qbar",
                 "p", "q", "r" ]
 
 state_mgr.set_state_names(state_names)
@@ -131,7 +130,7 @@ for i in tqdm(range(iter.size())):
         gpspt = record["gps"]
 
     if state_mgr.is_flying():
-        state_mgr.compute_body_frame_values(alpha_beta=True, body_accels=True)
+        state_mgr.compute_body_frame_values(body_vel=True)
         state = state_mgr.gen_state_vector()
         #print(state_mgr.state2dict(state))
         sysid.add_state_vec(state)
@@ -209,7 +208,7 @@ if False:
 # optimistic).
 
 if True:
-    estimate_list =  [ "airspeed**2" ]
+    estimate_list =  [ "qbar" ]
     est_index_list = state_mgr.get_state_index( estimate_list )
     #print("est_index list:", est_index_list)
     est_val = [0.0] * len(estimate_list)

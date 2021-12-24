@@ -5,7 +5,7 @@
 from math import atan2, cos, sin, sqrt
 import numpy as np
 
-from constants import d2r, gravity, kt2mps
+from constants import d2r, r2d, gravity, kt2mps
 import quaternion
 
 class StateManager():
@@ -22,8 +22,7 @@ class StateManager():
         self.flying = False
         self.g_ned = np.array( [0.0, 0.0, gravity] )
         self.g_body = np.array( [0.0, 0.0, 0.0] )
-        self.accel_body = np.array( [0.0, 0.0, 0.0] )
-        self.v_body_last = None
+        self.v_body = np.array( [0.0, 0.0, 0.0] )
 
     def set_state_names(self, state_list):
         self.state_list = state_list
@@ -66,12 +65,8 @@ class StateManager():
         self.the_rad = the_rad
         self.psi_rad = psi_rad
 
-    def set_airdata(self, airspeed_mps, alpha=None, beta=None):
+    def set_airdata(self, airspeed_mps):
         self.airspeed_mps = airspeed_mps
-        if alpha is not None:
-            self.alpha = alpha
-        if beta is not None:
-            self.beta = beta
 
     def set_wind(self, wn, we):
         self.wn_filt = 0.95 * self.wn_filt + 0.05 * wn
@@ -87,6 +82,9 @@ class StateManager():
         self.ve = ve
         self.vd = vd
 
+    def set_body_velocity(self, vx, vy, vz):
+        self.v_body = np.array( [vx, vy, vz] )
+
     def is_flying(self):
         # ground speed mps (ned)
         gs_mps = sqrt( self.vn**2 + self.ve**2 )
@@ -98,10 +96,9 @@ class StateManager():
         elif self.flying and gs_mps < 5 and self.airspeed_mps < 3:
             print("Stop flying @ %.2f" % self.time)
             self.flying = False
-            self.v_body_last = None
         return self.flying
 
-    def compute_body_frame_values(self, alpha_beta=True, body_accels=True):
+    def compute_body_frame_values(self, body_vel=True):
         if self.dt is None:
             print("Did you forget to set dt for this system?")
             return None
@@ -110,38 +107,30 @@ class StateManager():
         ned2body = quaternion.eul2quat( self.phi_rad, self.the_rad,
                                         self.psi_rad )
 
-        # compute ned velocity with wind vector removed
-        v_ned = np.array( [self.vn + self.wn_filt, self.ve + self.we_filt,
-                           self.vd] )
-        #print(v_ned)
-
-        # rotate ned velocity vector into body frame
-        v_body = quaternion.transform(ned2body, v_ned)
-
         # rotate ned gravity vector into body frame
         self.g_body = quaternion.transform(ned2body, self.g_ned)
         
-        if alpha_beta:
-            # estimate alpha and beta (requires a decent wind estimate)
-            self.alpha = atan2( v_body[2], v_body[0] )
-            self.beta = atan2( -v_body[1], v_body[0] )
-            #print("v(body):", v_body, "alpha = %.1f" % (self.alpha/d2r), "beta = %.1f" % (self.beta/d2r))
+        if body_vel:
+            # compute ned velocity with wind vector removed
+            v_ned = np.array( [self.vn + self.wn_filt, self.ve + self.we_filt,
+                               self.vd] )
+            #print(self.psi_rad*r2d, [self.wn_filt, self.we_filt], [self.vn, self.ve, self.vd], v_ned)
 
-        if body_accels:
-            # estimate accelerations in body frame using velocity difference
-            # (imu accel biases are too problematic)
-            if self.v_body_last is None:
-                self.v_body_last = v_body.copy()
-            self.accel_body = (v_body - self.v_body_last) / self.dt
-            self.v_body_last = v_body.copy()
+            # rotate ned velocity vector into body frame
+            self.v_body = quaternion.transform(ned2body, v_ned)
+            #print(" ", self.v_body)
+
+        # compute alpha and beta from body frame velocity
+        self.alpha = atan2( self.v_body[2], self.v_body[0] )
+        self.beta = atan2( -self.v_body[1], self.v_body[0] )
+        #print("v(body):", v_body, "alpha = %.1f" % (self.alpha/d2r), "beta = %.1f" % (self.beta/d2r))
 
     def gen_state_vector(self):
         result = []
         for field in self.state_list:
-            if field == "airspeed**2":
-                result.append( self.airspeed_mps**2 )
-            elif field == "sqrt(airspeed)":
-                result.append( sqrt(self.airspeed_mps) )
+            qbar = 0.5 * self.airspeed_mps**2
+            if field == "qbar":
+                result.append( qbar )
             elif field == "throttle":
                 result.append( self.throttle )
             elif field == "sqrt(throttle)":
@@ -190,12 +179,16 @@ class StateManager():
                 result.append( self.g_body[1] )
             elif field == "bgz":
                 result.append( self.g_body[2] )
-            elif field == "accel_body[0]":
-                result.append( self.accel_body[0] )
-            elif field == "accel_body[1]":
-                result.append( self.accel_body[1] )
-            elif field == "accel_body[2]":
-                result.append( self.accel_body[2] )
+            elif field == "bvx":
+                result.append( self.v_body[0] )
+            elif field == "bvy":
+                result.append( self.v_body[1] )
+            elif field == "bvz":
+                result.append( self.v_body[2] )
+            elif field == "bvy*qbar":
+                result.append( self.v_body[1] * qbar )
+            elif field == "bvz*qbar":
+                result.append( self.v_body[2] * qbar )
             elif field == "p":
                 result.append( self.p )
             elif field == "q":
