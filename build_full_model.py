@@ -12,7 +12,7 @@ Engineering and Mechanics, UAV Lab.
 """
 
 import argparse
-import math
+from math import cos, pi, sin
 from matplotlib import pyplot as plt
 import numpy as np
 from tqdm import tqdm
@@ -33,15 +33,13 @@ state_mgr = StateManager()
 sysid = SystemIdentification()
 
 state_names = [ "airspeed**2",
-                "throttle",
+                "sqrt(throttle)",
                 "aileron", "abs(aileron)",
                 "elevator",
                 "rudder", "abs(rudder)",
-                "phi", "cos(phi)",
-                "the",
+                "bgx", "bgy", "bgz",
                 "alpha",
-                "beta", "cos(beta)",
-                "vd",
+                "beta", "abs(beta)",
                 "accel_body[0]", "accel_body[1]", "accel_body[2]",
                 "p", "q", "r" ]
 
@@ -120,10 +118,10 @@ for i in tqdm(range(iter.size())):
             asi_mps *= airpt["pitot_scale"]
         state_mgr.set_airdata( asi_mps )
         if "wind_dir" in airpt:
-            wind_psi = 0.5*math.pi - airpt["wind_dir"] * d2r
+            wind_psi = 0.5 * pi - airpt["wind_dir"] * d2r
             wind_mps = airpt["wind_speed"] * kt2mps
-            we = math.cos(wind_psi) * wind_mps
-            wn = math.sin(wind_psi) * wind_mps
+            we = cos(wind_psi) * wind_mps
+            wn = sin(wind_psi) * wind_mps
             state_mgr.set_wind(wn, we)
     if "filter" in record:
         navpt = record["filter"]
@@ -135,7 +133,7 @@ for i in tqdm(range(iter.size())):
     if state_mgr.is_flying():
         state_mgr.compute_body_frame_values(alpha_beta=True, body_accels=True)
         state = state_mgr.gen_state_vector()
-        # print(state)
+        #print(state_mgr.state2dict(state))
         sysid.add_state_vec(state)
 
 states = len(sysid.traindata[0])

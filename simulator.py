@@ -11,7 +11,7 @@ Engineering and Mechanics, UAV Lab.
 """
 
 import json
-import math
+from math import asin, cos, sin, sqrt
 from matplotlib import pyplot as plt
 import numpy as np
 from scipy.optimize import least_squares
@@ -87,13 +87,16 @@ class Simulator():
         self.state_mgr.accel_body = np.array( [0.0, 0.0, 0.0] )
         state = self.state_mgr.gen_state_vector()
         next = self.A @ state
-        current = self.state2dict(state)
-        result = self.state2dict(next)
+        current = self.state_mgr.state2dict(state)
+        result = self.state_mgr.state2dict(next)
         errors = []
-        errors.append(self.trim_airspeed_mps - math.sqrt(result["airspeed**2"]))
+        next_asi = result["airspeed**2"]
+        if next_asi < 0: next_asi = 0
+        errors.append(self.trim_airspeed_mps - sqrt(next_asi))
         errors.append(current["alpha"] - result["alpha"])
         errors.append(current["beta"] - result["beta"])
-        errors.append(result["vd"])
+        if "vd" in result:
+            errors.append(result["vd"])
         errors.append(result["accel_body[0]"])
         errors.append(result["accel_body[1]"])
         errors.append(result["accel_body[2]"])
@@ -116,26 +119,32 @@ class Simulator():
         print("alpha:", res["x"][5])
         print("beta:", res["x"][6])
         
-    def state2dict(self, state):
-        result = {}
-        for i in range(len(state)):
-            result[self.state_mgr.state_list[i]] = state[i]
-        return result
-        
     def update(self):
         state = self.state_mgr.gen_state_vector()
         #print(self.state2dict(state))
 
         next = self.A @ state
 
-        input = self.state2dict(state)
-        result = self.state2dict(next)
+        input = self.state_mgr.state2dict(state)
+        result = self.state_mgr.state2dict(next)
         #print("state:", state)
         #print("next:", next)
         #print()
 
+        if True:
+            idx_list = self.state_mgr.get_state_index( ["r"] )
+            row = self.A[idx_list[0],:]
+            print("r = ", end="")
+            e = []
+            for j in range(len(row)):
+                e.append(state[j]*row[j])
+            idx = np.argsort(-np.abs(e))
+            for j in idx:
+                print("%.3f (%s) " % (e[j], self.state_mgr.state_list[j]), end="")
+            print("")
+
         if result["airspeed**2"] > 0:
-            self.airspeed_mps = math.sqrt(result["airspeed**2"])
+            self.airspeed_mps = sqrt(result["airspeed**2"])
         else:
             self.airspeed_mps = 0
         self.alpha = result["alpha"]
@@ -153,14 +162,17 @@ class Simulator():
         self.ned2body = quaternion.multiply(self.ned2body, rot_body)
         self.phi_rad, self.the_rad, self.psi_rad = quaternion.quat2eul(self.ned2body)
         self.state_mgr.set_orientation(self.phi_rad, self.the_rad, self.psi_rad)
+
+        self.state_mgr.compute_body_frame_values(alpha_beta=False,
+                                                 body_accels=False)
         
         # velocity in body frame (computed from alpha/beta estimate
         # and airspeed)
-        bd = math.sin(self.alpha) * self.airspeed_mps
-        be = -math.sin(self.beta) * self.airspeed_mps
+        bd = sin(self.alpha) * self.airspeed_mps
+        be = -sin(self.beta) * self.airspeed_mps
         bn2 = self.airspeed_mps**2 - bd**2 - be**2
         if bn2 > 0:
-            bn = math.sqrt( bn2 )
+            bn = sqrt( bn2 )
         else:
             bn = 0
 
