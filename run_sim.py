@@ -14,8 +14,8 @@ import time
 from apscheduler.schedulers.background import BackgroundScheduler # dnf install python3-APScheduler
 
 import fgfs
-import joystick
-from simulator import Simulator
+from lib import joystick
+from lib.simulator import Simulator
 
 # command line arguments
 parser = argparse.ArgumentParser(description="simulation front end")

@@ -16,9 +16,9 @@ from matplotlib import pyplot as plt
 import numpy as np
 from scipy.optimize import least_squares
 
-import quaternion
-from constants import r2d
-from state_mgr import StateManager
+from lib import quaternion
+from lib.constants import r2d
+from lib.state_mgr import StateManager
 
 class Simulator():
     def __init__(self):
