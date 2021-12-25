@@ -1,9 +1,11 @@
-# FGFS Interface
+# FlightGear Interface
 
-The FlightGear flight simulator (open-souce) can be launched in a
-viewer only mode.  The rc-sim simulation script can send the sim
-results to FlightGear via udp packets and FlightGear will show the
-visual animation of the sim.
+The FlightGear open-source flight simulator can provide a visual
+display for interactive sim flying once a model has been built.
+
+FlightGear can be launched in a viewer only mode.  The rc-sim
+simulation script can send the sim results to FlightGear via udp
+packets and FlightGear will show the visual animation of the sim.
 
 1. Install the rc-sim.xml file into the FlightGear data Protocols subdirectory.
 
