@@ -19,9 +19,9 @@ from tqdm import tqdm
 
 from rcUAS_flightdata import flight_loader, flight_interp
 
-from constants import d2r, kt2mps
-from state_mgr import StateManager
-from system_id import SystemIdentification
+from lib.constants import d2r, kt2mps
+from lib.state_mgr import StateManager
+from lib.system_id import SystemIdentification
 
 # command line arguments
 parser = argparse.ArgumentParser(description="nav filter")
