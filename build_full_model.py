@@ -140,108 +140,49 @@ states = len(sysid.traindata[0])
 print("Number of states:", len(sysid.traindata[0]))
 print("Input state vectors:", len(sysid.traindata))
 
-# plt.figure()
-# for j in range(states):
-#     print(j, state_names[j])
-#     plt.plot(np.array(sysid.traindata).T[j,:], label="%s" % state_names[j])
-# plt.legend()
-# plt.show()
-
-# k > 0 will cascade/stack that many additional previous state vectors
-# into the model.  Essentially this means our prediction can be a
-# function of "n" (where n = k + 1) previous states.  This could be
-# helpful for an integrity monitoring system, but may lead to
-# diverging state values in a simulation when most of the states are
-# being propagated forward from previous estimates.
 sysid.fit()
 sysid.analyze()
 sysid.save(args.write, imu_dt)
 
-# check the fit of the original data versus a selection of
-# estimated/propagated states.
+# show an running estimate of dependent states.  Feed the dependent
+# estimate forward into next state rather than using the original
+# logged value.  This can show the convergence of the estimated
+# parameters versus truth (or show major problems in the model.)
 
-if False:
-    moving_est = True
-    pred = []
-    alpha_est = 0
-    beta_est = 0
-    ax_est = 0
-    ay_est = 0
-    az_est = 0
-    p_est = 0
-    q_est = 0
-    r_est = 0
-    v = []
-    for i in range(len(sysid.traindata)):
-        v.extend(sysid.traindata[i])
-        if moving_est:
-            v[-9] = alpha_est
-            v[-8] = beta_est
-            v[-7] = abs(beta_est)
-            v[-6] = ax_est
-            v[-5] = ay_est
-            v[-4] = az_est
-            v[-3] = p_est
-            v[-2] = q_est
-            v[-1] = r_est
-        v = v[-states:]       # trim old state values if needed
-        if len(v) == states:
-            #print("A:", A.shape, A)
-            #print("v:", np.array(v).shape, np.array(v))
-            p = sysid.A @ np.array(v)
-            #print("p:", p)
-            if moving_est:
-                alpha_est = p[-9]
-                beta_est = p[-8]
-                ax_est = p[-6]
-                ay_est = p[-5]
-                az_est = p[-4]
-                p_est = p[-3]
-                q_est = p[-2]
-                r_est = p[-1]
-            pred.append(p)
-    Ypred = np.array(pred).T
-
-# airspeed estimator? but need to think through alpha/beta and
-# vel_body estimates because all that is interelated, those need to
-# also be reestimated as well or the results aren't valid (way over
-# optimistic).
-
-if True:
-    est_index_list = sysid.state_mgr.get_state_index( dependent_states )
-    #print("est_index list:", est_index_list)
-    est_val = [0.0] * len(dependent_states)
-    pred = []
-    v = []
-    for i in range(len(sysid.traindata)):
-        v.extend(sysid.traindata[i])
-        v = v[-states:]       # trim old state values if needed
+est_index_list = sysid.state_mgr.get_state_index( dependent_states )
+#print("est_index list:", est_index_list)
+est_val = [0.0] * len(dependent_states)
+pred = []
+v = []
+for i in range(len(sysid.traindata)):
+    v.extend(sysid.traindata[i])
+    v = v[-states:]       # trim old state values if needed
+    for j, index in enumerate(est_index_list):
+        v[index-states] = est_val[j]
+    if len(v) == states:
+        #print("A:", A.shape, A)
+        #print("v:", np.array(v).shape, np.array(v))
+        p = sysid.A @ np.array(v)
+        #print("p:", p)
         for j, index in enumerate(est_index_list):
-            v[index-states] = est_val[j]
-        if len(v) == states:
-            #print("A:", A.shape, A)
-            #print("v:", np.array(v).shape, np.array(v))
-            p = sysid.A @ np.array(v)
-            #print("p:", p)
-            for j, index in enumerate(est_index_list):
-                est_val[j] = p[index-states]
-                param = sysid.model["parameters"][index]
-                min = param["min"]
-                max = param["max"]
-                med = param["median"]
-                std = param["std"]
-                #if est_val[j] < med - 2*std: est_val[j] = med - 2*std
-                #if est_val[j] > med + 2*std: est_val[j] = med + 2*std
-                if est_val[j] < min: est_val[j] = min
-                if est_val[j] > max: est_val[j] = max
-            pred.append(p)
-    Ypred = np.array(pred).T
-    
-    index_list = sysid.state_mgr.get_state_index( dependent_states )
-    for j in index_list:
-        plt.figure()
-        plt.plot(np.array(sysid.traindata).T[j,:], label="%s (orig)" % state_names[j])
-        plt.plot(Ypred[j,:], label="%s (pred)" % state_names[j])
-        plt.legend()
-        plt.show()
+            est_val[j] = p[index-states]
+            param = sysid.model["parameters"][index]
+            min = param["min"]
+            max = param["max"]
+            med = param["median"]
+            std = param["std"]
+            #if est_val[j] < med - 2*std: est_val[j] = med - 2*std
+            #if est_val[j] > med + 2*std: est_val[j] = med + 2*std
+            if est_val[j] < min: est_val[j] = min
+            if est_val[j] > max: est_val[j] = max
+        pred.append(p)
+Ypred = np.array(pred).T
+
+index_list = sysid.state_mgr.get_state_index( dependent_states )
+for j in index_list:
+    plt.figure()
+    plt.plot(np.array(sysid.traindata).T[j,:], label="%s (orig)" % state_names[j])
+    plt.plot(Ypred[j,:], label="%s (pred)" % state_names[j])
+    plt.legend()
+    plt.show()
 
