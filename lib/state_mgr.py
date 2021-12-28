@@ -14,9 +14,6 @@ class StateManager():
         self.dep_states = []
         self.state_list = []
         self.dt = None
-        self.vn = 0.0
-        self.ve = 0.0
-        self.vd = 0.0
         self.wn_filt = 0
         self.we_filt = 0
         self.qbar = 0
@@ -25,6 +22,7 @@ class StateManager():
         self.flying = False
         self.g_ned = np.array( [0.0, 0.0, gravity] )
         self.g_body = np.array( [0.0, 0.0, 0.0] )
+        self.v_ned = np.array( [0.0, 0.0, 0.0] )
         self.v_body = np.array( [0.0, 0.0, 0.0] )
 
     def set_state_names(self, ind_states, dep_states):
@@ -84,16 +82,14 @@ class StateManager():
         self.r = r
 
     def set_ned_velocity(self, vn, ve, vd):
-        self.vn = vn
-        self.ve = ve
-        self.vd = vd
+        self.v_ned = np.array( [vn, ve, vd] )
 
     def set_body_velocity(self, vx, vy, vz):
         self.v_body = np.array( [vx, vy, vz] )
 
     def is_flying(self):
         # ground speed mps (ned)
-        gs_mps = sqrt( self.vn**2 + self.ve**2 )
+        gs_mps = sqrt( self.v_ned[0]**2 + self.v_ned[1]**2 )
 
         # test if we are flying?
         if not self.flying and gs_mps > 10 and self.airspeed_mps > 7:
@@ -118,9 +114,9 @@ class StateManager():
         
         if body_vel:
             # compute ned velocity with wind vector removed
-            v_ned = np.array( [self.vn + self.wn_filt, self.ve + self.we_filt,
-                               self.vd] )
-            #print(self.psi_rad*r2d, [self.wn_filt, self.we_filt], [self.vn, self.ve, self.vd], v_ned)
+            v_ned = np.array( [self.v_ned[0] + self.wn_filt, self.v_ned[1] + self.we_filt,
+                               self.v_ned[2]] )
+            #print(self.psi_rad*r2d, [self.wn_filt, self.we_filt], [self.v_ned[0], self.v_ned[1], self.v_ned[2]], v_ned)
 
             # rotate ned velocity vector into body frame
             self.v_body = quaternion.transform(ned2body, v_ned)
@@ -148,22 +144,6 @@ class StateManager():
                 result.append( self.rudder * self.qbar )
             elif field == "abs(rudder)":
                 result.append( abs(self.rudder * self.qbar) )
-            elif field == "phi":
-                result.append( self.phi_rad )
-            elif field == "sin(phi)":
-                result.append( sin(self.phi_rad) )
-            elif field == "abs(phi)":
-                result.append( abs(self.phi_rad) )
-            elif field == "cos(phi)":
-                result.append( cos(self.phi_rad) )
-            elif field == "the":
-                result.append( self.the_rad )
-            elif field == "sin(the)":
-                result.append( sin(self.the_rad) )
-            elif field == "cos(the)":
-                result.append( cos(self.the_rad) )
-            elif field == "vd":
-                result.append( self.vd )
             elif field == "bgx":
                 result.append( self.g_body[0] )
             elif field == "bgy":
