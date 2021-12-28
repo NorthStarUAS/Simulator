@@ -4,7 +4,7 @@ import navpy
 import socket
 import struct
 
-from constants import mps2kt, r2d
+from lib.constants import mps2kt, r2d
 
 lat_deg = 45.13841697
 lon_deg = -93.2101002
