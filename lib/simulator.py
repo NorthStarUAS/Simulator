@@ -23,7 +23,7 @@ from lib.state_mgr import StateManager
 class Simulator():
     def __init__(self):
         self.A = None
-        self.dt = 0.01
+        self.dt = None
         self.state_mgr = StateManager()
         self.reset()
 
@@ -35,10 +35,14 @@ class Simulator():
         self.dt = model["dt"]
         self.A = np.array(model["A"])
         print(self.A)
-        state_names = []
+        ind_states = []
+        dep_states = []
         for param in model["parameters"]:
-            state_names.append( param["name"] )
-        self.state_mgr.set_state_names( state_names )
+            if param["type"] == "independent":
+                ind_states.append( param["name"] )
+            else:
+                dep_states.append( param["name"] )
+        self.state_mgr.set_state_names( ind_states, dep_states )
         self.state_mgr.set_dt( self.dt )
 
     def reset(self):
@@ -48,6 +52,7 @@ class Simulator():
         self.state_mgr.set_flight_surfaces( aileron=0.0,
                                             elevator=-0.1,
                                             rudder=0.0 )
+        self.airspeed_mps = 0
         self.alpha = 0.0
         self.beta = 0.0
         self.pos_ned = np.array( [0.0, 0.0, 0.0] )
@@ -138,9 +143,13 @@ class Simulator():
                 print("%.3f (%s) " % (e[j], self.state_mgr.state_list[j]), end="")
             print("")
 
-        self.bvx = result["bvx"]
-        self.bvy = result["bvy"]
-        self.bvz = result["bvz"]
+        last_qbar = self.state_mgr.qbar
+        bvx_q = result["bvx"]
+        bvy_q = result["bvy"]
+        bvz_q = result["bvz"]
+        self.bvx = bvx_q / last_qbar
+        self.bvy = bvy_q / last_qbar
+        self.bvz = bvz_q / last_qbar
         self.airspeed_mps = sqrt( self.bvx**2 + self.bvy**2 + self.bvz**2 )
         self.state_mgr.set_airdata(self.airspeed_mps)
         self.state_mgr.set_body_velocity( self.bvx, self.bvy, self.bvz )
