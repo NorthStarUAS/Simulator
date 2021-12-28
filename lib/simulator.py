@@ -125,11 +125,11 @@ class Simulator():
 
         input = self.state_mgr.state2dict(state)
         result = self.state_mgr.state2dict(next)
-        print("state:", state)
-        print("next:", result)
+        #print("state:", state)
+        #print("next:", result)
         #print()
 
-        if True:
+        if False:
             idx_list = self.state_mgr.get_state_index( ["r"] )
             row = self.A[idx_list[0],:]
             print("r = ", end="")

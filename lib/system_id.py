@@ -144,43 +144,50 @@ class SystemIdentification():
             first = True
             for j in idx:
                 perc = 100 * energy[j] / total
-                if abs(perc) > 0.05:
-                    if not first:
-                        if perc >= 0:
-                            params[i]["formula"] += " + "
-                        else:
-                            params[i]["formula"] += " - "
+                if abs(perc) < 0.05:
+                    continue
+                if first:
                     first = False
-                    params[i]["formula"] += self.state_mgr.state_list[j] + " %.1f%%" % abs(perc)
+                else:
+                    if perc >= 0:
+                        params[i]["formula"] += " + "
+                    else:
+                        params[i]["formula"] += " - "
+                params[i]["formula"] += self.state_mgr.state_list[j] + " %.1f%%" % abs(perc)
             print(params[i]["formula"])
             
-        # report leading contributions of each state
+        # report leading contributions of each state to each dependent
+        # state
         for i in range(states):
             #print(self.state_names[i])
             col = self.A[:,i]
             energy = []
             for j in range(states):
-                e = col[j] * params[i]["std"]
+                if params[j]["type"] == "independent":
+                    e = 0
+                else:
+                    e = col[j] * params[i]["std"] / params[j]["std"]
                 energy.append(e)
-                #print(" ", self.state_names[j], e)
+                #print(" ", self.state_mgr.state_list[i], self.state_mgr.state_list[j], col[j], e)
             idx = np.argsort(-np.abs(energy))
-            total = np.sum(np.abs(energy))
-            print("%s: " % self.state_mgr.state_list[i])
-            print("  ", end='')
+            #total = np.sum(np.abs(energy))
+            params[i]["correlates to"] = ""
             first = True
             for j in idx:
-                perc = 100 * energy[j] / total
-                if abs(perc) > 0.05:
-                    if not first:
-                        if perc >= 0:
-                            print(" + ", end='')
-                        else:
-                            print(" - ", end='')
+                perc = 100 * energy[j]
+                if abs(perc) < 0.0001:
+                    continue
+                if first:
                     first = False
-                    print(self.state_mgr.state_list[j],
-                          "%.1f%% " % abs(perc),
-                          end='')
-            print("")
+                else:
+                    params[i]["correlates to"] += ", "
+                params[i]["correlates to"] += self.state_mgr.state_list[j] + ": "
+                if perc >= 0:
+                    params[i]["correlates to"] += "+"
+                else:
+                    params[i]["correlates to"] += "-"
+                params[i]["correlates to"] += "%.3f%%" % abs(perc)
+            print(self.state_mgr.state_list[i], "correlates to:", params[i]["correlates to"])
                 
     def save(self, model_name, dt):
         # we ask for the data delta t at this point to save it with
