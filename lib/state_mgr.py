@@ -6,7 +6,7 @@ from math import atan2, cos, sin, sqrt
 import numpy as np
 
 from lib.constants import d2r, r2d, gravity, kt2mps
-import lib.quaternion
+from lib import quaternion
 
 class StateManager():
     def __init__(self):
