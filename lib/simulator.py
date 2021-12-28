@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 """sim
 
 Uses the system model derived by the system_id module to perform a
