@@ -46,16 +46,15 @@ import dask.array as da         # dnf install python3-dask+array
 import json
 import numpy as np
 
+from lib.state_mgr import StateManager
+
 class SystemIdentification():
     def __init__(self):
         self.traindata = []
         self.A = None
         self.model = {}
-        self.state_names = []
+        self.state_mgr = StateManager()
 
-    def set_state_names(self, state_names):
-        self.state_names = state_names
-        
     def add_state_vec(self, state_vec):
         self.traindata.append( state_vec )
         
@@ -110,43 +109,50 @@ class SystemIdentification():
             min = np.min(row)
             max = np.max(row)
             mean = np.mean(row)
-            self.model["parameters"].append( { "name": self.state_names[i],
-                                               "min": np.min(row),
-                                               "max": np.max(row),
-                                               "median": np.median(row),
-                                               "std": np.std(row) } )
+            if self.state_mgr.state_list[i] in self.state_mgr.ind_states:
+                var_type = "independent"
+            else:
+                var_type = "dependent"
+            self.model["parameters"].append(
+                {
+                    "name": self.state_mgr.state_list[i],
+                    "min": np.min(row),
+                    "max": np.max(row),
+                    "median": np.median(row),
+                    "std": np.std(row),
+                    "type": var_type
+                }
+            )
 
     def analyze(self):
         states = len(self.traindata[0])
         params = self.model["parameters"]
 
-        # report leading contributions towards computing each next state
+        # report leading contributions towards computing each dependent state
         for i in range(states):
+            if params[i]["type"] == "independent":
+                continue
             #print(self.state_names[i])
             row = self.A[i,:]
             energy = []
             for j in range(states):
                 e = row[j] * params[j]["std"]
                 energy.append(e)
-                #print(" ", self.state_names[j], e)
             idx = np.argsort(-np.abs(energy))
             total = np.sum(np.abs(energy))
-            print("%s: " % self.state_names[i])
-            print("  ", end='')
+            params[i]["formula"] = self.state_mgr.state_list[i] + " = "
             first = True
             for j in idx:
                 perc = 100 * energy[j] / total
                 if abs(perc) > 0.05:
                     if not first:
                         if perc >= 0:
-                            print(" + ", end='')
+                            params[i]["formula"] += " + "
                         else:
-                            print(" - ", end='')
+                            params[i]["formula"] += " - "
                     first = False
-                    print(self.state_names[j],
-                          "%.1f%% " % abs(perc),
-                          end='')
-            print("")
+                    params[i]["formula"] += self.state_mgr.state_list[j] + " %.1f%%" % abs(perc)
+            print(params[i]["formula"])
             
         # report leading contributions of each state
         for i in range(states):
@@ -159,7 +165,7 @@ class SystemIdentification():
                 #print(" ", self.state_names[j], e)
             idx = np.argsort(-np.abs(energy))
             total = np.sum(np.abs(energy))
-            print("%s: " % self.state_names[i])
+            print("%s: " % self.state_mgr.state_list[i])
             print("  ", end='')
             first = True
             for j in idx:
@@ -171,7 +177,7 @@ class SystemIdentification():
                         else:
                             print(" - ", end='')
                     first = False
-                    print(self.state_names[j],
+                    print(self.state_mgr.state_list[j],
                           "%.1f%% " % abs(perc),
                           end='')
             print("")

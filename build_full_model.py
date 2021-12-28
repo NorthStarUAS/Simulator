@@ -20,7 +20,6 @@ from tqdm import tqdm
 from rcUAS_flightdata import flight_loader, flight_interp
 
 from lib.constants import d2r, kt2mps
-from lib.state_mgr import StateManager
 from lib.system_id import SystemIdentification
 
 # command line arguments
@@ -29,21 +28,23 @@ parser.add_argument("flight", help="flight data log")
 parser.add_argument("--write", required=True, help="write model file name")
 args = parser.parse_args()
 
-state_mgr = StateManager()
 sysid = SystemIdentification()
 
-state_names = [ "qbar",
-                "sqrt(throttle)",
-                "aileron", "abs(aileron)",
-                "elevator",
-                "rudder", "abs(rudder)",
-                "bgx", "bgy", "bgz",
-                "bvx", "bvy", "bvz",
-                "bvy*qbar", "bvz*qbar",
-                "p", "q", "r" ]
+independent_states = [
+    "sqrt(throttle)",           # a very approximate throttle vs. thrust curve
+    "aileron", "abs(aileron)",
+    "elevator",
+    "rudder", "abs(rudder)",    # flight controls (* qbar)
+    "bgx", "bgy", "bgz"         # gravity rotated into body frame
+]
 
-state_mgr.set_state_names(state_names)
-sysid.set_state_names(state_names)
+dependent_states = [
+    "bvx", "bvy", "bvz",        # body frame velocities (* qbar)
+    "p", "q", "r"               # body rates
+]
+
+state_names = independent_states + dependent_states
+sysid.state_mgr.set_state_names(independent_states, dependent_states)
 
 # load the flight data
 path = args.flight
@@ -79,7 +80,7 @@ print("IMU median:", np.median(dt_data))
 imu_dt = float("%.4f" % np.median(dt_data))
 print("imu dt:", imu_dt)
 
-state_mgr.set_dt(imu_dt)
+sysid.state_mgr.set_dt(imu_dt)
             
 print("Parsing flight data log:")
 actpt = {}
@@ -95,7 +96,7 @@ for i in tqdm(range(iter.size())):
         continue
     if "imu" in record:
         imupt = record["imu"]
-        state_mgr.set_time( imupt["time"] )
+        sysid.state_mgr.set_time( imupt["time"] )
         p = imupt["p"]
         q = imupt["q"]
         r = imupt["r"]
@@ -103,11 +104,11 @@ for i in tqdm(range(iter.size())):
             p -= navpt["p_bias"]
             q -= navpt["q_bias"]
             r -= navpt["r_bias"]
-        state_mgr.set_gyros(p, q, r)
+        sysid.state_mgr.set_gyros(p, q, r)
     if "act" in record:
         actpt = record["act"]
-        state_mgr.set_throttle( actpt["throttle"] )
-        state_mgr.set_flight_surfaces( actpt["aileron"], actpt["elevator"],
+        sysid.state_mgr.set_throttle( actpt["throttle"] )
+        sysid.state_mgr.set_flight_surfaces( actpt["aileron"], actpt["elevator"],
                                        actpt["rudder"] )
     if "air" in record:
         airpt = record["air"]
@@ -115,24 +116,24 @@ for i in tqdm(range(iter.size())):
         # add in correction factor if available
         if "pitot_scale" in airpt:
             asi_mps *= airpt["pitot_scale"]
-        state_mgr.set_airdata( asi_mps )
+        sysid.state_mgr.set_airdata( asi_mps )
         if "wind_dir" in airpt:
             wind_psi = 0.5 * pi - airpt["wind_dir"] * d2r
             wind_mps = airpt["wind_speed"] * kt2mps
             we = cos(wind_psi) * wind_mps
             wn = sin(wind_psi) * wind_mps
-            state_mgr.set_wind(wn, we)
+            sysid.state_mgr.set_wind(wn, we)
     if "filter" in record:
         navpt = record["filter"]
-        state_mgr.set_orientation( navpt["phi"], navpt["the"], navpt["psi"] )
-        state_mgr.set_ned_velocity( navpt["vn"], navpt["ve"], navpt["vd"] )
+        sysid.state_mgr.set_orientation( navpt["phi"], navpt["the"], navpt["psi"] )
+        sysid.state_mgr.set_ned_velocity( navpt["vn"], navpt["ve"], navpt["vd"] )
     if "gps" in record:
         gpspt = record["gps"]
 
-    if state_mgr.is_flying():
-        state_mgr.compute_body_frame_values(body_vel=True)
-        state = state_mgr.gen_state_vector()
-        #print(state_mgr.state2dict(state))
+    if sysid.state_mgr.is_flying():
+        sysid.state_mgr.compute_body_frame_values(body_vel=True)
+        state = sysid.state_mgr.gen_state_vector()
+        #print(sysid.state_mgr.state2dict(state))
         sysid.add_state_vec(state)
 
 states = len(sysid.traindata[0])
@@ -207,10 +208,9 @@ if False:
 # optimistic).
 
 if True:
-    estimate_list =  [ "qbar" ]
-    est_index_list = state_mgr.get_state_index( estimate_list )
+    est_index_list = sysid.state_mgr.get_state_index( dependent_states )
     #print("est_index list:", est_index_list)
-    est_val = [0.0] * len(estimate_list)
+    est_val = [0.0] * len(dependent_states)
     pred = []
     v = []
     for i in range(len(sysid.traindata)):
@@ -237,7 +237,7 @@ if True:
             pred.append(p)
     Ypred = np.array(pred).T
     
-    index_list = state_mgr.get_state_index( estimate_list )
+    index_list = sysid.state_mgr.get_state_index( dependent_states )
     for j in index_list:
         plt.figure()
         plt.plot(np.array(sysid.traindata).T[j,:], label="%s (orig)" % state_names[j])
