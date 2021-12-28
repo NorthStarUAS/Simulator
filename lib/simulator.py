@@ -78,23 +78,23 @@ class Simulator():
         self.state_mgr.set_throttle( xk[0] )
         self.state_mgr.set_flight_surfaces(xk[1], xk[2], 0)
         self.state_mgr.set_orientation(xk[3], xk[4], 0)
-        self.state_mgr.set_airdata(self.trim_airspeed_mps, alpha=xk[5], beta=xk[6])
+        self.state_mgr.set_airdata(self.trim_airspeed_mps)
         self.state_mgr.set_wind(0.0, 0.0)
         self.state_mgr.set_gyros(0.0, 0.0, 0.0)
         self.state_mgr.set_ned_velocity(self.trim_airspeed_mps, 0.0, 0.0)
+        self.state_mgr.compute_body_frame_values(body_vel=False)
         state = self.state_mgr.gen_state_vector()
         next = self.A @ state
         current = self.state_mgr.state2dict(state)
         result = self.state_mgr.state2dict(next)
         errors = []
-        next_asi = result["airspeed**2"]
+        next_asi = result["qbar"]
         if next_asi < 0: next_asi = 0
         errors.append(self.trim_airspeed_mps - sqrt(next_asi))
-        errors.append(current["bvx"] - result["bvx"])
-        errors.append(current["bvz"] - result["bvz"])
-        errors.append(current["bvy"] - result["bvy"])
-        if "vd" in result:
-            errors.append(result["vd"])
+        #errors.append(xk[4] - self.state_mgr.alpha)
+        #errors.append(current["bvx"] - result["bvx"])
+        #errors.append(current["bvy"] - result["bvy"])
+        #errors.append(current["bvz"] - result["bvz"])
         errors.append(result["p"])
         errors.append(result["q"])
         errors.append(result["r"])
