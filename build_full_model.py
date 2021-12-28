@@ -152,8 +152,7 @@ print("Input state vectors:", len(sysid.traindata))
 # helpful for an integrity monitoring system, but may lead to
 # diverging state values in a simulation when most of the states are
 # being propagated forward from previous estimates.
-k = 0
-sysid.fit(k)
+sysid.fit()
 sysid.analyze()
 sysid.save(args.write, imu_dt)
 
@@ -184,8 +183,8 @@ if False:
             v[-3] = p_est
             v[-2] = q_est
             v[-1] = r_est
-        v = v[-(k+1)*states:]       # trim old state values if needed
-        if len(v) == (k+1)*states:
+        v = v[-states:]       # trim old state values if needed
+        if len(v) == states:
             #print("A:", A.shape, A)
             #print("v:", np.array(v).shape, np.array(v))
             p = sysid.A @ np.array(v)
@@ -216,10 +215,10 @@ if True:
     v = []
     for i in range(len(sysid.traindata)):
         v.extend(sysid.traindata[i])
-        v = v[-(k+1)*states:]       # trim old state values if needed
+        v = v[-states:]       # trim old state values if needed
         for j, index in enumerate(est_index_list):
             v[index-states] = est_val[j]
-        if len(v) == (k+1)*states:
+        if len(v) == states:
             #print("A:", A.shape, A)
             #print("v:", np.array(v).shape, np.array(v))
             p = sysid.A @ np.array(v)
@@ -241,7 +240,7 @@ if True:
     index_list = state_mgr.get_state_index( estimate_list )
     for j in index_list:
         plt.figure()
-        plt.plot(np.array(sysid.traindata).T[j,k:], label="%s (orig)" % state_names[j])
+        plt.plot(np.array(sysid.traindata).T[j,:], label="%s (orig)" % state_names[j])
         plt.plot(Ypred[j,:], label="%s (pred)" % state_names[j])
         plt.legend()
         plt.show()

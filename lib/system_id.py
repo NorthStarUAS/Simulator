@@ -50,7 +50,6 @@ class SystemIdentification():
     def __init__(self):
         self.traindata = []
         self.A = None
-        self.k = 0
         self.model = {}
         self.state_names = []
 
@@ -60,19 +59,16 @@ class SystemIdentification():
     def add_state_vec(self, state_vec):
         self.traindata.append( state_vec )
         
-    def fit(self, k):
+    def fit(self):
         states = len(self.traindata[0])
         data1 = []
-        self.k = k              # add this many previous states
-        for i in range(self.k, len(self.traindata)):
-            v = list(self.traindata[i])
-            for j in range(1, self.k+1):
-                v.extend(self.traindata[i-j])
+        for i in range(len(self.traindata)):
+            v = self.traindata[i]
             #print(v)
             data1.append(v)
 
         X = np.array(data1[:-1]).T
-        Y = np.array(self.traindata[1+self.k:]).T
+        Y = np.array(self.traindata[1:]).T
         print("X:\n", X.shape, np.array(X))
         print("Y:\n", Y.shape, np.array(Y))
 
@@ -93,7 +89,7 @@ class SystemIdentification():
         print("u:\n", u.shape, u)
         print("s:\n", s.shape, s)
         print("vh:\n", vh.shape, vh)
-        Xr = (u * s) @ vh[:states*(self.k+1), :]
+        Xr = (u * s) @ vh[:states, :]
         #print( "dask close?", np.allclose(X, Xr.compute()) )
 
         # after algebraic manipulation
@@ -103,7 +99,7 @@ class SystemIdentification():
         v = vh.T
         print("s inv:", (1/s).compute() )
 
-        self.A = (Y @ (v[:,:states*(self.k+1)] * (1/s)) @ u.T).compute()
+        self.A = (Y @ (v[:,:states] * (1/s)) @ u.T).compute()
         print("A rank:", np.linalg.matrix_rank(self.A))
         print("A:\n", self.A.shape, self.A)
 
@@ -187,7 +183,6 @@ class SystemIdentification():
         # simulation, system integrity, flight control, etc.
         
         self.model["dt"] = dt
-        self.model["k"] = self.k
         self.model["A"] = self.A.tolist()
 
         f = open(model_name, "w")
