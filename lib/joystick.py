@@ -36,7 +36,7 @@ if have_joystick:
 
 def update():
     if not have_joystick:
-        return None
+        return None, None, None, None
     pygame.event.pump()
     for i in range(num_axes):
         axes[i] = j.get_axis(i)
