@@ -10,6 +10,8 @@ from lib import quaternion
 
 class StateManager():
     def __init__(self):
+        self.ind_states = []
+        self.dep_states = []
         self.state_list = []
         self.dt = None
         self.vn = 0.0
@@ -17,6 +19,7 @@ class StateManager():
         self.vd = 0.0
         self.wn_filt = 0
         self.we_filt = 0
+        self.qbar = 0
         self.alpha = 0
         self.beta = 0
         self.flying = False
@@ -24,8 +27,10 @@ class StateManager():
         self.g_body = np.array( [0.0, 0.0, 0.0] )
         self.v_body = np.array( [0.0, 0.0, 0.0] )
 
-    def set_state_names(self, state_list):
-        self.state_list = state_list
+    def set_state_names(self, ind_states, dep_states):
+        self.ind_states = ind_states
+        self.dep_states = dep_states
+        self.state_list = self.ind_states + self.dep_states
 
     def get_state_index(self, state_name_list):
         result = []
@@ -67,6 +72,7 @@ class StateManager():
 
     def set_airdata(self, airspeed_mps):
         self.airspeed_mps = airspeed_mps
+        self.qbar = 0.5 * self.airspeed_mps**2
 
     def set_wind(self, wn, we):
         self.wn_filt = 0.95 * self.wn_filt + 0.05 * wn
@@ -128,23 +134,20 @@ class StateManager():
     def gen_state_vector(self):
         result = []
         for field in self.state_list:
-            qbar = 0.5 * self.airspeed_mps**2
-            if field == "qbar":
-                result.append( qbar )
-            elif field == "throttle":
+            if field == "throttle":
                 result.append( self.throttle )
             elif field == "sqrt(throttle)":
                 result.append( sqrt(self.throttle) )
             elif field == "aileron":
-                result.append( self.aileron )
+                result.append( self.aileron * self.qbar )
             elif field == "abs(aileron)":
-                result.append( abs(self.aileron) )
+                result.append( abs(self.aileron * self.qbar) )
             elif field == "elevator":
-                result.append( self.elevator )
+                result.append( self.elevator * self.qbar )
             elif field == "rudder":
-                result.append( self.rudder )
+                result.append( self.rudder * self.qbar )
             elif field == "abs(rudder)":
-                result.append( abs(self.rudder) )
+                result.append( abs(self.rudder * self.qbar) )
             elif field == "phi":
                 result.append( self.phi_rad )
             elif field == "sin(phi)":
@@ -161,18 +164,6 @@ class StateManager():
                 result.append( cos(self.the_rad) )
             elif field == "vd":
                 result.append( self.vd )
-            elif field == "alpha":
-                result.append( self.alpha )
-            elif field == "sin(alpha)":
-                result.append( sin(self.alpha) )
-            elif field == "beta":
-                result.append( self.beta )
-            elif field == "sin(beta)":
-                result.append( sin(self.beta) )
-            elif field == "abs(beta)":
-                result.append( abs(self.beta) )
-            elif field == "abs(sin(beta))":
-                result.append( abs(sin(self.beta)) )
             elif field == "bgx":
                 result.append( self.g_body[0] )
             elif field == "bgy":
@@ -180,15 +171,11 @@ class StateManager():
             elif field == "bgz":
                 result.append( self.g_body[2] )
             elif field == "bvx":
-                result.append( self.v_body[0] )
+                result.append( self.v_body[0] * self.qbar )
             elif field == "bvy":
-                result.append( self.v_body[1] )
+                result.append( self.v_body[1] * self.qbar )
             elif field == "bvz":
-                result.append( self.v_body[2] )
-            elif field == "bvy*qbar":
-                result.append( self.v_body[1] * qbar )
-            elif field == "bvz*qbar":
-                result.append( self.v_body[2] * qbar )
+                result.append( self.v_body[2] * self.qbar )
             elif field == "p":
                 result.append( self.p )
             elif field == "q":
