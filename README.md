@@ -1,8 +1,10 @@
 # rc-sim
 
 Simple flight dynamics model creation and simulation.  Based on a
-novel data-driven approach which fits (learns) the flight characters
-of specific aircraft from their flight data log.
+novel data-driven approach which fits (learns) the flight
+characteristics of specific aircraft from their flight data log.  This
+system builds a working flight simulator model of your (or any)
+specific aircraft directly from the data log.
 
 ## Brief description of the method
 
@@ -143,4 +145,13 @@ configuration and payload.
   in all 3 axes.  This could be an alternative to traditional
   in-flight wind speed estimators.  Or this could be used as a way to
   estimate the vertical velocity of the air column for soaring
-  applications.
+  applications.  (Note: not yet attempted, just hypothetical for now.)
+
+* This is a fairly generic approach to estimating next state from
+  current state.  It could be used for non-flight related predictions.
+  Or additional states could be added to the state vector to include
+  more effects for a better performance fit.
+
+* Currently this system is only tested for fixed wing models with an
+  airspeed sensor.  I hope to think through what would be involved in
+  adapting this to fitting multirotor models.
