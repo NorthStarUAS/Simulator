@@ -9,9 +9,8 @@ specific aircraft directly from the data log.
 This is not the answer to life, the universe, and everything, but it's
 a fun toy and I am fascinated by how much of an aircraft's flying
 characteristics can be captured in such a simple system.
-Traditionally building a flight dynamics model and the simulation
-engine to run it is a very challenging task and requires writing quite
-a bit of complex code.
+Traditionally approaches to flight simulation are very challenging to
+build from scratch.
 
 ## Brief description of the method
 
