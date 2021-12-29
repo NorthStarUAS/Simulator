@@ -16,6 +16,7 @@ class StateManager():
         self.dt = None
         self.wn_filt = 0
         self.we_filt = 0
+        self.wd_filt = 0
         self.qbar = 0
         self.alpha = 0
         self.beta = 0
@@ -81,8 +82,12 @@ class StateManager():
         self.q = q
         self.r = r
 
-    def set_ned_velocity(self, vn, ve, vd):
-        self.v_ned = np.array( [vn, ve, vd] )
+    def set_ned_velocity(self, vn, ve, vd, wn, we, wd):
+        # store NED velocity, corrected to remove wind effects
+        self.wn_filt = 0.95 * self.wn_filt + 0.05 * wn
+        self.we_filt = 0.95 * self.we_filt + 0.05 * we
+        self.wd_filt = 0.95 * self.wd_filt + 0.05 * wd
+        self.v_ned = np.array( [vn + wn, ve + we, vd + wd] )
 
     def set_body_velocity(self, vx, vy, vz):
         self.v_body = np.array( [vx, vy, vz] )
@@ -113,13 +118,8 @@ class StateManager():
         self.g_body = quaternion.transform(ned2body, self.g_ned)
         
         if body_vel:
-            # compute ned velocity with wind vector removed
-            v_ned = np.array( [self.v_ned[0] + self.wn_filt, self.v_ned[1] + self.we_filt,
-                               self.v_ned[2]] )
-            #print(self.psi_rad*r2d, [self.wn_filt, self.we_filt], [self.v_ned[0], self.v_ned[1], self.v_ned[2]], v_ned)
-
             # rotate ned velocity vector into body frame
-            self.v_body = quaternion.transform(ned2body, v_ned)
+            self.v_body = quaternion.transform(ned2body, self.v_ned)
             #print(" ", self.v_body)
 
         # compute alpha and beta from body frame velocity
@@ -150,6 +150,10 @@ class StateManager():
                 result.append( self.g_body[1] )
             elif field == "bgz":
                 result.append( self.g_body[2] )
+            elif field == "sin(alpha)":
+                result.append( sin(self.alpha) * self.qbar )
+            elif field == "sin(beta)":
+                result.append( sin(self.beta) * self.qbar )
             elif field == "bvx":
                 result.append( self.v_body[0] * self.qbar )
             elif field == "bvy":

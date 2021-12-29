@@ -122,11 +122,16 @@ for i in tqdm(range(iter.size())):
             wind_mps = airpt["wind_speed"] * kt2mps
             we = cos(wind_psi) * wind_mps
             wn = sin(wind_psi) * wind_mps
-            sysid.state_mgr.set_wind(wn, we)
+            wd = 0
+        else:
+            we = 0.0
+            wn = 0.0
+            wd = 0.0
     if "filter" in record:
         navpt = record["filter"]
         sysid.state_mgr.set_orientation( navpt["phi"], navpt["the"], navpt["psi"] )
-        sysid.state_mgr.set_ned_velocity( navpt["vn"], navpt["ve"], navpt["vd"] )
+        sysid.state_mgr.set_ned_velocity( navpt["vn"], navpt["ve"], navpt["vd"],
+                                          wn, we, wd )
     if "gps" in record:
         gpspt = record["gps"]
 

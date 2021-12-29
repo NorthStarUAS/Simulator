@@ -51,13 +51,12 @@ class Simulator():
                                             elevator=-0.1,
                                             rudder=0.0 )
         self.airspeed_mps = 0
-        self.alpha = 0.0
-        self.beta = 0.0
         self.pos_ned = np.array( [0.0, 0.0, 0.0] )
         self.vel_ned = np.array( [initial_airspeed_mps, 0.0, 0.0] )
         self.state_mgr.set_ned_velocity( self.vel_ned[0],
                                          self.vel_ned[1],
-                                         self.vel_ned[2] )
+                                         self.vel_ned[2],
+                                         0.0, 0.0, 0.0 )
         self.state_mgr.set_body_velocity( initial_airspeed_mps, 0.0, 0.0 )
         self.phi_rad = 0.0
         self.the_rad = 0.0
@@ -116,6 +115,30 @@ class Simulator():
         print("theta:", res["x"][4])
         print("alpha:", res["x"][5])
         print("beta:", res["x"][6])
+
+    # domain knowledge to do something plausible when alpha or beta
+    # get really out of bounds.
+    def velocity_check(self):
+        # buggy or bad concept? Abort!
+        return
+        alpha_q = self.state_mgr.alpha * self.state_mgr.qbar
+        beta_q = self.state_mgr.beta * self.state_mgr.qbar
+        print(alpha_q, beta_q)
+        thresh = 0.2 * (0.5 * 10**2) # ~11.5 deg @ 10 mps
+        if alpha_q > thresh:
+            af = alpha_q - thresh
+        elif alpha_q < -thresh:
+            af = alpha_q + thresh
+        else:
+            af = 0
+        self.q -= af * 0.00001
+        if beta_q > thresh:
+            bf = beta_q - thresh
+        elif beta_q < -thresh:
+            bf = beta_q + thresh
+        else:
+            bf = 0
+        self.r += bf * 0.00001
         
     def update(self):
         state = self.state_mgr.gen_state_vector()
@@ -155,6 +178,7 @@ class Simulator():
         self.p = result["p"]
         self.q = result["q"]
         self.r = result["r"]
+        self.velocity_check()
         self.state_mgr.set_gyros(self.p, self.q, self.r)
 
         # update attitude
@@ -172,7 +196,8 @@ class Simulator():
                                                  np.array([self.bvx, self.bvy, self.bvz]) )
         self.state_mgr.set_ned_velocity( self.vel_ned[0],
                                          self.vel_ned[1],
-                                         self.vel_ned[2] )
+                                         self.vel_ned[2],
+                                         0.0, 0.0, 0.0 )
 
         # update position
         self.pos_ned += self.vel_ned * self.dt
@@ -185,7 +210,7 @@ class Simulator():
               self.state_mgr.elevator,
               self.state_mgr.rudder,
               self.phi_rad, self.the_rad, self.psi_rad,
-              self.alpha, self.beta,
+              self.state_mgr.alpha, self.state_mgr.beta,
               self.p, self.q, self.r] )
         self.data[-1].extend( self.pos_ned.tolist() )
         self.data[-1].extend( self.vel_ned.tolist() )
