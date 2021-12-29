@@ -93,7 +93,7 @@ The simulation has a simple update loop:
   that is needed to create a realistic flight simulation from the best
   fit model (aka the **A** matrix.)
 
-# Limitations
+## Limitations / Disclaimers
 
 This system is not a perfect or complete answer to creating flight
 simulations from real flight data.  There are many limitations and
@@ -116,3 +116,31 @@ disclaimers, here are just a few:
   frame.  This creates a model the closely matches the performance of
   the original flight data (good) but it cannot be decomposed into
   coefficient parts as with traditional methods.
+
+## Other use cases
+
+The **A** matrix is built for a specific aircraft at a specific
+configuration.  This may not be great for full scale aircraft, but it
+is common to fly small battery powered UAV's with a fixed
+configuration and payload.
+
+* Integrity monitor: Once the model is created, the system is light
+  weight enough to run on a typical small UAV flight controller.  the
+  current state can be used to predict the expected next state.  That
+  can be compared to the true next state and outliers can be flagged
+  when they exceed some error threshold.  In addition the system has
+  some simple knowledge of which input states are used to predict the
+  dependent states, so it may be possible to further isolate an error
+  condition to a specific set of inputs.
+
+* The system will predict X, Y, Z velocities in the body frame of
+  reference.  The norm() of this velocity vector is the true airspeed.
+  Thus, once the model is created, it can be used to estimate/predict
+  a synthetic airspeed without needing an actual airspeed sensors.
+
+* For future work, if wind vector estimates are included in the state
+  list, it may be possible to use the system to estimate/predict wind
+  in all 3 axes.  This could be an alternative to traditional
+  in-flight wind speed estimators.  Or this could be used as a way to
+  estimate the vertical velocity of the air column for soaring
+  applications.
