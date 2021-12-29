@@ -103,11 +103,14 @@ The simulation has a simple update loop:
 
 ## Quick note on delta t (time interval between states.)
 
-One requirement of this system is that the state vectors must have a
-fixed/constat time update rate (dt).  This time interval is cooked
-into the state transition matrix.  This value is determined from the
-input data and saved with the model.  The simulation must be updated
-at this same rate to run in real time.
+One requirement of this system is that the input state vectors must
+have a fixed/constant time update rate (dt).  This allows the **X**
+and **Y** matrices (current state and next state matrices) to align
+correctly.  This time interval is then cooked into the values of the
+state transition matrix.  This dt value is automatically determined
+from the input data and saved with the model.  The simulation loads
+this fixed dt value with the model and updates the simulation at this
+rate when running in real-time mode.
 
 ## Limitations / Disclaimers
 
