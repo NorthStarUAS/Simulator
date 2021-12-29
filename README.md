@@ -101,6 +101,14 @@ The simulation has a simple update loop:
   that is needed to create a realistic flight simulation from the best
   fit model (aka the **A** matrix.)
 
+## Quick note on delta t (time interval between states.)
+
+One requirement of this system is that the state vectors must have a
+fixed/constat time update rate (dt).  This time interval is cooked
+into the state transition matrix.  This value is determined from the
+input data and saved with the model.  The simulation must be updated
+at this same rate to run in real time.
+
 ## Limitations / Disclaimers
 
 This system is not a perfect or complete answer to creating flight
