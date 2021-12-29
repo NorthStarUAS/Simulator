@@ -6,6 +6,13 @@ characteristics of specific aircraft from their flight data log.  This
 system builds a working flight simulator model of your (or any)
 specific aircraft directly from the data log.
 
+This is not the answer to life, the universe, and everything, but it's
+a fun toy and I am fascinated by how much of an aircraft's flying
+characteristics can be captured in such a simple system.
+Traditionally building a flight dynamics model and the simulation
+engine to run it is a very challenging task and requires writing quite
+a bit of complex code.
+
 ## Brief description of the method
 
 Assume you have conducted a real UAV flight and logged the data.  Back
