@@ -60,13 +60,7 @@ class SystemIdentification():
         
     def fit(self):
         states = len(self.traindata[0])
-        data1 = []
-        for i in range(len(self.traindata)):
-            v = self.traindata[i]
-            #print(v)
-            data1.append(v)
-
-        X = np.array(data1[:-1]).T
+        X = np.array(self.traindata[:-1]).T
         Y = np.array(self.traindata[1:]).T
         print("X:\n", X.shape, np.array(X))
         print("Y:\n", Y.shape, np.array(Y))

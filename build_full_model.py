@@ -41,7 +41,7 @@ independent_states = [
 
 dependent_states = [
     "airspeed",                                  # mps
-    "sin(alpha)", "sin(beta)", "abs(sin(beta))", # * qbar
+    "sin(alpha)", "sin(beta)", "abs(sin(beta))", # (* qbar)
     "p", "q", "r"                                # body rates
 ]
 
