@@ -116,30 +116,6 @@ class Simulator():
         print("alpha:", res["x"][5])
         print("beta:", res["x"][6])
 
-    # domain knowledge to do something plausible when alpha or beta
-    # get really out of bounds.
-    def velocity_check(self):
-        # buggy or bad concept? Abort!
-        return
-        alpha_q = self.state_mgr.alpha * self.state_mgr.qbar
-        beta_q = self.state_mgr.beta * self.state_mgr.qbar
-        print(alpha_q, beta_q)
-        thresh = 0.2 * (0.5 * 10**2) # ~11.5 deg @ 10 mps
-        if alpha_q > thresh:
-            af = alpha_q - thresh
-        elif alpha_q < -thresh:
-            af = alpha_q + thresh
-        else:
-            af = 0
-        self.q -= af * 0.00001
-        if beta_q > thresh:
-            bf = beta_q - thresh
-        elif beta_q < -thresh:
-            bf = beta_q + thresh
-        else:
-            bf = 0
-        self.r += bf * 0.00001
-        
     def update(self):
         state = self.state_mgr.gen_state_vector()
         #print(self.state2dict(state))
@@ -197,7 +173,6 @@ class Simulator():
         self.p = result["p"]
         self.q = result["q"]
         self.r = result["r"]
-        self.velocity_check()
         self.state_mgr.set_gyros(self.p, self.q, self.r)
 
         # update attitude
