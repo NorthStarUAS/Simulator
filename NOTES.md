@@ -1,5 +1,14 @@
 # Random Notes and Thoughts
 
+Caution: this could still be a rapidly evolving project.  Much of the
+information could be out dated.  The notes here reflect my thinking
+and best understanding on the day they were written.  For sure I am
+learning as I go.  If you see any comments here that are wildly wrong
+or misleading, please let me know so I can fix and improve the
+information.  Don't feel bad about calling me out on my mistakes.
+It's all good and helps me learn new things and make this system
+better.
+
 ## Dec 30, 2021: Nature of fitting to noisy / imperfect data
 
 We have a bunch of buckets to fit the data into.  When there is noise
