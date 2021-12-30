@@ -15,7 +15,7 @@ import numpy as np
 from scipy.optimize import least_squares
 
 from lib import quaternion
-from lib.constants import r2d
+from lib.constants import d2r, r2d
 from lib.state_mgr import StateManager
 
 class Simulator():
@@ -165,13 +165,32 @@ class Simulator():
             print("")
 
         last_qbar = self.state_mgr.qbar
-        bvx_q = result["bvx"]
-        bvy_q = result["bvy"]
-        bvz_q = result["bvz"]
-        self.bvx = bvx_q / last_qbar
-        self.bvy = bvy_q / last_qbar
-        self.bvz = bvz_q / last_qbar
-        self.airspeed_mps = sqrt( self.bvx**2 + self.bvy**2 + self.bvz**2 )
+        self.airspeed_mps = result["airspeed"]
+        s_alpha = result["sin(alpha)"] / last_qbar
+        s_beta = result["sin(beta)"] / last_qbar
+        if s_alpha > 1: s_alpha = 1
+        if s_alpha < -1: s_alpha = -1
+        if s_beta > 1: s_beta = 1
+        if s_beta < -1: s_beta = -1
+        print(s_alpha, s_beta)
+        self.state_mgr.alpha = asin(s_alpha)
+        self.state_mgr.beta = asin(s_beta)
+        max_angle = 15 * d2r
+        if self.state_mgr.alpha > max_angle: self.state_mgr.alpha = max_angle
+        if self.state_mgr.alpha < -max_angle: self.state_mgr.alpha = -max_angle
+        if self.state_mgr.beta > max_angle: self.state_mgr.beta = max_angle
+        if self.state_mgr.beta < -max_angle: self.state_mgr.beta = -max_angle
+        self.bvx = cos(self.state_mgr.alpha) * self.airspeed_mps
+        self.bvy = sin(self.state_mgr.beta) * self.airspeed_mps
+        self.bvz = sin(self.state_mgr.alpha) * self.airspeed_mps
+        #bvx_q = result["bvx"]
+        #bvy_q = result["bvy"]
+        #bvz_q = result["bvz"]
+        #self.bvx = bvx_q / last_qbar
+        #self.bvy = bvy_q / last_qbar
+        #self.bvz = bvz_q / last_qbar
+        #self.airspeed_mps = sqrt( self.bvx**2 + self.bvy**2 + self.bvz**2 )
+        
         self.state_mgr.set_airdata(self.airspeed_mps)
         self.state_mgr.set_body_velocity( self.bvx, self.bvy, self.bvz )
         
