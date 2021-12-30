@@ -38,7 +38,7 @@ simulator model.)
 This is a huge open issue with all kinds of implications and
 interrelated effects.  This is just my current thinking on the matter.
 
-* We need to select parameters that we can directly measure, or
+* We need to select parameters that we can directly measure or
 estimate with a reasonable expectation of mostly Gaussian error
 characteristics.
 
@@ -90,7 +90,9 @@ approximate the body accelerations (without gravity) by:
 
     body_accels = (body_velocity - last_body_velocity) / dt
 
-Lift: Now we can estimate lift.
+Lift: Now we can estimate lift (note that negative body acceleration
+is "up" due to the coordinate system used, and measured gravity at
+zero ned acceleration is -9.81.)
 
     lift = -body_accel_Z - body_gravity_Z
 
@@ -100,18 +102,26 @@ velocity^2 * 0.5) and wing area to compute lift.  In our case we can
 compute lifting force directly with our mass and air density
 normalized to a value of 1 to keep things simple.  This means we are
 unable to vary mass, cg, air density, etc. in the simulation and the
-aircraft will always fly as it was configured and as the air pressure
-existed on the day the test flight was performed.
+aircraft will always fly as it was configured and as the air density
+(r) existed on the day the test flight was performed.
 
 Thrust: If this already wasn't pretty crude, now comes the real hack.
 We don't have a direct way to measure thrust in our small UAVs and we
-don't have a detailed motor/prop model, but we do know the throttle
-command.  As a very crude estimate of thrust (normalized to a range of
-[0, 1] I do this:
+don't have a detailed motor/prop model we can extract directly from
+the flight data, but we do know the throttle command.  As a very crude
+estimate of thrust (normalized to a range of [0, 1] I do this:
 
     thrust = sqrt(throttle_command)
 
-Drag: Now with an estimate of thrust we can estimate drag:
+Some systems log voltagea and amps which can be used to compute watts
+which is a direct measure of the power put into the propulsion system.
+It still doesn't account for prop model, but it would fit better than
+throttle command anbd would account for voltage drop over the course
+of the flight.  For now I'm dealing with some flight logs that don't
+include this data so I'm not using that additional information.
+
+Drag: Now with an estimate of thrust we can estimate drag.  Note that
+drag must balance both gravity and thrust in the aircraft X axis:
 
     drag = body_accel_X + body_gravity_X - thrust
 
