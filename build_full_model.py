@@ -40,9 +40,9 @@ independent_states = [
 ]
 
 dependent_states = [
-    "airspeed", "sin(alpha)", "sin(beta)", "abs(sin(beta))",
-    #"bvx", "bvy", "bvz",        # body frame velocities (* qbar)
-    "p", "q", "r"               # body rates
+    "airspeed",                                  # mps
+    "sin(alpha)", "sin(beta)", "abs(sin(beta))", # * qbar
+    "p", "q", "r"                                # body rates
 ]
 
 state_names = independent_states + dependent_states
