@@ -31,15 +31,17 @@ args = parser.parse_args()
 sysid = SystemIdentification()
 
 independent_states = [
-    "sqrt(throttle)",           # a very approximate throttle vs. thrust curve
     "aileron", "abs(aileron)",
     "elevator",
     "rudder", "abs(rudder)",    # flight controls (* qbar)
-    "bgx", "bgy", "bgz"         # gravity rotated into body frame
+    "lift", "drag", "thrust",   # (based on throttle, body accel, and body g)
+    "bgx", "bgy", "bgz",         # gravity rotated into body frame
+    "bay"         # lateral accel in body frame (lift & drag already include bax, baz)
 ]
 
 dependent_states = [
-    "bvx", "bvy", "bvz",        # body frame velocities (* qbar)
+    "airspeed", "sin(alpha)", "sin(beta)", "abs(sin(beta))",
+    #"bvx", "bvy", "bvz",        # body frame velocities (* qbar)
     "p", "q", "r"               # body rates
 ]
 
@@ -87,6 +89,8 @@ actpt = {}
 airpt = {}
 navpt = {}
 g = np.array( [ 0, 0, -9.81 ] )
+
+coeff = []
 
 # iterate through the flight data log, cherry pick the selected parameters
 iter = flight_interp.IterateGroup(data)
@@ -140,6 +144,15 @@ for i in tqdm(range(iter.size())):
         state = sysid.state_mgr.gen_state_vector()
         #print(sysid.state_mgr.state2dict(state))
         sysid.add_state_vec(state)
+        coeff.append( [sysid.state_mgr.alpha, sysid.state_mgr.Cl, sysid.state_mgr.Cd] )
+
+coeff = np.array(coeff)
+print("Cd = %.4f" % np.mean(coeff[:,2]))
+plt.figure()
+plt.plot(coeff[:,0], coeff[:,1], '*', label="alpha vs. Cl")
+plt.plot(coeff[:,0], coeff[:,2], '*', label="alpha vs. Cd")
+plt.legend()
+plt.show()
 
 states = len(sysid.traindata[0])
 print("Number of states:", len(sysid.traindata[0]))
