@@ -153,8 +153,7 @@ class SystemIdentification():
                 params[i]["formula"] += self.state_mgr.state_list[j] + " %.1f%%" % abs(perc)
             print(params[i]["formula"])
             
-        # report leading contributions of each state to each dependent
-        # state
+        # report leading contributions of each state to each dependent state
         for i in range(states):
             #print(self.state_names[i])
             col = self.A[:,i]
@@ -187,10 +186,10 @@ class SystemIdentification():
             print(self.state_mgr.state_list[i], "correlates to:", params[i]["correlates to"])
                 
     def save(self, model_name, dt):
-        # we ask for the data delta t at this point to save it with
-        # the state transition matrix, A.  Later it's important to
-        # know the input data dt when estimating future states for
-        # simulation, system integrity, flight control, etc.
+        # the median delta t from the data log is important to include
+        # with the state transition matrix because the state
+        # transition matrix coefficients assume this value for
+        # realtime performance.
         
         self.model["dt"] = dt
         self.model["A"] = self.A.tolist()
