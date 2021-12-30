@@ -19,7 +19,7 @@ from tqdm import tqdm
 
 from rcUAS_flightdata import flight_loader, flight_interp
 
-from lib.constants import d2r, kt2mps
+from lib.constants import d2r, r2d, kt2mps
 from lib.system_id import SystemIdentification
 
 # command line arguments
@@ -35,8 +35,8 @@ independent_states = [
     "elevator",
     "rudder", "abs(rudder)",    # flight controls (* qbar)
     "lift", "drag", "thrust",   # (based on throttle, body accel, and body g)
-    "bgx", "bgy", "bgz",         # gravity rotated into body frame
-    "bay"         # lateral accel in body frame (lift & drag already include bax, baz)
+    "bgx", "bgy", "bgz",        # gravity rotated into body frame
+    "bay"                       # lateral accel in body frame (lift & drag already include bax, baz)
 ]
 
 dependent_states = [
@@ -144,15 +144,42 @@ for i in tqdm(range(iter.size())):
         state = sysid.state_mgr.gen_state_vector()
         #print(sysid.state_mgr.state2dict(state))
         sysid.add_state_vec(state)
-        coeff.append( [sysid.state_mgr.alpha, sysid.state_mgr.Cl, sysid.state_mgr.Cd] )
+        coeff.append( [sysid.state_mgr.alpha*r2d, sysid.state_mgr.Cl, sysid.state_mgr.Cd] )
 
-coeff = np.array(coeff)
-print("Cd = %.4f" % np.mean(coeff[:,2]))
-plt.figure()
-plt.plot(coeff[:,0], coeff[:,1], '*', label="alpha vs. Cl")
-plt.plot(coeff[:,0], coeff[:,2], '*', label="alpha vs. Cd")
-plt.legend()
-plt.show()
+if True:
+    coeff = np.array(coeff)
+    # print("Cd = %.4f" % np.mean(coeff[:,2]))
+    # plt.figure()
+    # plt.plot(coeff[:,0], coeff[:,1], '*', label="alpha vs. Cl")
+    # plt.plot(coeff[:,0], coeff[:,2], '*', label="alpha vs. Cd")
+    # plt.legend()
+    # plt.show()
+
+    #min = np.min(coeff[:,0])
+    #max = np.max(coeff[:,0])
+    #print(min, max)
+    num_bins = 25
+    bins = np.linspace(-5, 20, num_bins+1)
+    print(bins)
+
+    bin_indices = np.digitize( coeff[:,0], bins )
+
+    d1 = []
+    for i in range(num_bins):
+        bin = i + 1
+        cl_mean = np.mean(coeff[bin_indices==i+1,1])
+        cd_mean = np.mean(coeff[bin_indices==i+1,2])
+        if not np.isnan(cl_mean):
+            pt = 0.5 * (bins[i] + bins[i+1])
+            print( i, pt, cl_mean, cd_mean )
+            d1.append( [pt, cl_mean, cd_mean] )
+    d1 = np.array(d1)
+    plt.figure()
+    plt.plot(d1[:,0], d1[:,1], label="alpha (deg) vs. Cl")
+    plt.plot(d1[:,0], d1[:,2], label="alpha (deg) vs. Cd")
+    plt.plot(d1[:,0], d1[:,1]/d1[:,2], label="alpha (deg) vs. Cl/Cd")
+    plt.legend()
+    plt.show()
 
 states = len(sysid.traindata[0])
 print("Number of states:", len(sysid.traindata[0]))
