@@ -18,6 +18,11 @@ class StateManager():
         self.we_filt = 0
         self.wd_filt = 0
         self.qbar = 0
+        self.lift = 0
+        self.Cl = 0
+        self.drag = 0
+        self.Cd = 0
+        self.thrust = 0
         self.alpha = 0
         self.beta = 0
         self.flying = False
@@ -25,6 +30,8 @@ class StateManager():
         self.g_body = np.array( [0.0, 0.0, 0.0] )
         self.v_ned = np.array( [0.0, 0.0, 0.0] )
         self.v_body = np.array( [0.0, 0.0, 0.0] )
+        self.v_body_last = None
+        self.a_body = np.array( [0.0, 0.0, 0.0] )
 
     def set_state_names(self, ind_states, dep_states):
         self.ind_states = ind_states
@@ -52,6 +59,7 @@ class StateManager():
         self.throttle = throttle
         if self.throttle < 0: self.throttle = 0
         if self.throttle > 1: self.throttle = 1
+        self.thrust = sqrt(self.throttle)
         
     def set_flight_surfaces(self, aileron, elevator, rudder):
         self.aileron = aileron
@@ -100,7 +108,7 @@ class StateManager():
         if not self.flying and gs_mps > 10 and self.airspeed_mps > 7:
             print("Start flying @ %.2f" % self.time)
             self.flying = True
-        elif self.flying and gs_mps < 5 and self.airspeed_mps < 3:
+        elif self.flying and gs_mps < 5 and self.airspeed_mps < 5:
             print("Stop flying @ %.2f" % self.time)
             self.flying = False
         return self.flying
@@ -122,18 +130,38 @@ class StateManager():
             self.v_body = quaternion.transform(ned2body, self.v_ned)
             #print(" ", self.v_body)
 
-        # compute alpha and beta from body frame velocity
-        self.alpha = atan2( self.v_body[2], self.v_body[0] )
-        self.beta = atan2( -self.v_body[1], self.v_body[0] )
-        #print("v(body):", v_body, "alpha = %.1f" % (self.alpha/d2r), "beta = %.1f" % (self.beta/d2r))
+        if self.v_body_last is None:
+            self.v_body_last = self.v_body.copy()
+        if not np.array_equal(self.v_body, self.v_body_last):
+            self.a_body = (self.v_body - self.v_body_last) / self.dt
+            #print(self.v_body, self.v_body_last, self.a_body)
+            self.v_body_last = self.v_body.copy()
+
+        if body_vel:
+            # compute alpha and beta from body frame velocity
+            self.alpha = atan2( self.v_body[2], self.v_body[0] )
+            self.beta = atan2( -self.v_body[1], self.v_body[0] )
+            #print("v(body):", v_body, "alpha = %.1f" % (self.alpha/d2r), "beta = %.1f" % (self.beta/d2r))
+        
+        # lift and drag estimates
+        self.drag = self.a_body[0] + self.g_body[0] - self.thrust
+        if self.qbar > 10:
+            self.Cd = self.drag / self.qbar
+        else:
+            self.Cd = 0
+        self.lift = -self.a_body[2] - self.g_body[2]
+        if self.qbar > 10:
+            self.Cl = self.lift / self.qbar
+        else:
+            self.Cl = 0
+        #print(" ", self.g_body, self.lift)
+        
 
     def gen_state_vector(self):
         result = []
         for field in self.state_list:
             if field == "throttle":
                 result.append( self.throttle )
-            elif field == "sqrt(throttle)":
-                result.append( sqrt(self.throttle) )
             elif field == "aileron":
                 result.append( self.aileron * self.qbar )
             elif field == "abs(aileron)":
@@ -144,16 +172,32 @@ class StateManager():
                 result.append( self.rudder * self.qbar )
             elif field == "abs(rudder)":
                 result.append( abs(self.rudder * self.qbar) )
+            elif field == "lift":
+                result.append( self.lift )
+            elif field == "drag":
+                result.append( self.drag )
+            elif field == "thrust":
+                result.append( self.thrust )
             elif field == "bgx":
                 result.append( self.g_body[0] )
             elif field == "bgy":
                 result.append( self.g_body[1] )
             elif field == "bgz":
                 result.append( self.g_body[2] )
+            elif field == "bax":
+                result.append( self.a_body[0] )
+            elif field == "bay":
+                result.append( self.a_body[1] )
+            elif field == "baz":
+                result.append( self.a_body[2] )
+            elif field == "airspeed":
+                result.append( self.airspeed_mps )
             elif field == "sin(alpha)":
                 result.append( sin(self.alpha) * self.qbar )
             elif field == "sin(beta)":
                 result.append( sin(self.beta) * self.qbar )
+            elif field == "abs(sin(beta))":
+                result.append( abs(sin(self.beta)) * self.qbar )
             elif field == "bvx":
                 result.append( self.v_body[0] * self.qbar )
             elif field == "bvy":
