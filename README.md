@@ -43,8 +43,8 @@ lines of numpy code.
 For fluids people, the initial construction of this process is
 identical to Dynamic Mode Decomposition, except here we want to solve
 for the actual **A** matrix.  DMD uses additional simplifications
-because it is primarily concerned with finding the eigenvalues and
-eigenvectors of the **A** matrix.
+because it is primarily concerned with finding the leading eigenvalues
+and eigenvectors of the **A** matrix.
 
 ## States
 
