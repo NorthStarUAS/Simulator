@@ -129,6 +129,7 @@ class Simulator():
         #print()
 
         if False:
+            # debug
             idx_list = self.state_mgr.get_state_index( ["r"] )
             row = self.A[idx_list[0],:]
             print("r = ", end="")
@@ -144,6 +145,8 @@ class Simulator():
         self.airspeed_mps = result["airspeed"]
         s_alpha = result["sin(alpha)"] / last_qbar
         s_beta = result["sin(beta)"] / last_qbar
+        
+        # protect against our linear state transtion going out of domain bounds
         if s_alpha > 1: s_alpha = 1
         if s_alpha < -1: s_alpha = -1
         if s_beta > 1: s_beta = 1
@@ -151,6 +154,9 @@ class Simulator():
         print(s_alpha, s_beta)
         self.state_mgr.alpha = asin(s_alpha)
         self.state_mgr.beta = asin(s_beta)
+        
+        # protect against alpha/beta exceeding plausible thresholds
+        # for normal flight conditions
         max_angle = 15 * d2r
         if self.state_mgr.alpha > max_angle: self.state_mgr.alpha = max_angle
         if self.state_mgr.alpha < -max_angle: self.state_mgr.alpha = -max_angle
@@ -159,14 +165,6 @@ class Simulator():
         self.bvx = cos(self.state_mgr.alpha) * self.airspeed_mps
         self.bvy = sin(self.state_mgr.beta) * self.airspeed_mps
         self.bvz = sin(self.state_mgr.alpha) * self.airspeed_mps
-        #bvx_q = result["bvx"]
-        #bvy_q = result["bvy"]
-        #bvz_q = result["bvz"]
-        #self.bvx = bvx_q / last_qbar
-        #self.bvy = bvy_q / last_qbar
-        #self.bvz = bvz_q / last_qbar
-        #self.airspeed_mps = sqrt( self.bvx**2 + self.bvy**2 + self.bvz**2 )
-        
         self.state_mgr.set_airdata(self.airspeed_mps)
         self.state_mgr.set_body_velocity( self.bvx, self.bvy, self.bvz )
         
