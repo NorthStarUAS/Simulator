@@ -79,11 +79,14 @@ class SystemIdentification():
         print("dask svd...")
         daX = da.from_array(X, chunks=(X.shape[0], 10000)).persist()
         u, s, vh = da.linalg.svd(daX)
-        print("u:\n", u.shape, u)
-        print("s:\n", s.shape, s)
-        print("vh:\n", vh.shape, vh)
-        Xr = (u * s) @ vh[:states, :]
-        #print( "dask close?", np.allclose(X, Xr.compute()) )
+        
+        if True:
+            # debug and sanity check
+            print("u:\n", u.shape, u)
+            print("s:\n", s.shape, s)
+            print("vh:\n", vh.shape, vh)
+            Xr = (u * s) @ vh[:states, :]
+            print( "dask svd close?", np.allclose(X, Xr.compute()) )
 
         # after algebraic manipulation
         #
