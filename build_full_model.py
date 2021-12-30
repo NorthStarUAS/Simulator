@@ -23,7 +23,7 @@ from lib.constants import d2r, kt2mps
 from lib.system_id import SystemIdentification
 
 # command line arguments
-parser = argparse.ArgumentParser(description="nav filter")
+parser = argparse.ArgumentParser(description="build full model")
 parser.add_argument("flight", help="flight data log")
 parser.add_argument("--write", required=True, help="write model file name")
 args = parser.parse_args()

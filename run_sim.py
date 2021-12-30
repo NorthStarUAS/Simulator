@@ -18,7 +18,7 @@ from lib import joystick
 from lib.simulator import Simulator
 
 # command line arguments
-parser = argparse.ArgumentParser(description="simulation front end")
+parser = argparse.ArgumentParser(description="run the simulation")
 parser.add_argument("model", help="flight model")
 parser.add_argument('--realtime', action='store_true', help='run sim in realtime')
 parser.add_argument('--no-trim', action='store_true', help="don't trim")
