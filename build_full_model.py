@@ -144,22 +144,14 @@ for i in tqdm(range(iter.size())):
         state = sysid.state_mgr.gen_state_vector()
         #print(sysid.state_mgr.state2dict(state))
         sysid.add_state_vec(state)
-        coeff.append( [sysid.state_mgr.alpha*r2d, sysid.state_mgr.Cl, sysid.state_mgr.Cd] )
+        coeff.append( [sysid.state_mgr.alpha*r2d, sysid.state_mgr.Cl, sysid.state_mgr.Cd, sysid.state_mgr.airspeed_mps, sysid.state_mgr.drag] )
 
 if True:
     coeff = np.array(coeff)
-    # print("Cd = %.4f" % np.mean(coeff[:,2]))
-    # plt.figure()
-    # plt.plot(coeff[:,0], coeff[:,1], '*', label="alpha vs. Cl")
-    # plt.plot(coeff[:,0], coeff[:,2], '*', label="alpha vs. Cd")
-    # plt.legend()
-    # plt.show()
 
-    #min = np.min(coeff[:,0])
-    #max = np.max(coeff[:,0])
-    #print(min, max)
+    # alpha vs Cl, Cd plot
     num_bins = 25
-    bins = np.linspace(-5, 20, num_bins+1)
+    bins = np.linspace(-5, 20, num_bins+1) # alpha range
     print(bins)
 
     bin_indices = np.digitize( coeff[:,0], bins )
@@ -175,9 +167,30 @@ if True:
             d1.append( [pt, cl_mean, cd_mean] )
     d1 = np.array(d1)
     plt.figure()
-    plt.plot(d1[:,0], d1[:,1], label="alpha (deg) vs. Cl")
-    plt.plot(d1[:,0], d1[:,2], label="alpha (deg) vs. Cd")
-    plt.plot(d1[:,0], d1[:,1]/d1[:,2], label="alpha (deg) vs. Cl/Cd")
+    plt.plot(d1[:,0], d1[:,1], label="Cl vs. alpha (deg)")
+    plt.xlabel("alpha (deg)")
+    plt.legend()
+    
+    # asi vs drag
+    num_bins = 25
+    max = np.max(coeff[:,3])
+    bins = np.linspace(0, max, num_bins+1) # alpha range
+    print(bins)
+
+    bin_indices = np.digitize( coeff[:,3], bins )
+
+    d1 = []
+    for i in range(num_bins):
+        bin = i + 1
+        drag_mean = np.mean(coeff[bin_indices==i+1,4])
+        if not np.isnan(drag_mean):
+            pt = 0.5 * (bins[i] + bins[i+1])
+            print( i, pt, drag_mean )
+            d1.append( [pt, drag_mean] )
+    d1 = np.array(d1)
+    plt.figure()
+    plt.plot(d1[:,0], d1[:,1], label="airspeed vs drag")
+    plt.xlabel("airspeed (mps)")
     plt.legend()
     plt.show()
 
@@ -229,5 +242,5 @@ for j in index_list:
     plt.plot(np.array(sysid.traindata).T[j,:], label="%s (orig)" % state_names[j])
     plt.plot(Ypred[j,:], label="%s (pred)" % state_names[j])
     plt.legend()
-    plt.show()
+plt.show()
 
