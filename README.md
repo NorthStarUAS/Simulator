@@ -22,8 +22,8 @@ except the last step: (i = 0 to n-1) into a giant matrix called **X**.
 Next do the same thing with the same state vectors except drop the
 first vector and include the last one (i = 1 to n).  Call this matrix
 **Y**.  Now **Y** contains the same state data as **X**, just shifted
-over by one position in time.  **X** and **Y** have the same
-dimensions.
+over by one position in time.  Think: **X** contains all the current
+states and **Y** contains all the next states.
 
 Now form a simple matrix algebra equation **Y = A * X**
 
