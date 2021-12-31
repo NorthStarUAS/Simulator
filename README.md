@@ -57,9 +57,9 @@ expect.
   surface positions) -- these are multiplied by qbar so their
   effectiveness is scaled with airspeed.
 * Lift (estimated from body frame Z acceleration and body frame
-  gravity vector Z component)
-* Thrust (crudely estimated as sqrt(throttle) command)
-* Drag (estimated from thrust value, body frame X accleration and body
+  gravity vector Z component.)
+* Thrust (crudely estimated as sqrt(throttle) command.)
+* Drag (estimated from thrust, body frame X acceleration and body
   frame gravity vector X component)
 * The gravity vector is rotated into the body frame of reference and
   has X (out the nose), Y (out the right wing), and Z (down)
