@@ -53,28 +53,31 @@ expect.
 
 ### Independent states
 
-* Throttle command -- we use sqrt(throttle) to crudely approximate a
-  thrust curve.
 * Aileron, Elevator, Rudder commands (approximation of the control
   surface positions) -- these are multiplied by qbar so their
   effectiveness is scaled with airspeed.
-* The gravity vector rotated into the body frame of reference.  This
-  requires an estimate of the roll and pitch Euler angles which we
-  typically have on any small uav running an EKF.  The body frame
-  gravity vector is used instead of roll and pitch angles.
+* Lift (estimated from body frame Z acceleration and body frame
+  gravity vector Z component)
+* Thrust (crudely estimated as sqrt(throttle) command)
+* Drag (estimated from thrust value, body frame X accleration and body
+  frame gravity vector X component)
+* The gravity vector is rotated into the body frame of reference and
+  has X (out the nose), Y (out the right wing), and Z (down)
+  components.  The X and Z components show up in the drag and lift
+  estimates.  The Y component of the gravity vector is included
+  directly.
 
 ### Dependent states
 
-* X, Y, and Z velocities in the body frame of reference.  These can be
-  computed from the (wind corrected) NED velocity rotated into the
-  body frame.  These are also multiplied by qbar so that angle of
-  attack, side-slip, and drag effects scale properly with airspeed.
+* Airspeed.
+* Alpha (angle of attack)
+* Beta (side slip angle)
 * Rotational rates (p, q, r)
 
-That's it, that is all it is!  Well, we additionally include abs(rudder)
-and abs(aileron) to consider their non-directional effects.  In the
-current form, the **A** matrix dimensions are 16x16.  With this matrix
-we can predict any next state from any current state.
+That's it, that is pretty much all it is!  By learning how to predict
+the next value of these states given the current values we can build a
+representative flight dynamics model of the original aircraft
+(including many of it's asymmetries and idiosyncracies.)
 
 ## Simulation
 
