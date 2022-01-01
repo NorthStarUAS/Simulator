@@ -6,9 +6,15 @@ import struct
 
 from lib.constants import mps2kt, r2d
 
+# KANE
 lat_deg = 45.13841697
 lon_deg = -93.2101002
 altitude_m = 400.0
+
+#64S
+lat_deg = 42.744
+lon_deg = -122.487
+altitude_m = 900
 
 port = 6504
 ip = "127.0.0.1"
