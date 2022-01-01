@@ -157,7 +157,7 @@ class Simulator():
         
         # protect against alpha/beta exceeding plausible thresholds
         # for normal flight conditions
-        max_angle = 15 * d2r
+        max_angle = 25 * d2r
         if self.state_mgr.alpha > max_angle: self.state_mgr.alpha = max_angle
         if self.state_mgr.alpha < -max_angle: self.state_mgr.alpha = -max_angle
         if self.state_mgr.beta > max_angle: self.state_mgr.beta = max_angle
