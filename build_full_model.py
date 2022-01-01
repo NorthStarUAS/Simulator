@@ -140,7 +140,7 @@ for i in tqdm(range(iter.size())):
         gpspt = record["gps"]
 
     if sysid.state_mgr.is_flying():
-        sysid.state_mgr.compute_body_frame_values(body_vel=True)
+        sysid.state_mgr.compute_body_frame_values(compute_body_vel=True)
         state = sysid.state_mgr.gen_state_vector()
         #print(sysid.state_mgr.state2dict(state))
         sysid.add_state_vec(state)
