@@ -181,7 +181,7 @@ class Simulator():
         self.phi_rad, self.the_rad, self.psi_rad = quaternion.quat2eul(self.ned2body)
         self.state_mgr.set_orientation(self.phi_rad, self.the_rad, self.psi_rad)
 
-        self.state_mgr.compute_body_frame_values(body_vel=False)
+        self.state_mgr.compute_body_frame_values(compute_body_vel=False)
         
         # velocity in ned frame
         self.vel_ned = quaternion.backTransform( self.ned2body,

@@ -59,7 +59,9 @@ class StateManager():
         self.throttle = throttle
         if self.throttle < 0: self.throttle = 0
         if self.throttle > 1: self.throttle = 1
-        self.thrust = sqrt(self.throttle)
+        # max thrust is 0.75 gravity, so we can't quite hover on full power
+        self.thrust = sqrt(self.throttle) * 0.75 * abs(gravity)
+        print(self.thrust)
         
     def set_flight_surfaces(self, aileron, elevator, rudder):
         self.aileron = aileron
@@ -113,7 +115,7 @@ class StateManager():
             self.flying = False
         return self.flying
 
-    def compute_body_frame_values(self, body_vel=True):
+    def compute_body_frame_values(self, compute_body_vel=True):
         if self.dt is None:
             print("Did you forget to set dt for this system?")
             return None
@@ -125,11 +127,17 @@ class StateManager():
         # rotate ned gravity vector into body frame
         self.g_body = quaternion.transform(ned2body, self.g_ned)
         
-        if body_vel:
+        if compute_body_vel:
             # rotate ned velocity vector into body frame
             self.v_body = quaternion.transform(ned2body, self.v_ned)
             #print(" ", self.v_body)
+            
+            # compute alpha and beta from body frame velocity
+            self.alpha = atan2( self.v_body[2], self.v_body[0] )
+            self.beta = atan2( -self.v_body[1], self.v_body[0] )
+            #print("v(body):", v_body, "alpha = %.1f" % (self.alpha/d2r), "beta = %.1f" % (self.beta/d2r))
 
+        # compute acceleration in the body frame
         if self.v_body_last is None:
             self.v_body_last = self.v_body.copy()
         if not np.array_equal(self.v_body, self.v_body_last):
@@ -137,18 +145,19 @@ class StateManager():
             #print(self.v_body, self.v_body_last, self.a_body)
             self.v_body_last = self.v_body.copy()
 
-        if body_vel:
-            # compute alpha and beta from body frame velocity
-            self.alpha = atan2( self.v_body[2], self.v_body[0] )
-            self.beta = atan2( -self.v_body[1], self.v_body[0] )
-            #print("v(body):", v_body, "alpha = %.1f" % (self.alpha/d2r), "beta = %.1f" % (self.beta/d2r))
-        
         # lift and drag estimates
-        self.drag = self.a_body[0] + self.g_body[0] - self.thrust
+
+        # is my math correct here? (for drag need grav & body_accel in
+        # flight path frame of reference ... I think.
+        
+        self.drag = (self.thrust - self.g_body[0]) - self.a_body[0]
         if self.qbar > 10:
             self.Cd = self.drag / self.qbar
         else:
             self.Cd = 0
+
+        # do I need to think through lift frame of reference here too?
+        
         self.lift = -self.a_body[2] - self.g_body[2]
         if self.qbar > 10:
             self.Cl = self.lift / self.qbar
