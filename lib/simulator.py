@@ -78,25 +78,29 @@ class Simulator():
 
     def trim_error(self, xk):
         self.state_mgr.set_throttle( xk[0] )
-        self.state_mgr.set_flight_surfaces(xk[1], xk[2], 0)
-        self.state_mgr.set_orientation(xk[3], xk[4], 0)
+        self.state_mgr.set_flight_surfaces(xk[1], xk[2], xk[3])
+        self.state_mgr.set_orientation(xk[4], xk[5], 0)
+        self.state_mgr.alpha = xk[5]
         self.state_mgr.set_airdata(self.trim_airspeed_mps)
         self.state_mgr.set_wind(0.0, 0.0)
         self.state_mgr.set_gyros(0.0, 0.0, 0.0)
-        self.state_mgr.set_ned_velocity(self.trim_airspeed_mps, 0.0, 0.0)
-        self.state_mgr.compute_body_frame_values(body_vel=False)
+        self.state_mgr.set_ned_velocity(self.trim_airspeed_mps, 0.0, 0.0,
+                                        0.0, 0.0, 0.0)
+        self.state_mgr.compute_body_frame_values(compute_body_vel=False)
         state = self.state_mgr.gen_state_vector()
         next = self.A @ state
         current = self.state_mgr.state2dict(state)
         result = self.state_mgr.state2dict(next)
+        print(result)
         errors = []
-        next_asi = result["qbar"]
+        next_asi = result["airspeed"]
         if next_asi < 0: next_asi = 0
-        errors.append(self.trim_airspeed_mps - sqrt(next_asi))
-        #errors.append(xk[4] - self.state_mgr.alpha)
-        #errors.append(current["bvx"] - result["bvx"])
-        #errors.append(current["bvy"] - result["bvy"])
-        #errors.append(current["bvz"] - result["bvz"])
+        errors.append(self.trim_airspeed_mps - next_asi)
+        #errors.append(result["lift"] - result["bgz"])
+        errors.append(result["thrust"] - result["drag"])
+        errors.append(result["bax"])
+        errors.append(result["bay"])
+        errors.append(result["baz"])
         errors.append(result["p"])
         errors.append(result["q"])
         errors.append(result["r"])
@@ -105,16 +109,15 @@ class Simulator():
     
     def trim(self, airspeed_mps):
         self.trim_airspeed_mps = airspeed_mps
-        initial = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        initial = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
         res = least_squares(self.trim_error, initial, verbose=2)
         print("res:", res)
         print("throttle:", res["x"][0])
         print("aileron:", res["x"][1])
         print("elevator:", res["x"][2])
+        print("rudder:", res["x"][3])
         print("phi:", res["x"][3])
         print("theta:", res["x"][4])
-        print("alpha:", res["x"][5])
-        print("beta:", res["x"][6])
 
     def update(self):
         state = self.state_mgr.gen_state_vector()
@@ -151,7 +154,7 @@ class Simulator():
         if s_alpha < -1: s_alpha = -1
         if s_beta > 1: s_beta = 1
         if s_beta < -1: s_beta = -1
-        print(s_alpha, s_beta)
+        #print(s_alpha, s_beta)
         self.state_mgr.alpha = asin(s_alpha)
         self.state_mgr.beta = asin(s_beta)
         
@@ -235,10 +238,5 @@ class Simulator():
         plt.legend()
         plt.figure()
         plt.plot( self.data[:,0], self.data[:,19], label="Pos 'down' (m)" )
-        plt.legend()
-        plt.figure()
-        plt.plot( self.data[:,0], self.data[:,20], label="Vel 'north' (m)" )
-        plt.plot( self.data[:,0], self.data[:,21], label="Vel 'east' (m)" )
-        plt.plot( self.data[:,0], self.data[:,22], label="Vel 'down' (m)" )
         plt.legend()
         plt.show()

@@ -24,7 +24,7 @@ parser.add_argument('--realtime', action='store_true', help='run sim in realtime
 parser.add_argument('--no-trim', action='store_true', help="don't trim")
 args = parser.parse_args()
 
-run_time = 1000
+run_time = 60
 
 sim = Simulator()
 sim.load(args.model)
