@@ -28,10 +28,16 @@ class StateManager():
         self.flying = False
         self.g_ned = np.array( [0.0, 0.0, gravity] )
         self.g_body = np.array( [0.0, 0.0, 0.0] )
+        self.g_flow = np.array( [0.0, 0.0, 0.0] )
         self.v_ned = np.array( [0.0, 0.0, 0.0] )
         self.v_body = np.array( [0.0, 0.0, 0.0] )
         self.v_body_last = None
+        self.v_flow = np.array( [0.0, 0.0, 0.0] )
+        self.v_flow_last = None
         self.a_body = np.array( [0.0, 0.0, 0.0] )
+        self.a_flow = np.array( [0.0, 0.0, 0.0] )
+        self.update_count = 0
+        self.last_update_count = 0
 
     def set_state_names(self, ind_states, dep_states):
         self.ind_states = ind_states
@@ -61,7 +67,6 @@ class StateManager():
         if self.throttle > 1: self.throttle = 1
         # max thrust is 0.75 gravity, so we can't quite hover on full power
         self.thrust = sqrt(self.throttle) * 0.75 * abs(gravity)
-        print(self.thrust)
         
     def set_flight_surfaces(self, aileron, elevator, rudder):
         self.aileron = aileron
@@ -115,7 +120,9 @@ class StateManager():
             self.flying = False
         return self.flying
 
+    # compute body (AND FLOW) frame of reference values
     def compute_body_frame_values(self, compute_body_vel=True):
+        self.update_count += 1
         if self.dt is None:
             print("Did you forget to set dt for this system?")
             return None
@@ -124,33 +131,59 @@ class StateManager():
         ned2body = quaternion.eul2quat( self.phi_rad, self.the_rad,
                                         self.psi_rad )
 
-        # rotate ned gravity vector into body frame
-        self.g_body = quaternion.transform(ned2body, self.g_ned)
-        
         if compute_body_vel:
             # rotate ned velocity vector into body frame
             self.v_body = quaternion.transform(ned2body, self.v_ned)
-            #print(" ", self.v_body)
+            #print("v_ned:", self.v_ned, np.linalg.norm(self.v_ned),
+            #      "v_body:", self.v_body, np.linalg.norm(self.v_body))
             
             # compute alpha and beta from body frame velocity
             self.alpha = atan2( self.v_body[2], self.v_body[0] )
             self.beta = atan2( -self.v_body[1], self.v_body[0] )
             #print("v(body):", v_body, "alpha = %.1f" % (self.alpha/d2r), "beta = %.1f" % (self.beta/d2r))
 
+        # compute flow frame of reference and velocity
+        body2flow = quaternion.eul2quat(0.0, -self.alpha, -self.beta)
+        ned2flow = quaternion.multiply(ned2body, body2flow)
+        #fphi, fthe, fpsi = quaternion.quat2eul(ned2flow)
+        #print("alpha: %.1f" % (self.alpha*r2d), "beta: %.1f" % (self.beta*r2d))
+        #print(" body (deg): %.1f %.1f %.1f" % (self.phi_rad*r2d, self.the_rad*r2d, self.psi_rad*r2d))
+        #print(" flow (deg): %.1f %.1f %.1f" % (fphi*r2d, fthe*r2d, fpsi*r2d))
+        self.v_flow = quaternion.transform(ned2flow, self.v_ned)
+        
         # compute acceleration in the body frame
         if self.v_body_last is None:
             self.v_body_last = self.v_body.copy()
         if not np.array_equal(self.v_body, self.v_body_last):
-            self.a_body = (self.v_body - self.v_body_last) / self.dt
-            #print(self.v_body, self.v_body_last, self.a_body)
+            dt = self.dt * (self.update_count - self.last_update_count)
+            self.a_body = (self.v_body - self.v_body_last) / dt
+            #print(self.update_count, "body:", self.v_body, self.v_body_last, self.a_body)
             self.v_body_last = self.v_body.copy()
+            #print("a_body norm1: ", np.linalg.norm(self.a_body))
+            
+        # compute acceleration in the flow frame
+        if self.v_flow_last is None:
+            self.v_flow_last = self.v_flow.copy()
+        if not np.array_equal(self.v_flow, self.v_flow_last):
+            dt = self.dt * (self.update_count - self.last_update_count)
+            self.a_flow = (self.v_flow - self.v_flow_last) / dt
+            #print(self.update_count, "flow:", self.v_flow, self.v_flow_last, self.a_flow)
+            self.v_flow_last = self.v_flow.copy()
+            #print("a_flow norm1: ", np.linalg.norm(self.a_flow))
+            self.last_update_count = self.update_count
+            
+        # lift, drag, and weight vector estimates
 
-        # lift and drag estimates
+        # rotate ned gravity vector into body frame
+        self.g_body = quaternion.transform(ned2body, self.g_ned)
 
+        # rotate ned gravity vector into flow frame
+        self.g_flow = quaternion.transform(ned2flow, self.g_ned)
+        
         # is my math correct here? (for drag need grav & body_accel in
         # flight path frame of reference ... I think.
         
-        self.drag = (self.thrust - self.g_body[0]) - self.a_body[0]
+        self.drag = (self.thrust - self.g_flow[0]) - self.a_flow[0]
         if self.qbar > 10:
             self.Cd = self.drag / self.qbar
         else:
@@ -158,12 +191,12 @@ class StateManager():
 
         # do I need to think through lift frame of reference here too?
         
-        self.lift = -self.a_body[2] - self.g_body[2]
+        self.lift = -self.a_flow[2] - self.g_flow[2]
         if self.qbar > 10:
             self.Cl = self.lift / self.qbar
         else:
             self.Cl = 0
-        #print(" ", self.g_body, self.lift)
+        #print(" ", self.g_flow, self.lift)
         
 
     def gen_state_vector(self):
@@ -193,12 +226,24 @@ class StateManager():
                 result.append( self.g_body[1] )
             elif field == "bgz":
                 result.append( self.g_body[2] )
+            elif field == "fgx":
+                result.append( self.g_flow[0] )
+            elif field == "fgy":
+                result.append( self.g_flow[1] )
+            elif field == "fgz":
+                result.append( self.g_flow[2] )
             elif field == "bax":
                 result.append( self.a_body[0] )
             elif field == "bay":
                 result.append( self.a_body[1] )
             elif field == "baz":
                 result.append( self.a_body[2] )
+            elif field == "fax":
+                result.append( self.a_flow[0] )
+            elif field == "fay":
+                result.append( self.a_flow[1] )
+            elif field == "faz":
+                result.append( self.a_flow[2] )
             elif field == "airspeed":
                 result.append( self.airspeed_mps )
             elif field == "sin(alpha)":
