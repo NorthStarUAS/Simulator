@@ -36,7 +36,7 @@ independent_states = [
     "rudder", "abs(rudder)",    # flight controls (* qbar)
     "lift", "drag", "thrust",   # (based on throttle, body accel, and body g)
     "bgx", "bgy", "bgz",        # gravity rotated into body frame
-    "bay"                       # lateral accel in body frame (lift & drag already include bax, baz)
+    "bax", "bay", "baz"         # acceleration in body frame (no g)
 ]
 
 dependent_states = [
