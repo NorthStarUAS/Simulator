@@ -21,9 +21,10 @@ Now collect all these individual state vectors for every time step
 into a giant matrix called "training data".  Take all the training
 data except the last column: (i = 0 to n-1) and call that **X**.  Next
 do the same thing, except drop only the first column: (i = 1 to n) and
-call this matrix **Y**.  **Y** contains the same state data as **X**,
-just shifted over by one position in time.  Think: **X** contains all
-the current states and **Y** contains all the next states.
+call this matrix **Y**.  Both **X** and **Y** contain the exact same
+state data, just shifted over by one position in time.  Think: **X**
+contains all the current states and **Y** contains all the next
+states.
 
 Now form a simple matrix algebra equation **Y = A * X**
 
