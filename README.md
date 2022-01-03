@@ -18,12 +18,12 @@ Assume you have conducted a real UAV flight and logged the data.  Back
 on the ground, you scan the recorded log file and assemble a small set
 of measurable (or estimatable) states at each time step into a vector.
 Now collect all these individual state vectors for every time step
-except the last step: (i = 0 to n-1) into a giant matrix called **X**.
-Next do the same thing with the same state vectors except drop the
-first vector and include the last one (i = 1 to n).  Call this matrix
-**Y**.  Now **Y** contains the same state data as **X**, just shifted
-over by one position in time.  Think: **X** contains all the current
-states and **Y** contains all the next states.
+into a giant matrix called "training data".  Take all the training
+data except the last column: (i = 0 to n-1) and call that **X**.  Next
+do the same thing, except drop only the first column: (i = 1 to n) and
+call this matrix **Y**.  **Y** contains the same state data as **X**,
+just shifted over by one position in time.  Think: **X** contains all
+the current states and **Y** contains all the next states.
 
 Now form a simple matrix algebra equation **Y = A * X**
 
