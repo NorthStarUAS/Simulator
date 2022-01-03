@@ -45,6 +45,8 @@ computational effort.
 import dask.array as da         # dnf install python3-dask+array
 import json
 import numpy as np
+from scipy.optimize import least_squares, minimize
+from scipy.sparse import lil_matrix
 
 from lib.state_mgr import StateManager
 
@@ -57,6 +59,56 @@ class SystemIdentification():
 
     def add_state_vec(self, state_vec):
         self.traindata.append( state_vec )
+
+    def opt_err(self, xk):
+        A = xk.reshape( (self.states, self.states) )
+        Yf = A @ self.X
+        E = self.Y - Yf
+        # generate a norm value per Y matrix column (per entry would
+        # be better computationally but massively blows up our
+        # available memory)
+        error = np.linalg.norm(E, axis=0)
+        return error
+
+    def opt_compute_bounds(self, A, logical_bounds):
+        # experiment with additing domain-knowledge constraints
+        lower = np.array([-np.inf] * self.states**2)
+        upper = np.array([np.inf] * self.states**2)
+
+        for p1, p2, l, u in logical_bounds:
+            row, col = self.state_mgr.get_state_index( [p1, p2] )
+            n = self.states * row + col
+            lower[n] = l
+            upper[n] = u
+            if A[row,col] < lower[n]:
+                print("reseting A[%s,%s] from:" % (p1, p2), A[row,col], "to:", lower[n])
+                A[row,col] = lower[n]
+            if A[row,col] > upper[n]:
+                print("reseting A[%s,%s] from:" % (p1, p2), A[row,col], "to:", upper[n])
+                A[row,col] = upper[n]
+        return A, lower, upper
+    
+    def opt_fit(self, A_guess=None):
+        self.states = len(self.traindata[0])
+        self.X = np.array(self.traindata[:-1]).T
+        self.Y = np.array(self.traindata[1:]).T
+        
+        if A_guess is not None:
+            A = A_guess.copy()
+        else:
+            A = np.eye(self.states)
+
+        # experiment with additing domain-knowledge constraints
+        logical_bounds = [
+            ["airspeed", "elevator", 0, np.inf],
+            ["airspeed", "q", -np.inf, 0],
+            ["airspeed", "bax", 0, np.inf]
+        ]
+        A, lower, upper = self.opt_compute_bounds(A, logical_bounds)
+        
+        res = least_squares(self.opt_err, A.flatten(), bounds=(lower,upper), verbose=2)
+        print( res["x"].reshape((self.states, self.states)) )
+        return res["x"].reshape((self.states, self.states))
         
     def fit(self):
         states = len(self.traindata[0])
@@ -99,6 +151,13 @@ class SystemIdentification():
         print("A rank:", np.linalg.matrix_rank(self.A))
         print("A:\n", self.A.shape, self.A)
 
+        if False:
+            # for grins try an optimizer approach to see what happens,
+            # this allows us to add constraints based on domain
+            # knowledge, but it can also disrupt the delicate balance
+            # in the feedback loop between dependent parameters, so ...
+            self.A = self.opt_fit() # use I as initial guess
+        
         # compute input state parameter ranges
         self.model["parameters"] = []
         for i in range(states):

@@ -196,77 +196,93 @@ class StateManager():
             self.Cl = self.lift / self.qbar
         else:
             self.Cl = 0
-        #print(" ", self.g_flow, self.lift)
+        #print(" lift:", self.a_flow[2], self.g_flow[2], self.lift)
         
-
-    def gen_state_vector(self):
+    def gen_state_vector(self, params=None):
         result = []
-        for field in self.state_list:
+        for index, field in enumerate(self.state_list):
             if field == "throttle":
-                result.append( self.throttle )
+                val = self.throttle
             elif field == "aileron":
-                result.append( self.aileron * self.qbar )
+                val = self.aileron * self.qbar
             elif field == "abs(aileron)":
-                result.append( abs(self.aileron * self.qbar) )
+                val = abs(self.aileron * self.qbar)
             elif field == "elevator":
-                result.append( self.elevator * self.qbar )
+                val = self.elevator * self.qbar
             elif field == "rudder":
-                result.append( self.rudder * self.qbar )
+                val = self.rudder * self.qbar
             elif field == "abs(rudder)":
-                result.append( abs(self.rudder * self.qbar) )
+                val = abs(self.rudder * self.qbar)
             elif field == "lift":
-                result.append( self.lift )
+                val = self.lift
             elif field == "drag":
-                result.append( self.drag )
+                val = self.drag
             elif field == "thrust":
-                result.append( self.thrust )
+                val = self.thrust
             elif field == "bgx":
-                result.append( self.g_body[0] )
+                val = self.g_body[0]
             elif field == "bgy":
-                result.append( self.g_body[1] )
+                val = self.g_body[1]
             elif field == "bgz":
-                result.append( self.g_body[2] )
+                val = self.g_body[2]
             elif field == "fgx":
-                result.append( self.g_flow[0] )
+                val = self.g_flow[0]
             elif field == "fgy":
-                result.append( self.g_flow[1] )
+                val = self.g_flow[1]
             elif field == "fgz":
-                result.append( self.g_flow[2] )
+                val = self.g_flow[2]
             elif field == "bax":
-                result.append( self.a_body[0] )
+                val = self.a_body[0]
             elif field == "bay":
-                result.append( self.a_body[1] )
+                val = self.a_body[1]
             elif field == "baz":
-                result.append( self.a_body[2] )
+                val = self.a_body[2]
             elif field == "fax":
-                result.append( self.a_flow[0] )
+                val = self.a_flow[0]
             elif field == "fay":
-                result.append( self.a_flow[1] )
+                val = self.a_flow[1]
             elif field == "faz":
-                result.append( self.a_flow[2] )
+                val = self.a_flow[2]
             elif field == "airspeed":
-                result.append( self.airspeed_mps )
+                val = self.airspeed_mps
             elif field == "sin(alpha)":
-                result.append( sin(self.alpha) * self.qbar )
+                val = sin(self.alpha) * self.qbar
             elif field == "sin(beta)":
-                result.append( sin(self.beta) * self.qbar )
+                val = sin(self.beta) * self.qbar
             elif field == "abs(sin(beta))":
-                result.append( abs(sin(self.beta)) * self.qbar )
+                val = abs(sin(self.beta)) * self.qbar
             elif field == "bvx":
-                result.append( self.v_body[0] * self.qbar )
+                #val = self.v_body[0]**2 * 0.5 * np.sign(self.v_body[0])
+                val = self.v_body[0]
             elif field == "bvy":
-                result.append( self.v_body[1] * self.qbar )
+                #val = self.v_body[1]**2 * 0.5 * np.sign(self.v_body[1])
+                val = self.v_body[1]
             elif field == "bvz":
-                result.append( self.v_body[2] * self.qbar )
+                #val = self.v_body[2]**2 * 0.5 * np.sign(self.v_body[2])
+                val = self.v_body[2]
             elif field == "p":
-                result.append( self.p )
+                val = self.p
             elif field == "q":
-                result.append( self.q )
+                val = self.q
             elif field == "r":
-                result.append( self.r )
+                val = self.r
             else:
                 print("Unknown field requested:", field, "aborting ...")
                 quit()
+            if params is not None and field in self.dep_states:
+                param = params[index]
+                min = param["min"]
+                max = param["max"]
+                median = param["median"]
+                std = param["std"]
+                n = 5
+                if val < median - n*std:
+                    val = median - n*std
+                    print(field, "clipped to:", val)
+                if val > median + n*std:
+                    val = median + n*std
+                    print(field, "clipped to:", val)
+            result.append(val)
         return result
     
     def state2dict(self, state):

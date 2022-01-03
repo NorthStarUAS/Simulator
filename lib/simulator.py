@@ -9,7 +9,7 @@ Engineering and Mechanics, UAV Lab.
 """
 
 import json
-from math import asin, cos, sin, sqrt
+from math import asin, atan2, cos, sin, sqrt
 from matplotlib import pyplot as plt
 import numpy as np
 from scipy.optimize import least_squares
@@ -30,6 +30,7 @@ class Simulator():
         model = json.load(f)
         print(model)
         f.close()
+        self.params = model["parameters"]
         self.dt = model["dt"]
         self.A = np.array(model["A"])
         print(self.A)
@@ -87,7 +88,7 @@ class Simulator():
         self.state_mgr.set_ned_velocity(self.trim_airspeed_mps, 0.0, 0.0,
                                         0.0, 0.0, 0.0)
         self.state_mgr.compute_body_frame_values(compute_body_vel=False)
-        state = self.state_mgr.gen_state_vector()
+        state = self.state_mgr.gen_state_vector(self.params)
         next = self.A @ state
         current = self.state_mgr.state2dict(state)
         result = self.state_mgr.state2dict(next)
@@ -98,9 +99,9 @@ class Simulator():
         errors.append(self.trim_airspeed_mps - next_asi)
         #errors.append(result["lift"] - result["bgz"])
         errors.append(result["thrust"] - result["drag"])
-        errors.append(result["bax"])
+        #errors.append(result["bax"])
         errors.append(result["bay"])
-        errors.append(result["baz"])
+        #errors.append(result["baz"])
         errors.append(result["p"])
         errors.append(result["q"])
         errors.append(result["r"])
@@ -109,7 +110,7 @@ class Simulator():
     
     def trim(self, airspeed_mps):
         self.trim_airspeed_mps = airspeed_mps
-        initial = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        initial = [0.5, 0.0, 0.0, 0.0, 0.0, 0.08]
         res = least_squares(self.trim_error, initial, verbose=2)
         print("res:", res)
         print("throttle:", res["x"][0])
@@ -120,7 +121,7 @@ class Simulator():
         print("theta:", res["x"][4])
 
     def update(self):
-        state = self.state_mgr.gen_state_vector()
+        state = self.state_mgr.gen_state_vector(self.params)
         #print(self.state2dict(state))
 
         next = self.A @ state
@@ -131,45 +132,66 @@ class Simulator():
         #print("next:", result)
         #print()
 
-        if False:
+        if True:
             # debug
-            idx_list = self.state_mgr.get_state_index( ["r"] )
+            field = "bvy"
+            idx_list = self.state_mgr.get_state_index( [field] )
             row = self.A[idx_list[0],:]
-            print("r = ", end="")
+            print(field, "= ", end="")
             e = []
             for j in range(len(row)):
                 e.append(state[j]*row[j])
             idx = np.argsort(-np.abs(e))
             for j in idx:
                 print("%.3f (%s) " % (e[j], self.state_mgr.state_list[j]), end="")
-            print("")
+            print(" = ", next[idx_list[0]])
 
-        last_qbar = self.state_mgr.qbar
-        self.airspeed_mps = result["airspeed"]
-        s_alpha = result["sin(alpha)"] / last_qbar
-        s_beta = result["sin(beta)"] / last_qbar
-        
-        # protect against our linear state transtion going out of domain bounds
-        if s_alpha > 1: s_alpha = 1
-        if s_alpha < -1: s_alpha = -1
-        if s_beta > 1: s_beta = 1
-        if s_beta < -1: s_beta = -1
-        #print(s_alpha, s_beta)
-        self.state_mgr.alpha = asin(s_alpha)
-        self.state_mgr.beta = asin(s_beta)
-        
-        # protect against alpha/beta exceeding plausible thresholds
-        # for normal flight conditions
-        max_angle = 25 * d2r
-        if self.state_mgr.alpha > max_angle: self.state_mgr.alpha = max_angle
-        if self.state_mgr.alpha < -max_angle: self.state_mgr.alpha = -max_angle
-        if self.state_mgr.beta > max_angle: self.state_mgr.beta = max_angle
-        if self.state_mgr.beta < -max_angle: self.state_mgr.beta = -max_angle
-        self.bvx = cos(self.state_mgr.alpha) * self.airspeed_mps
-        self.bvy = sin(self.state_mgr.beta) * self.airspeed_mps
-        self.bvz = sin(self.state_mgr.alpha) * self.airspeed_mps
+        if "airspeed" in result:
+            self.airspeed_mps = result["airspeed"]
+        else:
+            self.airspeed_mps = np.linalg.norm( [result["bvx"],
+                                                 result["bvy"],
+                                                 result["bvz"]] )
         self.state_mgr.set_airdata(self.airspeed_mps)
-        self.state_mgr.set_body_velocity( self.bvx, self.bvy, self.bvz )
+        qbar = self.state_mgr.qbar
+
+        if "bvx" in result:
+            self.bvx = result["bvx"]
+            self.bvy = result["bvy"]
+            self.bvz = result["bvz"]
+            self.state_mgr.set_body_velocity( self.bvx, self.bvy, self.bvz )
+            self.alpha = atan2( self.bvz, self.bvx )
+            self.beta = atan2( -self.bvy, self.bvx )
+
+        elif "sin(alpha)" in result:
+            s_alpha = result["sin(alpha)"] / qbar
+            s_beta = result["sin(beta)"] / qbar
+            
+            # protect against our linear state transtion going out of
+            # domain bounds
+            if s_alpha > 1: s_alpha = 1
+            if s_alpha < -1: s_alpha = -1
+            if s_beta > 1: s_beta = 1
+            if s_beta < -1: s_beta = -1
+            #print(s_alpha, s_beta)
+            self.state_mgr.alpha = asin(s_alpha)
+            self.state_mgr.beta = asin(s_beta)
+        
+            # protect against alpha/beta exceeding plausible
+            # thresholds for normal flight conditions
+            max_angle = 25 * d2r
+            if self.state_mgr.alpha > max_angle:
+                self.state_mgr.alpha = max_angle
+            if self.state_mgr.alpha < -max_angle:
+                self.state_mgr.alpha = -max_angle
+            if self.state_mgr.beta > max_angle:
+                self.state_mgr.beta = max_angle
+            if self.state_mgr.beta < -max_angle:
+                self.state_mgr.beta = -max_angle
+            self.bvx = cos(self.state_mgr.alpha) * self.airspeed_mps
+            self.bvy = sin(self.state_mgr.beta) * self.airspeed_mps
+            self.bvz = sin(self.state_mgr.alpha) * self.airspeed_mps
+            self.state_mgr.set_body_velocity( self.bvx, self.bvy, self.bvz )
         
         self.p = result["p"]
         self.q = result["q"]
@@ -226,15 +248,15 @@ class Simulator():
         plt.plot( self.data[:,0], self.data[:,9]*r2d, label="self.alpha (deg)" )
         plt.plot( self.data[:,0], self.data[:,10]*r2d, label="self.beta (deg)" )
         plt.legend()
+        # plt.figure()
+        # plt.plot( self.data[:,0], self.data[:,11], label="body ax (mps^2)" )
+        # plt.plot( self.data[:,0], self.data[:,12], label="body ay (mps^2)" )
+        # plt.plot( self.data[:,0], self.data[:,13], label="body az (mps^2)" )
+        # plt.legend()
         plt.figure()
-        plt.plot( self.data[:,0], self.data[:,11], label="body ax (mps^2)" )
-        plt.plot( self.data[:,0], self.data[:,12], label="body ay (mps^2)" )
-        plt.plot( self.data[:,0], self.data[:,13], label="body az (mps^2)" )
-        plt.legend()
-        plt.figure()
-        plt.plot( self.data[:,0], self.data[:,14]*r2d, label="Roll rate (deg/sec)" )
-        plt.plot( self.data[:,0], self.data[:,15]*r2d, label="Pitch rate (deg/sec)" )
-        plt.plot( self.data[:,0], self.data[:,16]*r2d, label="Yaw rate (deg/sec)" )
+        plt.plot( self.data[:,0], self.data[:,11]*r2d, label="Roll rate (deg/sec)" )
+        plt.plot( self.data[:,0], self.data[:,12]*r2d, label="Pitch rate (deg/sec)" )
+        plt.plot( self.data[:,0], self.data[:,13]*r2d, label="Yaw rate (deg/sec)" )
         plt.legend()
         plt.figure()
         plt.plot( self.data[:,0], self.data[:,19], label="Pos 'down' (m)" )

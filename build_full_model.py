@@ -26,6 +26,7 @@ from lib.system_id import SystemIdentification
 parser = argparse.ArgumentParser(description="build full model")
 parser.add_argument("flight", help="flight data log")
 parser.add_argument("--write", required=True, help="write model file name")
+parser.add_argument("--invert-elevator", action='store_true', help="invert direction of elevator")
 args = parser.parse_args()
 
 sysid = SystemIdentification()
@@ -34,15 +35,18 @@ independent_states = [
     "aileron", "abs(aileron)",
     "elevator",
     "rudder", "abs(rudder)",    # flight controls (* qbar)
-    "lift", "drag", "thrust",   # (based on throttle, body accel, and body g)
+    "thrust",                   # based on throttle
+    #"lift",
+    "drag",             # (based on flow accel, and flow g
     "bgx", "bgy", "bgz",        # gravity rotated into body frame
-    "bax", "bay", "baz"         # acceleration in body frame (no g)
+    "bax", "bay", "baz",         # acceleration in body frame (no g)
+    #"bay",         # acceleration in body frame (no g, and just y axis)
 ]
 
 dependent_states = [
-    "airspeed",                                  # mps
-    "sin(alpha)", "sin(beta)", "abs(sin(beta))", # (* qbar)
-    "p", "q", "r"                                # body rates
+    #"sin(alpha)", "sin(beta)", "abs(sin(beta))", # (* qbar)
+    "bvx", "bvy", "bvz",         # velocity components in body frame
+    "p", "q", "r",                # body rates
 ]
 
 state_names = independent_states + dependent_states
@@ -112,8 +116,14 @@ for i in tqdm(range(iter.size())):
     if "act" in record:
         actpt = record["act"]
         sysid.state_mgr.set_throttle( actpt["throttle"] )
-        sysid.state_mgr.set_flight_surfaces( actpt["aileron"], actpt["elevator"],
-                                       actpt["rudder"] )
+        if not args.invert_elevator:
+            sysid.state_mgr.set_flight_surfaces( actpt["aileron"],
+                                                 actpt["elevator"],
+                                                 actpt["rudder"] )
+        else:
+            sysid.state_mgr.set_flight_surfaces( actpt["aileron"],
+                                                 -actpt["elevator"],
+                                                 actpt["rudder"] )
     if "air" in record:
         airpt = record["air"]
         asi_mps = airpt["airspeed"] * kt2mps
