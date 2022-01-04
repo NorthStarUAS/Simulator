@@ -223,27 +223,25 @@ est_val = [0.0] * len(dependent_states)
 pred = []
 v = []
 for i in range(len(sysid.traindata)):
-    v.extend(sysid.traindata[i])
-    v = v[-states:]       # trim old state values if needed
+    v  = sysid.traindata[i].copy()
     for j, index in enumerate(est_index_list):
-        v[index-states] = est_val[j]
-    if len(v) == states:
-        #print("A:", A.shape, A)
-        #print("v:", np.array(v).shape, np.array(v))
-        p = sysid.A @ np.array(v)
-        #print("p:", p)
-        for j, index in enumerate(est_index_list):
-            est_val[j] = p[index-states]
-            param = sysid.model["parameters"][index]
-            min = param["min"]
-            max = param["max"]
-            med = param["median"]
-            std = param["std"]
-            #if est_val[j] < med - 2*std: est_val[j] = med - 2*std
-            #if est_val[j] > med + 2*std: est_val[j] = med + 2*std
-            if est_val[j] < min: est_val[j] = min
-            if est_val[j] > max: est_val[j] = max
-        pred.append(p)
+        v[index] = est_val[j]
+    #print("A:", A.shape, A)
+    #print("v:", np.array(v).shape, np.array(v))
+    p = sysid.A @ np.array(v)
+    #print("p:", p)
+    for j, index in enumerate(est_index_list):
+        est_val[j] = p[index]
+        param = sysid.model["parameters"][index]
+        min = param["min"]
+        max = param["max"]
+        med = param["median"]
+        std = param["std"]
+        #if est_val[j] < med - 2*std: est_val[j] = med - 2*std
+        #if est_val[j] > med + 2*std: est_val[j] = med + 2*std
+        if est_val[j] < min - std: est_val[j] = min - std
+        if est_val[j] > max + std: est_val[j] = max + std
+    pred.append(p)
 Ypred = np.array(pred).T
 
 index_list = sysid.state_mgr.get_state_index( dependent_states )
