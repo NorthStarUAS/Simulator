@@ -21,12 +21,14 @@ from rcUAS_flightdata import flight_loader, flight_interp
 
 from lib.constants import d2r, r2d, kt2mps
 from lib.system_id import SystemIdentification
+from lib.wind import Wind
 
 # command line arguments
 parser = argparse.ArgumentParser(description="build full model")
 parser.add_argument("flight", help="flight data log")
 parser.add_argument("--write", required=True, help="write model file name")
 parser.add_argument("--invert-elevator", action='store_true', help="invert direction of elevator")
+parser.add_argument("--invert-rudder", action='store_true', help="invert direction of rudder")
 args = parser.parse_args()
 
 sysid = SystemIdentification()
@@ -36,17 +38,15 @@ independent_states = [
     "elevator",
     "rudder", "abs(rudder)",    # flight controls (* qbar)
     "thrust",                   # based on throttle
-    #"lift",
-    "drag",             # (based on flow accel, and flow g
+    "drag",                     # (based on flow accel, and flow g
     "bgx", "bgy", "bgz",        # gravity rotated into body frame
-    "bax", "bay", "baz",         # acceleration in body frame (no g)
-    #"bay",         # acceleration in body frame (no g, and just y axis)
+    #"ax", "ay", "az",           # imu (body) accels
+    "bax", "bay", "baz",        # acceleration in body frame (no g)
 ]
 
 dependent_states = [
-    #"sin(alpha)", "sin(beta)", "abs(sin(beta))", # (* qbar)
-    "bvx", "bvy", "bvz",         # velocity components in body frame
-    "p", "q", "r",                # body rates
+    "bvx", "bvy", "bvz",         # velocity components (body frame)
+    "p", "q", "r",               # imu (body) rates
 ]
 
 state_names = independent_states + dependent_states
@@ -96,6 +96,9 @@ g = np.array( [ 0, 0, -9.81 ] )
 
 coeff = []
 
+# backup wind estimator if needed
+windest = Wind()
+
 # iterate through the flight data log, cherry pick the selected parameters
 iter = flight_interp.IterateGroup(data)
 for i in tqdm(range(iter.size())):
@@ -113,19 +116,29 @@ for i in tqdm(range(iter.size())):
             q -= navpt["q_bias"]
             r -= navpt["r_bias"]
         sysid.state_mgr.set_gyros(p, q, r)
+        ax = imupt["ax"]
+        ay = imupt["ay"]
+        az = imupt["az"]
+        if "ax_bias" in navpt:
+            ax -= navpt["ax_bias"]
+            ay -= navpt["ay_bias"]
+            az -= navpt["az_bias"]
+        sysid.state_mgr.set_accels(ax, ay, az)
     if "act" in record:
         actpt = record["act"]
         sysid.state_mgr.set_throttle( actpt["throttle"] )
-        if not args.invert_elevator:
-            sysid.state_mgr.set_flight_surfaces( actpt["aileron"],
-                                                 actpt["elevator"],
-                                                 actpt["rudder"] )
-        else:
-            sysid.state_mgr.set_flight_surfaces( actpt["aileron"],
-                                                 -actpt["elevator"],
-                                                 actpt["rudder"] )
-    if "air" in record:
+        ail = actpt["aileron"]
+        ele = actpt["elevator"]
+        rud = actpt["rudder"]
+        if args.invert_elevator:
+            ele = -ele
+        if args.invert_rudder:
+            rud = -rud
+        sysid.state_mgr.set_flight_surfaces( ail, ele, rud )
+    if "air" in record and "filter" in record:
         airpt = record["air"]
+        navpt = record["filter"]
+        
         asi_mps = airpt["airspeed"] * kt2mps
         # add in correction factor if available
         if "pitot_scale" in airpt:
@@ -138,11 +151,11 @@ for i in tqdm(range(iter.size())):
             wn = sin(wind_psi) * wind_mps
             wd = 0
         else:
-            we = 0.0
-            wn = 0.0
-            wd = 0.0
-    if "filter" in record:
-        navpt = record["filter"]
+            windest.update(imupt["time"], asi_mps, navpt["psi"], navpt["vn"], navpt["ve"])
+            wn = windest.filt_long_wn.value
+            we = windest.filt_long_we.value
+            wd = 0
+            print("%.2f %.2f" % (wn, we))
         sysid.state_mgr.set_orientation( navpt["phi"], navpt["the"], navpt["psi"] )
         sysid.state_mgr.set_ned_velocity( navpt["vn"], navpt["ve"], navpt["vd"],
                                           wn, we, wd )
@@ -212,10 +225,45 @@ sysid.fit()
 sysid.analyze()
 sysid.save(args.write, imu_dt)
 
+est_index_list = sysid.state_mgr.get_state_index( dependent_states )
+
+if False:
+    # look at the frequency of the error terms in the dependent states
+    # which suggest unmodeled effects such as short period
+    # oscillations and turbulence, or artifacts in the data log (like
+    # a 5hz gps update rate showing up in ekf velocity estimate.)
+
+    pred = []
+    for i in range(len(sysid.X.T)):
+        v  = sysid.traindata[i].copy()
+        p = sysid.A @ np.array(v)
+        pred.append(p)
+    Ypred = np.array(pred).T
+    diff = Ypred - sysid.Y
+
+    M=1024
+    from scipy import signal
+    for i in est_index_list:
+        freqs, times, Sx = signal.spectrogram(diff[i,:], fs=(1/imu_dt),
+                                              window='hanning',
+                                              nperseg=M, noverlap=M - 100,
+                                              detrend=False, scaling='spectrum')
+        f, ax = plt.subplots()
+        ax.pcolormesh(times, freqs, 10 * np.log10(Sx), cmap='viridis')
+        ax.set_title(sysid.state_mgr.state_list[i] + " Spectogram")
+        ax.set_ylabel('Frequency [Hz]')
+        ax.set_xlabel('Time [s]');
+    plt.show()
+
 # show an running estimate of dependent states.  Feed the dependent
 # estimate forward into next state rather than using the original
 # logged value.  This can show the convergence of the estimated
 # parameters versus truth (or show major problems in the model.)
+
+# the difference here is we are propagating the prediction forward as
+# if we don't have other knowledge of the dependent states (i.e. what
+# would happen in a flight simulation, or if we used this system to
+# emulate airspeed or imu sensors?)
 
 est_index_list = sysid.state_mgr.get_state_index( dependent_states )
 #print("est_index list:", est_index_list)
