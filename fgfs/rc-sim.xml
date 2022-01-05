@@ -51,6 +51,36 @@
       <type>float</type>
       <node>/velocities/airspeed-kt</node>
     </chunk>
+    
+    <chunk>
+      <name>right aileron</name>
+      <type>float</type>
+      <node>/surface-positions/right-aileron-pos-norm</node>
+    </chunk>
+    
+    <chunk>
+      <name>left aileron</name>
+      <type>float</type>
+      <node>/surface-positions/left-aileron-pos-norm</node>
+    </chunk>
+    
+    <chunk>
+      <name>elevator</name>
+      <type>float</type>
+      <node>/surface-positions/elevator-pos-norm</node>
+    </chunk>
+    
+    <chunk>
+      <name>rudder</name>
+      <type>float</type>
+      <node>/surface-positions/rudder-pos-norm</node>
+    </chunk>
+    
+    <chunk>
+      <name>flaps</name>
+      <type>float</type>
+      <node>/surface-positions/flap-pos-norm</node>
+    </chunk>
  </input>
 
  </generic>
