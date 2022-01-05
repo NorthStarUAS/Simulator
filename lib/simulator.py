@@ -72,6 +72,10 @@ class Simulator():
         self.q = 0.0
         self.r = 0.0
         self.state_mgr.set_gyros( self.p, self.q, self.r )
+        self.ax = 0.0
+        self.ay = 0.0
+        self.az = 0.0
+        self.state_mgr.set_accels( self.ax, self.ay, self.az )
         self.time = 0.0
         self.state_mgr.set_time( self.time )
         #self.last_vel_body = None
@@ -197,6 +201,11 @@ class Simulator():
         self.q = result["q"]
         self.r = result["r"]
         self.state_mgr.set_gyros(self.p, self.q, self.r)
+        if "ax" in result:
+            self.ax = result["ax"]
+            self.ay = result["ay"]
+            self.az = result["az"]
+            self.state_mgr.set_accels(self.ax, self.ay, self.az)
 
         # update attitude
         rot_body = quaternion.eul2quat(self.p * self.dt,
