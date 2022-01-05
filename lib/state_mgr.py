@@ -96,6 +96,11 @@ class StateManager():
         self.p = p
         self.q = q
         self.r = r
+        
+    def set_accels(self, ax, ay, az):
+        self.ax = ax
+        self.ay = ay
+        self.az = az
 
     def set_ned_velocity(self, vn, ve, vd, wn, we, wd):
         # store NED velocity, corrected to remove wind effects
@@ -266,6 +271,12 @@ class StateManager():
                 val = self.q
             elif field == "r":
                 val = self.r
+            elif field == "ax":
+                val = self.ax
+            elif field == "ay":
+                val = self.ay
+            elif field == "az":
+                val = self.az
             else:
                 print("Unknown field requested:", field, "aborting ...")
                 quit()
@@ -288,7 +299,7 @@ class StateManager():
                 max = param["max"]
                 median = param["median"]
                 std = param["std"]
-                n = 1
+                n = 3
                 if val < min - n*std:
                     val = min - n*std
                     print(field, "clipped to:", val)
