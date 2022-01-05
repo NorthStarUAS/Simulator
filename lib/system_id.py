@@ -112,10 +112,10 @@ class SystemIdentification():
         
     def fit(self):
         states = len(self.traindata[0])
-        X = np.array(self.traindata[:-1]).T
-        Y = np.array(self.traindata[1:]).T
-        print("X:\n", X.shape, np.array(X))
-        print("Y:\n", Y.shape, np.array(Y))
+        self.X = np.array(self.traindata[:-1]).T
+        self.Y = np.array(self.traindata[1:]).T
+        print("X:\n", self.X.shape, np.array(self.X))
+        print("Y:\n", self.Y.shape, np.array(self.Y))
 
         # Y = A * X, solve for A
         #
@@ -129,7 +129,7 @@ class SystemIdentification():
         # Y = A * U * D * V.T
 
         print("dask svd...")
-        daX = da.from_array(X, chunks=(X.shape[0], 10000)).persist()
+        daX = da.from_array(self.X, chunks=(self.X.shape[0], 10000)).persist()
         u, s, vh = da.linalg.svd(daX)
         
         if True:
@@ -138,7 +138,7 @@ class SystemIdentification():
             print("s:\n", s.shape, s)
             print("vh:\n", vh.shape, vh)
             Xr = (u * s) @ vh[:states, :]
-            print( "dask svd close?", np.allclose(X, Xr.compute()) )
+            print( "dask svd close?", np.allclose(self.X, Xr.compute()) )
 
         # after algebraic manipulation
         #
@@ -147,7 +147,7 @@ class SystemIdentification():
         v = vh.T
         print("s inv:", (1/s).compute() )
 
-        self.A = (Y @ (v[:,:states] * (1/s)) @ u.T).compute()
+        self.A = (self.Y @ (v[:,:states] * (1/s)) @ u.T).compute()
         print("A rank:", np.linalg.matrix_rank(self.A))
         print("A:\n", self.A.shape, self.A)
 
@@ -161,7 +161,7 @@ class SystemIdentification():
         # compute input state parameter ranges
         self.model["parameters"] = []
         for i in range(states):
-            row = X[i,:]
+            row = self.X[i,:]
             min = np.min(row)
             max = np.max(row)
             mean = np.mean(row)
