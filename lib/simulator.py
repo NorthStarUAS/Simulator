@@ -9,7 +9,7 @@ Engineering and Mechanics, UAV Lab.
 """
 
 import json
-from math import asin, atan2, cos, sin, sqrt
+from math import asin, atan2, cos, sin, sqrt, pi
 from matplotlib import pyplot as plt
 import numpy as np
 from scipy.optimize import least_squares
@@ -22,6 +22,7 @@ class Simulator():
     def __init__(self):
         self.A = None
         self.dt = None
+        self.trand = None
         self.state_mgr = StateManager()
         self.reset()
 
@@ -43,7 +44,7 @@ class Simulator():
                 dep_states.append( param["name"] )
         self.state_mgr.set_state_names( ind_states, dep_states )
         self.state_mgr.set_dt( self.dt )
-
+        
     def reset(self):
         initial_airspeed_mps = 10.0
         self.state_mgr.set_airdata( initial_airspeed_mps )
@@ -124,19 +125,34 @@ class Simulator():
         print("phi:", res["x"][3])
         print("theta:", res["x"][4])
 
+    def add_noise(self, next):
+        #print(self.trand)
+        for i in range(len(next)):
+            if "noise" in self.params[i]:
+                sum = 0
+                if self.trand is None:
+                    self.trand = np.random.rand(len(self.params[i]["noise"])) * 2 * pi
+                for j, pt in enumerate(self.params[i]["noise"]):
+                    sum += sin(self.trand[j]+self.time*2*pi*pt[0]) * pt[1] * self.dt
+                    #print(i, sum)
+                # add in noise (but scaled down a bit)
+                next[i] += sum * 0.5
+                    
+        
     def update(self):
         state = self.state_mgr.gen_state_vector(self.params)
         #print(self.state2dict(state))
 
         next = self.A @ state
-
+        self.add_noise(next)
+        
         input = self.state_mgr.state2dict(state)
         result = self.state_mgr.state2dict(next)
         #print("state:", state)
         #print("next:", result)
         #print()
 
-        if True:
+        if False:
             # debug
             field = "bvy"
             idx_list = self.state_mgr.get_state_index( [field] )
