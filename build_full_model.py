@@ -222,38 +222,9 @@ print("Number of states:", len(sysid.traindata[0]))
 print("Input state vectors:", len(sysid.traindata))
 
 sysid.fit()
+sysid.model_noise()
 sysid.analyze()
 sysid.save(args.write, imu_dt)
-
-est_index_list = sysid.state_mgr.get_state_index( dependent_states )
-
-if False:
-    # look at the frequency of the error terms in the dependent states
-    # which suggest unmodeled effects such as short period
-    # oscillations and turbulence, or artifacts in the data log (like
-    # a 5hz gps update rate showing up in ekf velocity estimate.)
-
-    pred = []
-    for i in range(len(sysid.X.T)):
-        v  = sysid.traindata[i].copy()
-        p = sysid.A @ np.array(v)
-        pred.append(p)
-    Ypred = np.array(pred).T
-    diff = Ypred - sysid.Y
-
-    M=1024
-    from scipy import signal
-    for i in est_index_list:
-        freqs, times, Sx = signal.spectrogram(diff[i,:], fs=(1/imu_dt),
-                                              window='hanning',
-                                              nperseg=M, noverlap=M - 100,
-                                              detrend=False, scaling='spectrum')
-        f, ax = plt.subplots()
-        ax.pcolormesh(times, freqs, 10 * np.log10(Sx), cmap='viridis')
-        ax.set_title(sysid.state_mgr.state_list[i] + " Spectogram")
-        ax.set_ylabel('Frequency [Hz]')
-        ax.set_xlabel('Time [s]');
-    plt.show()
 
 # show an running estimate of dependent states.  Feed the dependent
 # estimate forward into next state rather than using the original
@@ -265,20 +236,20 @@ if False:
 # would happen in a flight simulation, or if we used this system to
 # emulate airspeed or imu sensors?)
 
-est_index_list = sysid.state_mgr.get_state_index( dependent_states )
-#print("est_index list:", est_index_list)
+dep_index_list = sysid.state_mgr.get_state_index( dependent_states )
+#print("dep_index list:", dep_index_list)
 est_val = [0.0] * len(dependent_states)
 pred = []
 v = []
 for i in range(len(sysid.traindata)):
     v  = sysid.traindata[i].copy()
-    for j, index in enumerate(est_index_list):
+    for j, index in enumerate(dep_index_list):
         v[index] = est_val[j]
     #print("A:", A.shape, A)
     #print("v:", np.array(v).shape, np.array(v))
     p = sysid.A @ np.array(v)
     #print("p:", p)
-    for j, index in enumerate(est_index_list):
+    for j, index in enumerate(dep_index_list):
         est_val[j] = p[index]
         param = sysid.model["parameters"][index]
         min = param["min"]
