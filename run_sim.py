@@ -14,7 +14,7 @@ import time
 from apscheduler.schedulers.background import BackgroundScheduler # dnf install python3-APScheduler
 
 from lib import fgfs
-from lib import joystick
+from lib.joystick import Joystick
 from lib.simulator import Simulator
 
 # command line arguments
@@ -26,6 +26,7 @@ args = parser.parse_args()
 
 run_time = 600
 
+joystick = Joystick()
 sim = Simulator()
 sim.load(args.model)
 sim.reset()
@@ -33,10 +34,10 @@ if not args.no_trim:
     sim.trim(20)
 
 def update():
-    throttle, aileron, elevator, rudder = joystick.update()
-    if throttle is not None:
-        sim.state_mgr.set_throttle(throttle)
-        sim.state_mgr.set_flight_surfaces(aileron, elevator, rudder)
+    joystick.update()
+    sim.state_mgr.set_throttle(joystick.throttle)
+    sim.state_mgr.set_flight_surfaces(joystick.aileron, joystick.elevator,
+                                      joystick.rudder)
     sim.update()
     fgfs.send_to_fgfs(sim)
 
