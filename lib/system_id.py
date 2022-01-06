@@ -44,6 +44,7 @@ computational effort.
 
 import dask.array as da         # dnf install python3-dask+array
 import json
+from matplotlib import pyplot as plt
 import numpy as np
 from scipy.optimize import least_squares, minimize
 from scipy.sparse import lil_matrix
@@ -180,6 +181,57 @@ class SystemIdentification():
                 }
             )
 
+    def model_noise(self):
+        # look at the frequency of the error terms in the dependent
+        # states which suggest unmodeled effects such as short period
+        # oscillations and turbulence, or artifacts in the data log
+        # (like a 5hz gps update rate showing up in ekf velocity
+        # estimate.)
+
+        dep_index_list = self.state_mgr.get_state_index( self.state_mgr.dep_states )
+        pred = []
+        for i in range(len(self.X.T)):
+            v  = self.traindata[i].copy()
+            p = self.A @ np.array(v)
+            pred.append(p)
+        Ypred = np.array(pred).T
+        diff = Ypred - self.Y
+
+        M=1024
+        from scipy import signal
+        for i in dep_index_list:
+            freqs, times, Sx = signal.spectrogram(diff[i,:], fs=(1/self.state_mgr.dt),
+                                                  window='hanning',
+                                                  nperseg=M, noverlap=M - 100,
+                                                  detrend=False, scaling='spectrum')
+            f, ax = plt.subplots()
+            ax.pcolormesh(times, freqs, 10 * np.log10(Sx), cmap='viridis')
+            ax.set_title(self.state_mgr.state_list[i] + " Spectogram")
+            ax.set_ylabel('Frequency [Hz]')
+            ax.set_xlabel('Time [s]');
+            sums = Sx.sum(axis=1)   # sum the rows (by freq)
+            num_bins = 15
+            bins = np.linspace(0.5, num_bins+0.5, num_bins+1) # freq range
+            print(bins)
+
+            bin_indices = np.digitize( freqs, bins )
+            print(bin_indices)
+            d1 = []
+            for j in range(num_bins):
+                bin = j + 1
+                sum = np.sum(sums[bin_indices==j+1])
+                if not np.isnan(sum):
+                    pt = 0.5 * (bins[j] + bins[j+1])
+                    print( j, pt, sum )
+                    d1.append( [pt, sum] )
+            self.model["parameters"][i]["noise"] = d1
+            d1 = np.array(d1)
+            plt.figure()
+            plt.plot(d1[:,0], d1[:,1], label="freq vs energy")
+            plt.xlabel("freq")
+            plt.legend()
+        plt.show()
+    
     def analyze(self):
         states = len(self.traindata[0])
         params = self.model["parameters"]
