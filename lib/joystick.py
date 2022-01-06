@@ -25,24 +25,28 @@ class Joystick():
         self.elevator_trim = 0.0
         self.rudder = 0.0
         
-        if have_pygame:
-            pygame.init()
-            pygame.joystick.init()
-            if pygame.joystick.get_count() > 0:
-                self.have_joystick = True
-                print("Detected a joystick")
-            else:
-                print("no joysticks found")
+        if not have_pygame:
+            return
         
-        if self.have_joystick:
-            self.j = pygame.joystick.Joystick(0)
-            self.j.init()
-            self.num_axes = self.j.get_numaxes()
-            self.axes = [0.0] * self.num_axes
-            self.num_buttons = self.j.get_numbuttons()
-            self.buttons = [0] * self.num_buttons
-            self.num_hats = self.j.get_numhats()
-            self.hats = [0] * self.num_hats
+        pygame.init()
+        pygame.joystick.init()
+        if pygame.joystick.get_count() > 0:
+            self.have_joystick = True
+            print("Detected a joystick")
+        else:
+            print("no joysticks found")
+        
+        if not self.have_joystick:
+            return
+        
+        self.j = pygame.joystick.Joystick(0)
+        self.j.init()
+        self.num_axes = self.j.get_numaxes()
+        self.axes = [0.0] * self.num_axes
+        self.num_buttons = self.j.get_numbuttons()
+        self.buttons = [0] * self.num_buttons
+        self.num_hats = self.j.get_numhats()
+        self.hats = [0] * self.num_hats
 
     def update(self):
         if not self.have_joystick:
