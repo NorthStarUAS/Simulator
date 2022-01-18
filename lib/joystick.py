@@ -6,6 +6,7 @@ try:
     have_pygame = True
 except:
     print("pygame import failed, joystick inactive")
+    print("consider: dnf install python3-pygame")
 
 class Joystick():
     def __init__(self):
