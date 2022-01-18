@@ -27,27 +27,44 @@ from lib.wind import Wind
 parser = argparse.ArgumentParser(description="build full model")
 parser.add_argument("flight", help="flight data log")
 parser.add_argument("--write", required=True, help="write model file name")
+parser.add_argument("--vehicle", default="wing", choices=["wing", "quad"], help="vehicle type represented by data file")
 parser.add_argument("--invert-elevator", action='store_true', help="invert direction of elevator")
 parser.add_argument("--invert-rudder", action='store_true', help="invert direction of rudder")
 args = parser.parse_args()
 
-sysid = SystemIdentification()
+sysid = SystemIdentification(args.vehicle)
 
-independent_states = [
-    "aileron", "abs(aileron)",
-    "elevator",
-    "rudder", "abs(rudder)",    # flight controls (* qbar)
-    "thrust",                   # based on throttle
-    "drag",                     # (based on flow accel, and flow g
-    "bgx", "bgy", "bgz",        # gravity rotated into body frame
-    #"ax", "ay", "az",           # imu (body) accels
-    "bax", "bay", "baz",        # acceleration in body frame (no g)
-]
-
-dependent_states = [
-    "bvx", "bvy", "bvz",         # velocity components (body frame)
-    "p", "q", "r",               # imu (body) rates
-]
+if args.vehicle == "wing":
+    independent_states = [
+        #"airspeed",
+        "aileron", "abs(aileron)",
+        "elevator",
+        "rudder", "abs(rudder)",    # flight controls (* qbar)
+        #"flaps",
+        "thrust",                   # based on throttle
+        "drag",                     # (based on flow accel, and flow g
+        "bgx", "bgy", "bgz",        # gravity rotated into body frame
+    ]
+    dependent_states = [
+        "bax", "bay", "baz",        # acceleration in body frame (no g)
+        #"bvx", "bvy", "bvz",         # velocity components (body frame)
+        "p", "q", "r",               # imu (body) rates
+    ]
+elif args.vehicle == "quad":
+    independent_states = [
+        "motor[0]",
+        "motor[1]",
+        "motor[2]",
+        "motor[3]",                # motor commands
+        #"bgx", "bgy", "bgz",        # gravity rotated into body frame
+        #"ax", "ay", "az",           # imu (body) accels
+        #"bax", "bay", "baz",        # acceleration in body frame (no g)
+    ]
+    dependent_states = [
+        #"bvx", "bvy",
+        "bvz",         # velocity components (body frame)
+        #"p", "q", "r",               # imu (body) rates
+    ]
 
 state_names = independent_states + dependent_states
 sysid.state_mgr.set_state_names(independent_states, dependent_states)
@@ -94,6 +111,10 @@ airpt = {}
 navpt = {}
 g = np.array( [ 0, 0, -9.81 ] )
 
+wn = 0
+we = 0
+wd = 0
+
 coeff = []
 
 # backup wind estimator if needed
@@ -104,6 +125,11 @@ iter = flight_interp.IterateGroup(data)
 for i in tqdm(range(iter.size())):
     record = iter.next()
     if len(record) == 0:
+        continue
+    if "filter" in record:
+        # need ahead of air in case we are doing a wind estimate
+        navpt = record["filter"]
+    else:
         continue
     if "imu" in record:
         imupt = record["imu"]
@@ -126,19 +152,30 @@ for i in tqdm(range(iter.size())):
         sysid.state_mgr.set_accels(ax, ay, az)
     if "act" in record:
         actpt = record["act"]
-        sysid.state_mgr.set_throttle( actpt["throttle"] )
-        ail = actpt["aileron"]
-        ele = actpt["elevator"]
-        rud = actpt["rudder"]
-        if args.invert_elevator:
-            ele = -ele
-        if args.invert_rudder:
-            rud = -rud
-        sysid.state_mgr.set_flight_surfaces( ail, ele, rud )
-    if "air" in record and "filter" in record:
+        if args.vehicle == "wing":
+            sysid.state_mgr.set_throttle( actpt["throttle"] )
+            ail = actpt["aileron"]
+            ele = actpt["elevator"]
+            rud = actpt["rudder"]
+            if args.invert_elevator:
+                ele = -ele
+            if args.invert_rudder:
+                rud = -rud
+            if "flaps" in actpt:
+                flaps = actpt["flaps"]
+            else:
+                flaps = 0
+            sysid.state_mgr.set_flight_surfaces( ail, ele, rud, flaps )
+        elif args.vehicle == "quad":
+            sysid.state_mgr.set_motors( [ actpt["output[0]"],
+                                          actpt["output[1]"],
+                                          actpt["output[2]"],
+                                          actpt["output[3]"] ] )
+    if "gps" in record:
+        gpspt = record["gps"]
+    if "air" in record:
         airpt = record["air"]
-        navpt = record["filter"]
-        
+
         asi_mps = airpt["airspeed"] * kt2mps
         # add in correction factor if available
         if "pitot_scale" in airpt:
@@ -155,21 +192,30 @@ for i in tqdm(range(iter.size())):
             wn = windest.filt_long_wn.value
             we = windest.filt_long_we.value
             wd = 0
-            print("%.2f %.2f" % (wn, we))
+            #print("%.2f %.2f" % (wn, we))
+    if "filter" in record:
+        navpt = record["filter"]
         sysid.state_mgr.set_orientation( navpt["phi"], navpt["the"], navpt["psi"] )
-        sysid.state_mgr.set_ned_velocity( navpt["vn"], navpt["ve"], navpt["vd"],
-                                          wn, we, wd )
-    if "gps" in record:
-        gpspt = record["gps"]
+        sysid.state_mgr.set_pos(navpt["lon"], navpt["lat"], navpt["alt"])
+        if args.vehicle == "wing" or np.linalg.norm([navpt["vn"], navpt["ve"], navpt["vd"]]) > 0.000001:
+            sysid.state_mgr.set_ned_velocity( navpt["vn"], navpt["ve"],
+                                              navpt["vd"], wn, we, wd )
+        else:
+            sysid.state_mgr.set_ned_velocity( gpspt["vn"], gpspt["ve"],
+                                              gpspt["vd"], wn, we, wd )
 
     if sysid.state_mgr.is_flying():
         sysid.state_mgr.compute_body_frame_values(compute_body_vel=True)
         state = sysid.state_mgr.gen_state_vector()
         #print(sysid.state_mgr.state2dict(state))
         sysid.add_state_vec(state)
-        coeff.append( [sysid.state_mgr.alpha*r2d, sysid.state_mgr.Cl, sysid.state_mgr.Cd, sysid.state_mgr.airspeed_mps, sysid.state_mgr.drag] )
+        if args.vehicle == "wing":
+            coeff.append( [sysid.state_mgr.alpha*r2d,
+                           sysid.state_mgr.Cl, sysid.state_mgr.Cd,
+                           sysid.state_mgr.airspeed_mps,
+                           sysid.state_mgr.drag] )
 
-if True:
+if True and len(coeff):
     coeff = np.array(coeff)
 
     # alpha vs Cl, Cd plot
@@ -217,9 +263,8 @@ if True:
     plt.legend()
     plt.show()
 
-states = len(sysid.traindata[0])
-print("Number of states:", len(sysid.traindata[0]))
-print("Input state vectors:", len(sysid.traindata))
+print("Number of states:", len(sysid.traindata_list[0]))
+print("Input state vectors:", len(sysid.traindata_list))
 
 sysid.fit()
 sysid.model_noise()
@@ -263,7 +308,7 @@ for i in range(len(sysid.traindata)):
     pred.append(p)
 Ypred = np.array(pred).T
 
-index_list = sysid.state_mgr.get_state_index( dependent_states )
+index_list = sysid.state_mgr.get_state_index( independent_states + dependent_states )
 for j in index_list:
     plt.figure()
     plt.plot(np.array(sysid.traindata).T[j,:], label="%s (orig)" % state_names[j])
