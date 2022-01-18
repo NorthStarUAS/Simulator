@@ -9,11 +9,13 @@ from lib.constants import d2r, r2d, gravity, kt2mps
 from lib import quaternion
 
 class StateManager():
-    def __init__(self):
+    def __init__(self, vehicle="wing"):
+        self.vehicle = vehicle
         self.ind_states = []
         self.dep_states = []
         self.state_list = []
         self.dt = None
+        self.airspeed_mps = 0
         self.wn_filt = 0
         self.we_filt = 0
         self.wd_filt = 0
@@ -26,6 +28,7 @@ class StateManager():
         self.alpha = 0
         self.beta = 0
         self.flying = False
+        self.ground_alt = None
         self.g_ned = np.array( [0.0, 0.0, gravity] )
         self.g_body = np.array( [0.0, 0.0, 0.0] )
         self.g_flow = np.array( [0.0, 0.0, 0.0] )
@@ -68,10 +71,11 @@ class StateManager():
         # max thrust is 0.75 gravity, so we can't quite hover on full power
         self.thrust = sqrt(self.throttle) * 0.75 * abs(gravity)
         
-    def set_flight_surfaces(self, aileron, elevator, rudder):
+    def set_flight_surfaces(self, aileron, elevator, rudder, flaps=0):
         self.aileron = aileron
         self.elevator = elevator
         self.rudder = rudder
+        self.flaps = flaps
         if self.aileron < -1: self.aileron = -1
         if self.aileron > 1: self.aileron = 1
         if self.elevator < -1: self.elevator = -1
@@ -79,6 +83,9 @@ class StateManager():
         if self.rudder < -1: self.rudder = -1
         if self.rudder > 1: self.rudder = 1
 
+    def set_motors(self, motors):
+        self.motors = motors.copy()
+        
     def set_orientation(self, phi_rad, the_rad, psi_rad):
         self.phi_rad = phi_rad
         self.the_rad = the_rad
@@ -112,17 +119,32 @@ class StateManager():
     def set_body_velocity(self, vx, vy, vz):
         self.v_body = np.array( [vx, vy, vz] )
 
+    def set_pos(self, lon, lat, alt):
+        self.lon = lon
+        self.lat = lat
+        self.alt = alt
+        if self.ground_alt is None or alt < self.ground_alt:
+            self.ground_alt = alt
+            
     def is_flying(self):
-        # ground speed mps (ned)
-        gs_mps = sqrt( self.v_ned[0]**2 + self.v_ned[1]**2 )
+        if self.vehicle == "wing":
+            # ground speed mps (ned)
+            gs_mps = sqrt( self.v_ned[0]**2 + self.v_ned[1]**2 )
 
-        # test if we are flying?
-        if not self.flying and gs_mps > 10 and self.airspeed_mps > 7:
-            print("Start flying @ %.2f" % self.time)
-            self.flying = True
-        elif self.flying and gs_mps < 5 and self.airspeed_mps < 5:
-            print("Stop flying @ %.2f" % self.time)
-            self.flying = False
+            # test if we are flying?
+            if not self.flying and gs_mps > 10 and self.airspeed_mps > 7:
+                print("Start flying @ %.2f" % self.time)
+                self.flying = True
+            elif self.flying and gs_mps < 5 and self.airspeed_mps < 5:
+                print("Stop flying @ %.2f" % self.time)
+                self.flying = False
+        elif self.vehicle == "quad":
+            if not self.flying and self.alt > self.ground_alt + 2:
+                print("Start flying @ %.2f" % self.time)
+                self.flying = True
+            elif self.flying and self.alt < self.ground_alt + 1:
+                print("Stop flying @ %.2f" % self.time)
+                self.flying = False
         return self.flying
 
     # compute body (AND FLOW) frame of reference values
@@ -218,6 +240,20 @@ class StateManager():
                 val = self.rudder * self.qbar
             elif field == "abs(rudder)":
                 val = abs(self.rudder * self.qbar)
+            elif field == "flaps":
+                val = self.flaps * self.qbar
+            elif field == "motor[0]":
+                val = self.motors[0]
+            elif field == "motor[1]":
+                val = self.motors[1]
+            elif field == "motor[2]":
+                val = self.motors[2]
+            elif field == "motor[3]":
+                val = self.motors[3]
+            elif field == "motor[4]":
+                val = self.motors[4]
+            elif field == "motor[5]":
+                val = self.motors[5]
             elif field == "lift":
                 val = self.lift
             elif field == "drag":
