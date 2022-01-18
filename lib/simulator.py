@@ -133,10 +133,9 @@ class Simulator():
                 if self.trand is None:
                     self.trand = np.random.rand(len(self.params[i]["noise"])) * 2 * pi
                 for j, pt in enumerate(self.params[i]["noise"]):
-                    sum += sin(self.trand[j]+self.time*2*pi*pt[0]) * pt[1] * self.dt
+                    sum += sin(self.trand[j]+self.time*2*pi*pt[0]) * pt[1]
                     #print(i, sum)
-                # add in noise (but scaled down a bit)
-                next[i] += sum * 0.5
+                next[i] += sum
                     
         
     def update(self):
@@ -182,7 +181,6 @@ class Simulator():
             self.state_mgr.set_body_velocity( self.bvx, self.bvy, self.bvz )
             self.alpha = atan2( self.bvz, self.bvx )
             self.beta = atan2( -self.bvy, self.bvx )
-
         elif "sin(alpha)" in result:
             s_alpha = result["sin(alpha)"] / qbar
             s_beta = result["sin(beta)"] / qbar
