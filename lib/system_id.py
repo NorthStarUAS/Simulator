@@ -52,14 +52,15 @@ from scipy.sparse import lil_matrix
 from lib.state_mgr import StateManager
 
 class SystemIdentification():
-    def __init__(self):
-        self.traindata = []
+    def __init__(self, vehicle):
+        self.traindata_list = []
+        self.traindata = None
         self.A = None
         self.model = {}
-        self.state_mgr = StateManager()
+        self.state_mgr = StateManager(vehicle)
 
     def add_state_vec(self, state_vec):
-        self.traindata.append( state_vec )
+        self.traindata_list.append( state_vec )
 
     def opt_err(self, xk):
         A = xk.reshape( (self.states, self.states) )
@@ -90,9 +91,9 @@ class SystemIdentification():
         return A, lower, upper
     
     def opt_fit(self, A_guess=None):
-        self.states = len(self.traindata[0])
-        self.X = np.array(self.traindata[:-1]).T
-        self.Y = np.array(self.traindata[1:]).T
+        self.states = len(self.traindata_list[0])
+        self.X = np.array(self.traindata_list[:-1]).T
+        self.Y = np.array(self.traindata_list[1:]).T
         
         if A_guess is not None:
             A = A_guess.copy()
@@ -112,6 +113,20 @@ class SystemIdentification():
         return res["x"].reshape((self.states, self.states))
         
     def fit(self):
+        self.traindata = np.array(self.traindata_list)
+        
+        if False:
+            # signal smoothing experiment
+            from scipy import signal
+            idx_list = self.state_mgr.get_state_index( ["p", "q", "r"] )
+            for i in idx_list:
+                print(i)
+                print(self.traindata[:,i].shape)
+                sos = signal.butter(4, 15, 'low', fs=(1/self.state_mgr.dt),
+                                    output='sos')
+                filt = signal.sosfilt(sos, self.traindata[:,i]).astype(float)
+                self.traindata[:,i] = filt
+                
         states = len(self.traindata[0])
         self.X = np.array(self.traindata[:-1]).T
         self.Y = np.array(self.traindata[1:]).T
@@ -159,7 +174,7 @@ class SystemIdentification():
             # in the feedback loop between dependent parameters, so ...
             self.A = self.opt_fit() # use I as initial guess
         
-        # compute input state parameter ranges
+        # compute expected ranges for dependent parameters
         self.model["parameters"] = []
         for i in range(states):
             row = self.X[i,:]
@@ -191,7 +206,7 @@ class SystemIdentification():
         dep_index_list = self.state_mgr.get_state_index( self.state_mgr.dep_states )
         pred = []
         for i in range(len(self.X.T)):
-            v  = self.traindata[i].copy()
+            v  = self.traindata[i,:].copy()
             p = self.A @ np.array(v)
             pred.append(p)
         Ypred = np.array(pred).T
@@ -209,21 +224,21 @@ class SystemIdentification():
             ax.set_title(self.state_mgr.state_list[i] + " Spectogram")
             ax.set_ylabel('Frequency [Hz]')
             ax.set_xlabel('Time [s]');
-            sums = Sx.sum(axis=1)   # sum the rows (by freq)
+            means = Sx.mean(axis=1)   # average each rows (by freq)
             num_bins = 15
             bins = np.linspace(0.5, num_bins+0.5, num_bins+1) # freq range
-            print(bins)
+            #print(bins)
 
             bin_indices = np.digitize( freqs, bins )
-            print(bin_indices)
+            #print(bin_indices)
             d1 = []
             for j in range(num_bins):
                 bin = j + 1
-                sum = np.sum(sums[bin_indices==j+1])
-                if not np.isnan(sum):
+                total = np.sum(means[bin_indices==j+1])
+                if not np.isnan(total):
                     pt = 0.5 * (bins[j] + bins[j+1])
-                    print( j, pt, sum )
-                    d1.append( [pt, sum] )
+                    #print( j, pt, total )
+                    d1.append( [pt, total] )
             self.model["parameters"][i]["noise"] = d1
             d1 = np.array(d1)
             plt.figure()
@@ -233,7 +248,7 @@ class SystemIdentification():
         plt.show()
     
     def analyze(self):
-        states = len(self.traindata[0])
+        states = len(self.traindata_list[0])
         params = self.model["parameters"]
 
         # report leading contributions towards computing each dependent state
@@ -252,7 +267,7 @@ class SystemIdentification():
             first = True
             for j in idx:
                 perc = 100 * energy[j] / total
-                if abs(perc) < 0.05:
+                if abs(perc) < 0.01:
                     continue
                 if first:
                     first = False
