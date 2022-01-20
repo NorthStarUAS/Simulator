@@ -76,6 +76,9 @@ class Simulator():
         self.ax = 0.0
         self.ay = 0.0
         self.az = 0.0
+        self.bvx = 0.0
+        self.bvy = 0.0
+        self.bvz = 0.0
         self.state_mgr.set_accels( self.ax, self.ay, self.az )
         self.time = 0.0
         self.state_mgr.set_time( self.time )
@@ -210,6 +213,28 @@ class Simulator():
             self.bvy = sin(self.state_mgr.beta) * self.airspeed_mps
             self.bvz = sin(self.state_mgr.alpha) * self.airspeed_mps
             self.state_mgr.set_body_velocity( self.bvx, self.bvy, self.bvz )
+        elif "bax" in result and "airspeed" in result:
+            # update body frame velocity from accel estimates (* dt)
+            self.bvx += result["bax"] * self.dt
+            self.bvy += result["bay"] * self.dt
+            self.bvz += result["baz"] * self.dt
+            # force bvx to be positive and non-zero (no tail slides here)
+            if self.bvx < 0.1:
+                self.bvx = 0.1
+            # try to clamp alpha/beta from getting crazy
+            if abs(self.bvy / self.bvx) > 0.1:
+                self.bvy = np.sign(self.bvy) * abs(self.bvx) * 0.1
+            if abs(self.bvz / self.bvx) > 0.1:
+                self.bvz = np.sign(self.bvz) * abs(self.bvx) * 0.1
+            # scale to airspeed
+            v = np.array( [self.bvx, self.bvy, self.bvz] )
+            v *= (self.airspeed_mps / np.linalg.norm(v))
+            self.bvx = v[0]
+            self.bvy = v[1]
+            self.bvz = v[2]
+            self.state_mgr.set_body_velocity( v[0], v[1], v[2] )
+            self.alpha = atan2( self.bvz, self.bvx )
+            self.beta = atan2( -self.bvy, self.bvx )
         
         self.p = result["p"]
         self.q = result["q"]
