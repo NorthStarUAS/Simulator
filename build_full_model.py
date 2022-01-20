@@ -46,6 +46,7 @@ if args.vehicle == "wing":
         "bgx", "bgy", "bgz",        # gravity rotated into body frame
     ]
     dependent_states = [
+        "airspeed",
         "bax", "bay", "baz",        # acceleration in body frame (no g)
         #"bvx", "bvy", "bvz",         # velocity components (body frame)
         "p", "q", "r",               # imu (body) rates
@@ -120,6 +121,10 @@ coeff = []
 # backup wind estimator if needed
 windest = Wind()
 
+from lib.wind2 import Wind2
+w2 = Wind2()
+w2.estimate2( flight_interp.IterateGroup(data), imu_dt )
+
 # iterate through the flight data log, cherry pick the selected parameters
 iter = flight_interp.IterateGroup(data)
 for i in tqdm(range(iter.size())):
@@ -187,12 +192,12 @@ for i in tqdm(range(iter.size())):
             we = cos(wind_psi) * wind_mps
             wn = sin(wind_psi) * wind_mps
             wd = 0
-        else:
+        elif sysid.state_mgr.is_flying():
             windest.update(imupt["time"], asi_mps, navpt["psi"], navpt["vn"], navpt["ve"])
             wn = windest.filt_long_wn.value
             we = windest.filt_long_we.value
             wd = 0
-            #print("%.2f %.2f" % (wn, we))
+            print("%.2f %.2f" % (wn, we))
     if "filter" in record:
         navpt = record["filter"]
         sysid.state_mgr.set_orientation( navpt["phi"], navpt["the"], navpt["psi"] )
