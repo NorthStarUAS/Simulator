@@ -137,11 +137,17 @@ class Wind2():
         return winds
 
     def opt_err(self, xk):
-        wn = self.data[:,2] - self.data[:,4]*xk[0] # vn - un * scale
-        we = self.data[:,3] - self.data[:,5]*xk[0] # ve - ue * scale
-        wn_mean = np.mean(wn)
-        we_mean = np.mean(we)
-        return np.concatenate( [wn - wn_mean, we - we_mean] )
+        un = np.sin(self.data[:,1] + xk[1]) * self.data[:,2] * xk[0]
+        ue = np.cos(self.data[:,1] + xk[1]) * self.data[:,2] * xk[0]
+        #wn = self.data[:,3] - self.data[:,5]*xk[0] # vn - un * scale
+        #we = self.data[:,4] - self.data[:,6]*xk[0] # ve - ue * scale
+        wn = self.data[:,3] - un # vn - un * scale
+        we = self.data[:,4] - ue # ve - ue * scale
+
+        wn_filt = signal.filtfilt(self.b, self.a, wn)
+        we_filt = signal.filtfilt(self.b, self.a, we)
+        
+        return np.concatenate( [wn_filt - wn, we_filt - we] )
     
     # run a quick wind estimate and pitot calibration based on nav
     # estimate + air data
@@ -180,26 +186,34 @@ class Wind2():
                 # instantaneous wind velocity
                 we = ve - ue
                 wn = vn - un
-                data.append( [t, asi_mps, vn, ve, un, ue] )
+                data.append( [t, psi, asi_mps, vn, ve, un, ue] )
                 
         self.data = np.array(data)
-        vn = self.data[:,2]
-        ve = self.data[:,3]
+        vn = self.data[:,3]
+        ve = self.data[:,4]
         
-        res = least_squares(self.opt_err, [1.0], verbose=2)
-        pitot_scale = res["x"][0]
-        print("pitot scale:", pitot_scale)
-        un = self.data[:,4] * pitot_scale
-        ue = self.data[:,5] * pitot_scale
-
         fs = len(data) / (data[-1][0] - data[0][0])
         #fs = (1 / imu_dt)
         print("fs:", fs)
-        b, a = signal.butter(2, 0.02, 'lowpass', fs=fs)
+        cutoff_freq = 1.0 / 100.0  # 1/n hz
+        self.b, self.a = signal.butter(2, cutoff_freq, 'lowpass', fs=fs)
+        
+        res = least_squares(self.opt_err, [1.0, 0.0], verbose=2)
+        pitot_scale = res["x"][0]
+        psi_bias = res["x"][1]
+        print("pitot scale:", pitot_scale)
+        print("psi bias (deg):", psi_bias*r2d)
+        psi_bias = 0
+        un = np.sin(self.data[:,1] + psi_bias) * self.data[:,2] * pitot_scale
+        ue = np.cos(self.data[:,1] + psi_bias) * self.data[:,2] * pitot_scale
+
+        un = self.data[:,5] * pitot_scale
+        ue = self.data[:,6] * pitot_scale
+
         wn = vn - un
         we = ve - ue
-        wn_filt = signal.filtfilt(b, a, wn)
-        we_filt = signal.filtfilt(b, a, we)
+        wn_filt = signal.filtfilt(self.b, self.a, wn)
+        we_filt = signal.filtfilt(self.b, self.a, we)
         wn_mean = np.mean(wn)
         we_mean = np.mean(we)
         print("wind north:", wn_mean, "wind_east:", we_mean)
@@ -223,6 +237,19 @@ class Wind2():
         plt.plot(self.data[:,0], true_e, label="ue true (mps)")
         plt.xlabel("time (sec)")
         plt.legend()
+
+        # wind heading/velocity
+        wind_fig, (ax0, ax1) = plt.subplots(2, 1, sharex=True)
+        ax0.set_title("Winds Aloft")
+        ax0.set_ylabel("Heading (degrees)", weight='bold')
+        ax0.plot(self.data[:,0], np.mod(270 - np.arctan2(wn_filt, we_filt)*r2d,360))
+        ax0.grid()
+        ax1.set_xlabel("Time (secs)", weight='bold')
+        ax1.set_ylabel("Speed (kts)", weight='bold')
+        speed = np.linalg.norm(np.vstack( [wn_filt, we_filt] ), axis=0)
+        ax1.plot(self.data[:,0], speed*mps2kt, label="Wind Speed")
+        ax1.grid()
+        ax1.legend()
 
         # wind adjusted for (estimated) pitot scaling
         plt.figure()
@@ -263,7 +290,7 @@ class Wind2():
         true_v = np.linalg.norm(np.vstack( [true_n, true_e] ), axis=0)
         plt.figure()
         plt.plot(self.data[:,0], true_v, label="est true airspeed (mps)")
-        plt.plot(self.data[:,0], self.data[:,1]*pitot_scale, label="true airspeed (mps)")
+        plt.plot(self.data[:,0], self.data[:,2]*pitot_scale, label="true airspeed (mps)")
         plt.legend()
         
         plt.show()
