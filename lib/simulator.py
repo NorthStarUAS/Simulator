@@ -32,9 +32,11 @@ class Simulator():
         print(model)
         f.close()
         self.params = model["parameters"]
+        size = len(self.params)
+        print("size:", size)
         self.dt = model["dt"]
-        self.A = np.array(model["A"])
-        print(self.A)
+        self.A = np.array(model["A"]).reshape(size, size)
+        print("A:\n", self.A)
         ind_states = []
         dep_states = []
         for param in model["parameters"]:
@@ -146,7 +148,7 @@ class Simulator():
         #print(self.state2dict(state))
 
         next = self.A @ state
-        #self.add_noise(next)
+        self.add_noise(next)
         
         input = self.state_mgr.state2dict(state)
         result = self.state_mgr.state2dict(next)

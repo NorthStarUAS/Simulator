@@ -318,7 +318,7 @@ class SystemIdentification():
         # realtime performance.
         
         self.model["dt"] = dt
-        self.model["A"] = self.A.tolist()
+        self.model["A"] = self.A.flatten().tolist()
 
         f = open(model_name, "w")
         json.dump(self.model, f, indent=4)
