@@ -36,7 +36,6 @@ sysid = SystemIdentification(args.vehicle)
 
 if args.vehicle == "wing":
     independent_states = [
-        #"airspeed",
         "aileron", "abs(aileron)",
         "elevator",
         "rudder", "abs(rudder)",    # flight controls (* qbar)
@@ -44,11 +43,11 @@ if args.vehicle == "wing":
         "thrust",                   # based on throttle
         "drag",                     # (based on flow accel, and flow g
         "bgx", "bgy", "bgz",        # gravity rotated into body frame
+        "bvx", "bvy", "bvz",         # velocity components (body frame)
     ]
     dependent_states = [
         "airspeed",
         "bax", "bay", "baz",        # acceleration in body frame (no g)
-        #"bvx", "bvy", "bvz",         # velocity components (body frame)
         "p", "q", "r",               # imu (body) rates
     ]
 elif args.vehicle == "quad":
@@ -118,12 +117,17 @@ wd = 0
 
 coeff = []
 
+pitot_scale = None
+psi_bias = None
+wn_interp = None
+we_interp = None
+
 # backup wind estimator if needed
 windest = Wind()
 
 from lib.wind2 import Wind2
 w2 = Wind2()
-w2.estimate2( flight_interp.IterateGroup(data), imu_dt )
+pitot_scale, psi_bias, wn_interp, we_interp = w2.estimate( flight_interp.IterateGroup(data), imu_dt )
 
 # iterate through the flight data log, cherry pick the selected parameters
 iter = flight_interp.IterateGroup(data)
@@ -183,10 +187,17 @@ for i in tqdm(range(iter.size())):
 
         asi_mps = airpt["airspeed"] * kt2mps
         # add in correction factor if available
-        if "pitot_scale" in airpt:
+        if pitot_scale is not None:
+            asi_mps *= pitot_scale
+        elif "pitot_scale" in airpt:
             asi_mps *= airpt["pitot_scale"]
         sysid.state_mgr.set_airdata( asi_mps )
-        if "wind_dir" in airpt:
+        if wn_interp is not None and we_interp is not None:
+            # post process wind estimate
+            wn = wn_interp(imupt["time"])
+            we = we_interp(imupt["time"])
+            wd = 0
+        elif "wind_dir" in airpt:
             wind_psi = 0.5 * pi - airpt["wind_dir"] * d2r
             wind_mps = airpt["wind_speed"] * kt2mps
             we = cos(wind_psi) * wind_mps
@@ -200,6 +211,9 @@ for i in tqdm(range(iter.size())):
             print("%.2f %.2f" % (wn, we))
     if "filter" in record:
         navpt = record["filter"]
+        psi = navpt["psi"]
+        if psi_bias is not None:
+            psi += psi_bias
         sysid.state_mgr.set_orientation( navpt["phi"], navpt["the"], navpt["psi"] )
         sysid.state_mgr.set_pos(navpt["lon"], navpt["lat"], navpt["alt"])
         if args.vehicle == "wing" or np.linalg.norm([navpt["vn"], navpt["ve"], navpt["vd"]]) > 0.000001:
