@@ -316,13 +316,14 @@ class StateManager():
             else:
                 print("Unknown field requested:", field, "aborting ...")
                 quit()
-            if True and params is not None and field in self.dep_states:
+            #if True and params is not None and field in self.dep_states:
+            if True and params is not None:
                 param = params[index]
                 min = param["min"]
                 max = param["max"]
                 median = param["median"]
                 std = param["std"]
-                n = 1
+                n = 2
                 if val < min - n*std:
                     val = min - n*std
                     print(field, "clipped to:", val)
