@@ -146,7 +146,7 @@ class Simulator():
         #print(self.state2dict(state))
 
         next = self.A @ state
-        self.add_noise(next)
+        #self.add_noise(next)
         
         input = self.state_mgr.state2dict(state)
         result = self.state_mgr.state2dict(next)
@@ -177,7 +177,29 @@ class Simulator():
         self.state_mgr.set_airdata(self.airspeed_mps)
         qbar = self.state_mgr.qbar
 
-        if "bvx" in result:
+        if "bax" in result and "airspeed" in result:
+            # update body frame velocity from accel estimates (* dt)
+            self.bvx += result["bax"] * self.dt
+            self.bvy += result["bay"] * self.dt
+            self.bvz += result["baz"] * self.dt
+            # force bvx to be positive and non-zero (no tail slides here)
+            if self.bvx < 0.1:
+                self.bvx = 0.1
+            # try to clamp alpha/beta from getting crazy
+            if abs(self.bvy / self.bvx) > 0.1:
+                self.bvy = np.sign(self.bvy) * abs(self.bvx) * 0.1
+            if abs(self.bvz / self.bvx) > 0.1:
+                self.bvz = np.sign(self.bvz) * abs(self.bvx) * 0.1
+            # scale to airspeed
+            v = np.array( [self.bvx, self.bvy, self.bvz] )
+            v *= (self.airspeed_mps / np.linalg.norm(v))
+            self.bvx = v[0]
+            self.bvy = v[1]
+            self.bvz = v[2]
+            self.state_mgr.set_body_velocity( v[0], v[1], v[2] )
+            self.alpha = atan2( self.bvz, self.bvx )
+            self.beta = atan2( -self.bvy, self.bvx )
+        elif "bvx" in result:
             self.bvx = result["bvx"]
             self.bvy = result["bvy"]
             self.bvz = result["bvz"]
@@ -213,28 +235,6 @@ class Simulator():
             self.bvy = sin(self.state_mgr.beta) * self.airspeed_mps
             self.bvz = sin(self.state_mgr.alpha) * self.airspeed_mps
             self.state_mgr.set_body_velocity( self.bvx, self.bvy, self.bvz )
-        elif "bax" in result and "airspeed" in result:
-            # update body frame velocity from accel estimates (* dt)
-            self.bvx += result["bax"] * self.dt
-            self.bvy += result["bay"] * self.dt
-            self.bvz += result["baz"] * self.dt
-            # force bvx to be positive and non-zero (no tail slides here)
-            if self.bvx < 0.1:
-                self.bvx = 0.1
-            # try to clamp alpha/beta from getting crazy
-            if abs(self.bvy / self.bvx) > 0.1:
-                self.bvy = np.sign(self.bvy) * abs(self.bvx) * 0.1
-            if abs(self.bvz / self.bvx) > 0.1:
-                self.bvz = np.sign(self.bvz) * abs(self.bvx) * 0.1
-            # scale to airspeed
-            v = np.array( [self.bvx, self.bvy, self.bvz] )
-            v *= (self.airspeed_mps / np.linalg.norm(v))
-            self.bvx = v[0]
-            self.bvy = v[1]
-            self.bvz = v[2]
-            self.state_mgr.set_body_velocity( v[0], v[1], v[2] )
-            self.alpha = atan2( self.bvz, self.bvx )
-            self.beta = atan2( -self.bvy, self.bvx )
         
         self.p = result["p"]
         self.q = result["q"]
