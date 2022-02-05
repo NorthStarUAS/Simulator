@@ -314,7 +314,7 @@ for i in range(len(sysid.traindata)):
     p = sysid.A @ np.array(v)
     #print("p:", p)
     for j, index in enumerate(dep_index_list):
-        est_val[j] = p[index]
+        est_val[j] = p[j]
         param = sysid.model["parameters"][index]
         min = param["min"]
         max = param["max"]
@@ -327,11 +327,11 @@ for i in range(len(sysid.traindata)):
     pred.append(p)
 Ypred = np.array(pred).T
 
-index_list = sysid.state_mgr.get_state_index( independent_states + dependent_states )
-for j in index_list:
+index_list = sysid.state_mgr.get_state_index( dependent_states )
+for j in range(len(index_list)):
     plt.figure()
-    plt.plot(np.array(sysid.traindata).T[j,:], label="%s (orig)" % state_names[j])
-    plt.plot(Ypred[j,:], label="%s (pred)" % state_names[j])
+    plt.plot(np.array(sysid.traindata).T[index_list[j],:], label="%s (orig)" % state_names[index_list[j]])
+    plt.plot(Ypred[j,:], label="%s (pred)" % state_names[index_list[j]])
     plt.legend()
 plt.show()
 

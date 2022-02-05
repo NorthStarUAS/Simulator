@@ -82,6 +82,8 @@ class StateManager():
         if self.elevator > 1: self.elevator = 1
         if self.rudder < -1: self.rudder = -1
         if self.rudder > 1: self.rudder = 1
+        if self.flaps < 0: self.flaps = 0
+        if self.flaps > 1: self.flaps = 1
 
     def set_motors(self, motors):
         self.motors = motors.copy()
@@ -233,13 +235,13 @@ class StateManager():
             elif field == "aileron":
                 val = self.aileron * self.qbar
             elif field == "abs(aileron)":
-                val = abs(self.aileron * self.qbar)
+                val = abs(self.aileron) * self.qbar
             elif field == "elevator":
                 val = self.elevator * self.qbar
             elif field == "rudder":
                 val = self.rudder * self.qbar
             elif field == "abs(rudder)":
-                val = abs(self.rudder * self.qbar)
+                val = abs(self.rudder) * self.qbar
             elif field == "flaps":
                 val = self.flaps * self.qbar
             elif field == "motor[0]":
@@ -337,5 +339,12 @@ class StateManager():
         result = {}
         for i in range(len(state)):
             result[self.state_list[i]] = state[i]
+        return result
+    
+    def dep2dict(self, state):
+        dep_list = self.get_state_index( self.dep_states )
+        result = {}
+        for i in range(len(dep_list)):
+            result[self.state_list[dep_list[i]]] = state[i]
         return result
         

@@ -115,7 +115,7 @@ class SystemIdentification():
     def fit(self):
         self.traindata = np.array(self.traindata_list)
         
-        if False:
+        if False:    # need to use filtfilt here to avoid phase change
             # signal smoothing experiment
             from scipy import signal
             idx_list = self.state_mgr.get_state_index( ["p", "q", "r"] )
@@ -126,10 +126,13 @@ class SystemIdentification():
                                     output='sos')
                 filt = signal.sosfilt(sos, self.traindata[:,i]).astype(float)
                 self.traindata[:,i] = filt
-                
+
+        dep_list = self.state_mgr.get_state_index( self.state_mgr.dep_states )
+        print("dep_list:", dep_list)
+        
         states = len(self.traindata[0])
         self.X = np.array(self.traindata[:-1]).T
-        self.Y = np.array(self.traindata[1:]).T
+        self.Y = np.array(self.traindata[1:,dep_list]).T
         print("X:\n", self.X.shape, np.array(self.X))
         print("Y:\n", self.Y.shape, np.array(self.Y))
 
@@ -214,14 +217,14 @@ class SystemIdentification():
 
         M=1024
         from scipy import signal
-        for i in dep_index_list:
+        for i in range(len(dep_index_list)):
             freqs, times, Sx = signal.spectrogram(diff[i,:], fs=(1/self.state_mgr.dt),
                                                   window='hanning',
                                                   nperseg=M, noverlap=M - 100,
                                                   detrend=False, scaling='spectrum')
             f, ax = plt.subplots()
             ax.pcolormesh(times, freqs, 10 * np.log10(Sx), cmap='viridis')
-            ax.set_title(self.state_mgr.state_list[i] + " Spectogram")
+            ax.set_title(self.state_mgr.dep_states[i] + " Spectogram")
             ax.set_ylabel('Frequency [Hz]')
             ax.set_xlabel('Time [s]');
             means = Sx.mean(axis=1)   # average each rows (by freq)
@@ -239,7 +242,7 @@ class SystemIdentification():
                     pt = 0.5 * (bins[j] + bins[j+1])
                     #print( j, pt, total )
                     d1.append( [pt, total] )
-            self.model["parameters"][i]["noise"] = d1
+            self.model["parameters"][dep_index_list[i]]["noise"] = d1
             d1 = np.array(d1)
             plt.figure()
             plt.plot(d1[:,0], d1[:,1], label="freq vs energy")
@@ -248,13 +251,12 @@ class SystemIdentification():
         plt.show()
     
     def analyze(self):
+        dep_index_list = self.state_mgr.get_state_index( self.state_mgr.dep_states )
         states = len(self.traindata_list[0])
         params = self.model["parameters"]
 
         # report leading contributions towards computing each dependent state
-        for i in range(states):
-            if params[i]["type"] == "independent":
-                continue
+        for i in range(len(self.state_mgr.dep_states)):
             #print(self.state_names[i])
             row = self.A[i,:]
             energy = []
@@ -263,7 +265,9 @@ class SystemIdentification():
                 energy.append(e)
             idx = np.argsort(-np.abs(energy))
             total = np.sum(np.abs(energy))
-            params[i]["formula"] = self.state_mgr.state_list[i] + " = "
+            dep_idx = dep_index_list[i]
+            params[dep_idx]["formula"] = self.state_mgr.state_list[dep_idx] + " = "
+            formula = self.state_mgr.state_list[dep_idx] + " = "
             first = True
             for j in idx:
                 perc = 100 * energy[j] / total
@@ -273,43 +277,44 @@ class SystemIdentification():
                     first = False
                 else:
                     if perc >= 0:
-                        params[i]["formula"] += " + "
+                        formula += " + "
                     else:
-                        params[i]["formula"] += " - "
-                params[i]["formula"] += self.state_mgr.state_list[j] + " %.1f%%" % abs(perc)
-            print(params[i]["formula"])
+                        formula += " - "
+                formula += self.state_mgr.state_list[j] + " %.1f%%" % abs(perc)
+            params[dep_index_list[i]]["formula"] = formula
+            print(params[dep_index_list[i]]["formula"])
             
-        # report leading contributions of each state to each dependent state
-        for i in range(states):
-            #print(self.state_names[i])
-            col = self.A[:,i]
-            energy = []
-            for j in range(states):
-                if params[j]["type"] == "independent":
-                    e = 0
-                else:
-                    e = col[j] * params[i]["std"] / params[j]["std"]
-                energy.append(e)
-                #print(" ", self.state_mgr.state_list[i], self.state_mgr.state_list[j], col[j], e)
-            idx = np.argsort(-np.abs(energy))
-            #total = np.sum(np.abs(energy))
-            params[i]["correlates to"] = ""
-            first = True
-            for j in idx:
-                perc = 100 * energy[j]
-                if abs(perc) < 0.0001:
-                    continue
-                if first:
-                    first = False
-                else:
-                    params[i]["correlates to"] += ", "
-                params[i]["correlates to"] += self.state_mgr.state_list[j] + ": "
-                if perc >= 0:
-                    params[i]["correlates to"] += "+"
-                else:
-                    params[i]["correlates to"] += "-"
-                params[i]["correlates to"] += "%.3f%%" % abs(perc)
-            print(self.state_mgr.state_list[i], "correlates to:", params[i]["correlates to"])
+        # # report leading contributions of each state to each dependent state
+        # for i in range(states):
+        #     #print(self.state_names[i])
+        #     col = self.A[:,i]
+        #     energy = []
+        #     for j in range(states):
+        #         if params[j]["type"] == "independent":
+        #             e = 0
+        #         else:
+        #             e = col[j] * params[dep_idx]["std"] / params[j]["std"]
+        #         energy.append(e)
+        #         #print(" ", self.state_mgr.state_list[i], self.state_mgr.state_list[j], col[j], e)
+        #     idx = np.argsort(-np.abs(energy))
+        #     #total = np.sum(np.abs(energy))
+        #     params[i]["correlates to"] = ""
+        #     first = True
+        #     for j in idx:
+        #         perc = 100 * energy[j]
+        #         if abs(perc) < 0.0001:
+        #             continue
+        #         if first:
+        #             first = False
+        #         else:
+        #             params[i]["correlates to"] += ", "
+        #         params[i]["correlates to"] += self.state_mgr.state_list[j] + ": "
+        #         if perc >= 0:
+        #             params[i]["correlates to"] += "+"
+        #         else:
+        #             params[i]["correlates to"] += "-"
+        #         params[i]["correlates to"] += "%.3f%%" % abs(perc)
+        #     print(self.state_mgr.state_list[i], "correlates to:", params[i]["correlates to"])
                 
     def save(self, model_name, dt):
         # the median delta t from the data log is important to include
