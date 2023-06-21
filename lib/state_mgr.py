@@ -15,6 +15,8 @@ class StateManager():
         self.dep_states = []
         self.state_list = []
         self.dt = None
+        self.airborne_thresh_mps = 10 # default for small fixed wing drone
+        self.land_thresh_mps = 7      # default for small fixed wing drone
         self.airspeed_mps = 0
         self.wn_filt = 0
         self.we_filt = 0
@@ -57,20 +59,26 @@ class StateManager():
                 print("Request for non-existent state name")
                 result.append(None)
         return result
-            
+
     def set_dt(self, dt):
         self.dt = dt
 
+    def set_is_flying_thresholds(self, airborne_thresh_mps, land_thresh_mps):
+        if land_thresh_mps >= airborne_thresh_mps:
+            print("land threshold must be lower than airborne threshold for hysterisis.")
+        self.airborne_thresh_mps = airborne_thresh_mps
+        self.land_thresh_mps = land_thresh_mps
+
     def set_time(self, time):
         self.time = time
-        
+
     def set_throttle(self, throttle):
         self.throttle = throttle
         if self.throttle < 0: self.throttle = 0
         if self.throttle > 1: self.throttle = 1
         # max thrust is 0.75 gravity, so we can't quite hover on full power
         self.thrust = sqrt(self.throttle) * 0.75 * abs(gravity)
-        
+
     def set_flight_surfaces(self, aileron, elevator, rudder, flaps=0):
         self.aileron = aileron
         self.elevator = elevator
@@ -87,7 +95,7 @@ class StateManager():
 
     def set_motors(self, motors):
         self.motors = motors.copy()
-        
+
     def set_orientation(self, phi_rad, the_rad, psi_rad):
         self.phi_rad = phi_rad
         self.the_rad = the_rad
@@ -105,7 +113,7 @@ class StateManager():
         self.p = p
         self.q = q
         self.r = r
-        
+
     def set_accels(self, ax, ay, az):
         self.ax = ax
         self.ay = ay
@@ -127,17 +135,17 @@ class StateManager():
         self.alt = alt
         if self.ground_alt is None or alt < self.ground_alt:
             self.ground_alt = alt
-            
+
     def is_flying(self):
         if self.vehicle == "wing":
             # ground speed mps (ned)
             gs_mps = sqrt( self.v_ned[0]**2 + self.v_ned[1]**2 )
 
             # test if we are flying?
-            if not self.flying and gs_mps > 10 and self.airspeed_mps > 7:
+            if not self.flying and gs_mps > self.airborne_thresh_mps*0.7 and self.airspeed_mps > self.airborne_thresh_mps:
                 print("Start flying @ %.2f" % self.time)
                 self.flying = True
-            elif self.flying and gs_mps < 5 and self.airspeed_mps < 5:
+            elif self.flying and gs_mps < self.airborne_thresh_mps*1.2 and self.airspeed_mps < self.land_thresh_mps:
                 print("Stop flying @ %.2f" % self.time)
                 self.flying = False
         elif self.vehicle == "quad":
@@ -165,7 +173,7 @@ class StateManager():
             self.v_body = quaternion.transform(ned2body, self.v_ned)
             #print("v_ned:", self.v_ned, np.linalg.norm(self.v_ned),
             #      "v_body:", self.v_body, np.linalg.norm(self.v_body))
-            
+
             # compute alpha and beta from body frame velocity
             self.alpha = atan2( self.v_body[2], self.v_body[0] )
             self.beta = atan2( -self.v_body[1], self.v_body[0] )
@@ -179,7 +187,7 @@ class StateManager():
         #print(" body (deg): %.1f %.1f %.1f" % (self.phi_rad*r2d, self.the_rad*r2d, self.psi_rad*r2d))
         #print(" flow (deg): %.1f %.1f %.1f" % (fphi*r2d, fthe*r2d, fpsi*r2d))
         self.v_flow = quaternion.transform(ned2flow, self.v_ned)
-        
+
         # compute acceleration in the body frame
         if self.v_body_last is None:
             self.v_body_last = self.v_body.copy()
@@ -189,7 +197,7 @@ class StateManager():
             #print(self.update_count, "body:", self.v_body, self.v_body_last, self.a_body)
             self.v_body_last = self.v_body.copy()
             #print("a_body norm1: ", np.linalg.norm(self.a_body))
-            
+
         # compute acceleration in the flow frame
         if self.v_flow_last is None:
             self.v_flow_last = self.v_flow.copy()
@@ -200,7 +208,7 @@ class StateManager():
             self.v_flow_last = self.v_flow.copy()
             #print("a_flow norm1: ", np.linalg.norm(self.a_flow))
             self.last_update_count = self.update_count
-            
+
         # lift, drag, and weight vector estimates
 
         # rotate ned gravity vector into body frame
@@ -208,10 +216,10 @@ class StateManager():
 
         # rotate ned gravity vector into flow frame
         self.g_flow = quaternion.transform(ned2flow, self.g_ned)
-        
+
         # is my math correct here? (for drag need grav & body_accel in
         # flight path frame of reference ... I think.
-        
+
         self.drag = (self.thrust - self.g_flow[0]) - self.a_flow[0]
         if self.qbar > 10:
             self.Cd = self.drag / self.qbar
@@ -219,14 +227,14 @@ class StateManager():
             self.Cd = 0
 
         # do I need to think through lift frame of reference here too?
-        
+
         self.lift = -self.a_flow[2] - self.g_flow[2]
         if self.qbar > 10:
             self.Cl = self.lift / self.qbar
         else:
             self.Cl = 0
         #print(" lift:", self.a_flow[2], self.g_flow[2], self.lift)
-        
+
     def gen_state_vector(self, params=None):
         result = []
         for index, field in enumerate(self.state_list):
@@ -299,10 +307,10 @@ class StateManager():
                 val = self.v_body[0]
             elif field == "bvy":
                 #val = self.v_body[1]**2 * 0.5 * np.sign(self.v_body[1])
-                val = self.v_body[1]
+                val = self.v_body[1] * self.qbar
             elif field == "bvz":
                 #val = self.v_body[2]**2 * 0.5 * np.sign(self.v_body[2])
-                val = self.v_body[2]
+                val = self.v_body[2] * self.qbar
             elif field == "p":
                 val = self.p
             elif field == "q":
@@ -334,17 +342,17 @@ class StateManager():
                     print(field, "clipped to:", val)
             result.append(val)
         return result
-    
+
     def state2dict(self, state):
         result = {}
         for i in range(len(state)):
             result[self.state_list[i]] = state[i]
         return result
-    
+
     def dep2dict(self, state):
         dep_list = self.get_state_index( self.dep_states )
         result = {}
         for i in range(len(dep_list)):
             result[self.state_list[dep_list[i]]] = state[i]
         return result
-        
+
