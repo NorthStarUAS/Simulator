@@ -17,7 +17,7 @@ from matplotlib import pyplot as plt
 import numpy as np
 from tqdm import tqdm
 
-from rcUAS_flightdata import flight_loader, flight_interp
+from flightdata import flight_loader, flight_interp
 
 from lib.constants import d2r, r2d, kt2mps
 from lib.system_id import SystemIdentification
@@ -31,43 +31,6 @@ parser.add_argument("--vehicle", default="wing", choices=["wing", "quad"], help=
 parser.add_argument("--invert-elevator", action='store_true', help="invert direction of elevator")
 parser.add_argument("--invert-rudder", action='store_true', help="invert direction of rudder")
 args = parser.parse_args()
-
-sysid = SystemIdentification(args.vehicle)
-
-if args.vehicle == "wing":
-    independent_states = [
-        "aileron", "abs(aileron)",
-        "elevator",
-        "rudder", "abs(rudder)",    # flight controls (* qbar)
-        #"flaps",
-        "thrust",                   # based on throttle
-        "drag",                     # (based on flow accel, and flow g
-        "bgx", "bgy", "bgz",        # gravity rotated into body frame
-        "bvx", "bvy", "bvz",         # velocity components (body frame)
-    ]
-    dependent_states = [
-        "airspeed",
-        "bax", "bay", "baz",        # acceleration in body frame (no g)
-        "p", "q", "r",               # imu (body) rates
-    ]
-elif args.vehicle == "quad":
-    independent_states = [
-        "motor[0]",
-        "motor[1]",
-        "motor[2]",
-        "motor[3]",                # motor commands
-        #"bgx", "bgy", "bgz",        # gravity rotated into body frame
-        #"ax", "ay", "az",           # imu (body) accels
-        #"bax", "bay", "baz",        # acceleration in body frame (no g)
-    ]
-    dependent_states = [
-        #"bvx", "bvy",
-        "bvz",         # velocity components (body frame)
-        #"p", "q", "r",               # imu (body) rates
-    ]
-
-state_names = independent_states + dependent_states
-sysid.state_mgr.set_state_names(independent_states, dependent_states)
 
 # load the flight data
 path = args.flight
@@ -83,11 +46,69 @@ if len(data["imu"]) == 0 and len(data["gps"]) == 0:
     print("not enough data loaded to continue.")
     quit()
 
+sysid = SystemIdentification(args.vehicle)
+
+if flight_format == "cirrus_csv":
+    independent_states = [
+        "aileron",
+        "elevator",
+        "rudder", "abs(rudder)",    # flight controls (* qbar)
+        "flaps",
+        "thrust",                   # based on throttle
+        "drag",                     # (based on flow accel, and flow g
+        "bgx", "bgy", "bgz",        # gravity rotated into body frame
+        "alpha",                    # angle of attack
+        "beta",                     # side slip
+    ]
+    dependent_states = [
+        "airspeed",
+        "bax", "bay", "baz",        # acceleration in body frame (no g)
+        "p", "q", "r",              # imu (body) rates
+    ]
+elif args.vehicle == "wing":
+    independent_states = [
+        "aileron", "abs(aileron)",
+        "elevator",
+        "rudder", "abs(rudder)",    # flight controls (* qbar)
+        #"flaps",
+        "thrust",                   # based on throttle
+        "drag",                     # (based on flow accel, and flow g
+        "bgx", "bgy", "bgz",        # gravity rotated into body frame
+        "bvx", "bvy", "bvz",        # velocity components (body frame)
+    ]
+    dependent_states = [
+        "airspeed",
+        "bax", "bay", "baz",        # acceleration in body frame (no g)
+        "p", "q", "r",              # imu (body) rates
+    ]
+elif args.vehicle == "quad":
+    independent_states = [
+        "motor[0]",
+        "motor[1]",
+        "motor[2]",
+        "motor[3]",                  # motor commands
+        #"bgx", "bgy", "bgz",        # gravity rotated into body frame
+        #"ax", "ay", "az",           # imu (body) accels
+        #"bax", "bay", "baz",        # acceleration in body frame (no g)
+    ]
+    dependent_states = [
+        #"bvx", "bvy",
+        "bvz",                        # velocity components (body frame)
+        #"p", "q", "r",               # imu (body) rates
+    ]
+
+state_names = independent_states + dependent_states
+sysid.state_mgr.set_state_names(independent_states, dependent_states)
+
+if flight_format == "cirrus_csv":
+    sysid.state_mgr.set_is_flying_thresholds(60*kt2mps, 50*kt2mps)
+
 # dt estimation
 print("Estimating median dt from IMU records:")
 iter = flight_interp.IterateGroup(data)
 last_time = None
 dt_data = []
+max_airspeed = 0
 for i in tqdm(range(iter.size())):
     record = iter.next()
     if len(record):
@@ -97,14 +118,19 @@ for i in tqdm(range(iter.size())):
                 last_time = imupt["time"]
             dt_data.append(imupt["time"] - last_time)
             last_time = imupt["time"]
+        if "air" in record:
+            airpt = record["air"]
+            if airpt["airspeed"] > max_airspeed:
+                max_airspeed = airpt["airspeed"]
 dt_data = np.array(dt_data)
 print("IMU mean:", np.mean(dt_data))
 print("IMU median:", np.median(dt_data))
 imu_dt = float("%.4f" % np.median(dt_data))
 print("imu dt:", imu_dt)
+print("max airspeed in flight:", max_airspeed )
 
 sysid.state_mgr.set_dt(imu_dt)
-            
+
 print("Parsing flight data log:")
 actpt = {}
 airpt = {}
@@ -258,7 +284,7 @@ if True and len(coeff):
     plt.plot(d1[:,0], d1[:,1], label="Cl vs. alpha (deg)")
     plt.xlabel("alpha (deg)")
     plt.legend()
-    
+
     # asi vs drag
     num_bins = 25
     max = np.max(coeff[:,3])
