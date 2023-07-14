@@ -323,6 +323,8 @@ class SystemIdentification():
         # realtime performance.
         
         self.model["dt"] = dt
+        self.model["rows"] = len(self.state_mgr.dep_states)
+        self.model["cols"] = len(self.state_mgr.dep_states) + len(self.state_mgr.ind_states)
         self.model["A"] = self.A.flatten().tolist()
 
         f = open(model_name, "w")
