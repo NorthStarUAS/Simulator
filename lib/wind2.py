@@ -34,7 +34,7 @@ class Wind2():
         ue = np.cos(self.data[:,1] + yb) * self.data[:,2] * ps
         wn = self.data[:,3] - un  # vn - un
         we = self.data[:,4] - ue  # ve - ue
-          
+
         # minimize the error between filtered wind and raw wind
         # wn_filt = signal.filtfilt(self.b, self.a, wn)
         # we_filt = signal.filtfilt(self.b, self.a, we)
@@ -47,7 +47,7 @@ class Wind2():
         print('Pearsons correlation: %.3f %.3f' % (corr_n, corr_e))
 
         return [ corr_n, corr_e ]
-    
+
     # run a quick wind estimate and pitot calibration based on nav
     # estimate + air data
     def estimate(self, iter, imu_dt):
@@ -86,17 +86,17 @@ class Wind2():
                 we = ve - ue
                 wn = vn - un
                 data.append( [t, psi, asi_mps, vn, ve, un, ue] )
-                
+
         self.data = np.array(data)
         vn = self.data[:,3]
         ve = self.data[:,4]
-        
+
         fs = len(data) / (data[-1][0] - data[0][0])
         #fs = (1 / imu_dt)
         print("fs:", fs)
         cutoff_freq = 1.0 / 100.0  # 1/n hz
         self.b, self.a = signal.butter(2, cutoff_freq, 'lowpass', fs=fs)
-        
+
         res = least_squares(self.opt_err, [1.0, 0.0], verbose=2)
         pitot_scale = res["x"][0]
         psi_bias = res["x"][1]
@@ -123,7 +123,7 @@ class Wind2():
         plt.plot(self.data[:,0], ve, label="ve (mps)")
         plt.xlabel("time (sec)")
         plt.legend()
-            
+
         # body velocity
         plt.figure()
         # indicated
@@ -166,7 +166,7 @@ class Wind2():
         plt.plot(self.data[:,0], vn, label="vn (mps)")
         plt.xlabel("time (sec)")
         plt.legend()
-        
+
         # east velocies
         plt.figure()
         plt.plot(self.data[:,0], we, label="we raw (mps)")
@@ -174,7 +174,7 @@ class Wind2():
         plt.plot(self.data[:,0], ve, label="ve (mps)")
         plt.xlabel("time (sec)")
         plt.legend()
-        
+
         # heading correction
         true_psi = np.arctan2(true_n, true_e)
         logged_psi = np.arctan2(un, ue)
@@ -191,7 +191,7 @@ class Wind2():
         plt.plot(self.data[:,0], true_v, label="est true airspeed (mps)")
         plt.plot(self.data[:,0], self.data[:,2]*pitot_scale, label="true airspeed (mps)")
         plt.legend()
-        
+
         plt.show()
 
         wn_interp = interpolate.interp1d(self.data[:,0], wn_filt,

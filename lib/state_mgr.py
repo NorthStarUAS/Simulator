@@ -15,6 +15,8 @@ class StateManager():
         self.dep_states = []
         self.state_list = []
         self.dt = None
+        self.airborne_thresh_mps = 10 # default for small fixed wing drone
+        self.land_thresh_mps = 7      # default for small fixed wing drone
         self.airspeed_mps = 0
         self.wn_filt = 0
         self.we_filt = 0
@@ -60,6 +62,12 @@ class StateManager():
 
     def set_dt(self, dt):
         self.dt = dt
+
+    def set_is_flying_thresholds(self, airborne_thresh_mps, land_thresh_mps):
+        if land_thresh_mps >= airborne_thresh_mps:
+            print("land threshold must be lower than airborne threshold for hysterisis.")
+        self.airborne_thresh_mps = airborne_thresh_mps
+        self.land_thresh_mps = land_thresh_mps
 
     def set_time(self, time):
         self.time = time
@@ -134,10 +142,10 @@ class StateManager():
             gs_mps = sqrt( self.v_ned[0]**2 + self.v_ned[1]**2 )
 
             # test if we are flying?
-            if not self.flying and gs_mps > 10 and self.airspeed_mps > 7:
+            if not self.flying and gs_mps > self.airborne_thresh_mps*0.7 and self.airspeed_mps > self.airborne_thresh_mps:
                 print("Start flying @ %.2f" % self.time)
                 self.flying = True
-            elif self.flying and gs_mps < 5 and self.airspeed_mps < 5:
+            elif self.flying and gs_mps < self.airborne_thresh_mps*1.2 and self.airspeed_mps < self.land_thresh_mps:
                 print("Stop flying @ %.2f" % self.time)
                 self.flying = False
         elif self.vehicle == "quad":
@@ -299,10 +307,10 @@ class StateManager():
                 val = self.v_body[0]
             elif field == "bvy":
                 #val = self.v_body[1]**2 * 0.5 * np.sign(self.v_body[1])
-                val = self.v_body[1]
+                val = self.v_body[1] * self.qbar
             elif field == "bvz":
                 #val = self.v_body[2]**2 * 0.5 * np.sign(self.v_body[2])
-                val = self.v_body[2]
+                val = self.v_body[2] * self.qbar
             elif field == "p":
                 val = self.p
             elif field == "q":
