@@ -89,12 +89,12 @@ class SystemIdentification():
                 print("reseting A[%s,%s] from:" % (p1, p2), A[row,col], "to:", upper[n])
                 A[row,col] = upper[n]
         return A, lower, upper
-    
+
     def opt_fit(self, A_guess=None):
         self.states = len(self.traindata_list[0])
         self.X = np.array(self.traindata_list[:-1]).T
         self.Y = np.array(self.traindata_list[1:]).T
-        
+
         if A_guess is not None:
             A = A_guess.copy()
         else:
@@ -107,14 +107,14 @@ class SystemIdentification():
             ["airspeed", "bax", 0, np.inf]
         ]
         A, lower, upper = self.opt_compute_bounds(A, logical_bounds)
-        
+
         res = least_squares(self.opt_err, A.flatten(), bounds=(lower,upper), verbose=2)
         print( res["x"].reshape((self.states, self.states)) )
         return res["x"].reshape((self.states, self.states))
-        
+
     def fit(self):
         self.traindata = np.array(self.traindata_list)
-        
+
         if False:    # need to use filtfilt here to avoid phase change
             # signal smoothing experiment
             from scipy import signal
@@ -129,7 +129,7 @@ class SystemIdentification():
 
         dep_list = self.state_mgr.get_state_index( self.state_mgr.dep_states )
         print("dep_list:", dep_list)
-        
+
         states = len(self.traindata[0])
         self.X = np.array(self.traindata[:-1]).T
         self.Y = np.array(self.traindata[1:,dep_list]).T
@@ -150,7 +150,7 @@ class SystemIdentification():
         print("dask svd...")
         daX = da.from_array(self.X, chunks=(self.X.shape[0], 10000)).persist()
         u, s, vh = da.linalg.svd(daX)
-        
+
         if True:
             # debug and sanity check
             print("u:\n", u.shape, u)
@@ -176,7 +176,7 @@ class SystemIdentification():
             # knowledge, but it can also disrupt the delicate balance
             # in the feedback loop between dependent parameters, so ...
             self.A = self.opt_fit() # use I as initial guess
-        
+
         # compute expected ranges for dependent parameters
         self.model["parameters"] = []
         for i in range(states):
@@ -249,7 +249,7 @@ class SystemIdentification():
             plt.xlabel("freq")
             plt.legend()
         plt.show()
-    
+
     def analyze(self):
         dep_index_list = self.state_mgr.get_state_index( self.state_mgr.dep_states )
         states = len(self.traindata_list[0])
@@ -262,6 +262,7 @@ class SystemIdentification():
             energy = []
             for j in range(states):
                 e = row[j] * params[j]["std"]
+                # e = row[j] * (params[j]["max"] - params[j]["min"]) # probably no ...
                 energy.append(e)
             idx = np.argsort(-np.abs(energy))
             total = np.sum(np.abs(energy))
@@ -283,7 +284,7 @@ class SystemIdentification():
                 formula += self.state_mgr.state_list[j] + " %.1f%%" % abs(perc)
             params[dep_index_list[i]]["formula"] = formula
             print(params[dep_index_list[i]]["formula"])
-            
+
         # # report leading contributions of each state to each dependent state
         # for i in range(states):
         #     #print(self.state_names[i])
@@ -315,13 +316,13 @@ class SystemIdentification():
         #             params[i]["correlates to"] += "-"
         #         params[i]["correlates to"] += "%.3f%%" % abs(perc)
         #     print(self.state_mgr.state_list[i], "correlates to:", params[i]["correlates to"])
-                
+
     def save(self, model_name, dt):
         # the median delta t from the data log is important to include
         # with the state transition matrix because the state
         # transition matrix coefficients assume this value for
         # realtime performance.
-        
+
         self.model["dt"] = dt
         self.model["rows"] = len(self.state_mgr.dep_states)
         self.model["cols"] = len(self.state_mgr.dep_states) + len(self.state_mgr.ind_states)
