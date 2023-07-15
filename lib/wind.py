@@ -18,11 +18,9 @@ kt2mps = 1 / mps2kt
 class Wind():
     def __init__(self):
         self.pitot_time_factor = 240
-        self.psi_error_time_factor = 60
         self.wind_tf_long = 60
         self.wind_tf_short = 30
         self.filt_ps = lowpass.LowPassFilter(self.pitot_time_factor, 1.0)
-        self.filt_psi_error = lowpass.LowPassFilter(self.psi_error_time_factor, 1.0)
         self.filt_long_wn = lowpass.LowPassFilter(self.wind_tf_long, 0.0)
         self.filt_long_we = lowpass.LowPassFilter(self.wind_tf_long, 0.0)
         self.filt_short_wn = lowpass.LowPassFilter(self.wind_tf_short, 0.0)
@@ -39,14 +37,13 @@ class Wind():
         if dt > 0.0 and airspeed_kt >= 10.0:
             # update values if 'flying' and time has elapsed
             psi = 0.5*math.pi - yaw_rad
-            psi += self.filt_psi_error.value
 
             # estimate body velocity
             ue = math.cos(psi) * (airspeed_kt * self.filt_ps.value * kt2mps)
             un = math.sin(psi) * (airspeed_kt * self.filt_ps.value * kt2mps)
-            # print("yaw_deg: %0f psi_deg: %.2f" % (yaw_rad*r2d, psi*r2d),
-            #       "ue: %.1f un: %.1f" % (ue, un),
-            #       "ve: %.1f vn: %.1f" % (ve, vn))
+            print("airspeed_kt: %0f yaw_deg: %0f psi_deg: %.2f" % (airspeed_kt, yaw_rad*r2d, psi*r2d),
+                  "ue: %.1f un: %.1f" % (ue, un),
+                  "ve: %.1f vn: %.1f" % (ve, vn))
             # instantaneous wind velocity
             we = ve - ue
             wn = vn - un
@@ -61,22 +58,20 @@ class Wind():
             true_e = ve - self.filt_long_we.value
             true_n = vn - self.filt_long_wn.value
 
-            # estimate aircraft 'true' heading
-            true_psi = math.atan2(true_n, true_e)
-            psi_error = true_psi - psi
-            if psi_error < -math.pi: psi_error += 2*math.pi
-            if psi_error > math.pi: psi_error -= 2*math.pi
-            self.filt_psi_error.update(psi_error, dt)
-            #print(self.filt_psi_error.value*r2d, psi_error*r2d)
+            if True:
+                # estimate aircraft 'true' heading
+                true_psi = math.atan2(true_n, true_e)
 
-            # estimate pitot tube bias
-            true_speed_kt = math.sqrt( true_e*true_e + true_n*true_n ) * mps2kt
-            self.ps = true_speed_kt / airspeed_kt
-            #print("asi: %.1f  true(est): %.1f true(act): %.1f scale: %.2f" % (airspeed_kt, airspeed_kt * self.filt_ps.value, true_speed_kt, self.filt_ps.value))
-            # don't let the scale factor exceed some reasonable limits
-            if self.ps < 0.75: self.ps = 0.75
-            if self.ps > 1.25: self.ps = 1.25
-            self.filt_ps.update(self.ps, dt)
+                # estimate pitot tube bias
+                true_speed_kt = math.sqrt( true_e*true_e + true_n*true_n ) * mps2kt
+                self.ps = true_speed_kt / airspeed_kt
+                #print("asi: %.1f  true(est): %.1f true(act): %.1f scale: %.2f" % (airspeed_kt, airspeed_kt * self.filt_ps.value, true_speed_kt, self.filt_ps.value))
+                # don't let the scale factor exceed some reasonable limits
+                if self.ps < 0.75: self.ps = 0.75
+                if self.ps > 1.25: self.ps = 1.25
+
+                self.filt_ps.update(self.ps, dt)
+                print("ps:", self.filt_ps.value)
 
     # run a quick wind estimate and pitot calibration based on nav
     # estimate + air data
