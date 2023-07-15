@@ -21,6 +21,13 @@ class StateManager():
         self.wn_filt = 0
         self.we_filt = 0
         self.wd_filt = 0
+
+        self.aileron = 0
+        self.elevator = 0
+        self.rudder = 0
+        self.flaps = 0
+        self.throttle = 0
+
         self.qbar = 0
         self.lift = 0
         self.Cl = 0
@@ -35,10 +42,9 @@ class StateManager():
         self.g_body = np.array( [0.0, 0.0, 0.0] )
         self.g_flow = np.array( [0.0, 0.0, 0.0] )
         self.v_ned = np.array( [0.0, 0.0, 0.0] )
+        self.v_ned_last = None
         self.v_body = np.array( [0.0, 0.0, 0.0] )
-        self.v_body_last = None
         self.v_flow = np.array( [0.0, 0.0, 0.0] )
-        self.v_flow_last = None
         self.a_body = np.array( [0.0, 0.0, 0.0] )
         self.a_flow = np.array( [0.0, 0.0, 0.0] )
         self.update_count = 0
@@ -101,9 +107,13 @@ class StateManager():
         self.the_rad = the_rad
         self.psi_rad = psi_rad
 
-    def set_airdata(self, airspeed_mps):
+    def set_airdata(self, airspeed_mps, alpha_rad=None, beta_rad=None):
         self.airspeed_mps = airspeed_mps
         self.qbar = 0.5 * self.airspeed_mps**2
+        if alpha_rad is not None:
+            self.alpha = alpha_rad
+        if beta_rad is not None:
+            self.beta = beta_rad
 
     def set_wind(self, wn, we):
         self.wn_filt = 0.95 * self.wn_filt + 0.05 * wn
@@ -158,7 +168,7 @@ class StateManager():
         return self.flying
 
     # compute body (AND FLOW) frame of reference values
-    def compute_body_frame_values(self, compute_body_vel=True):
+    def compute_body_frame_values(self, compute_body_vel=True, have_alpha_beta=False):
         self.update_count += 1
         if self.dt is None:
             print("Did you forget to set dt for this system?")
@@ -168,12 +178,24 @@ class StateManager():
         ned2body = quaternion.eul2quat( self.phi_rad, self.the_rad,
                                         self.psi_rad )
 
+        if self.v_ned_last is None:
+            self.v_ned_last = self.v_ned.copy()
+
+        if np.array_equal(self.v_ned, self.v_ned_last):
+            # v_ned hasn't changed, so nothing to do
+            return
+
+        dt = self.dt * (self.update_count - self.last_update_count)
+        self.v_ned_last = self.v_ned.copy()
+        self.last_update_count = self.update_count
+
         if compute_body_vel:
             # rotate ned velocity vector into body frame
             self.v_body = quaternion.transform(ned2body, self.v_ned)
             #print("v_ned:", self.v_ned, np.linalg.norm(self.v_ned),
             #      "v_body:", self.v_body, np.linalg.norm(self.v_body))
 
+        if not have_alpha_beta:
             # compute alpha and beta from body frame velocity
             self.alpha = atan2( self.v_body[2], self.v_body[0] )
             self.beta = atan2( -self.v_body[1], self.v_body[0] )
@@ -188,34 +210,18 @@ class StateManager():
         #print(" flow (deg): %.1f %.1f %.1f" % (fphi*r2d, fthe*r2d, fpsi*r2d))
         self.v_flow = quaternion.transform(ned2flow, self.v_ned)
 
-        # compute acceleration in the body frame
-        if self.v_body_last is None:
-            self.v_body_last = self.v_body.copy()
-        if not np.array_equal(self.v_body, self.v_body_last):
-            dt = self.dt * (self.update_count - self.last_update_count)
-            self.a_body = (self.v_body - self.v_body_last) / dt
-            #print(self.update_count, "body:", self.v_body, self.v_body_last, self.a_body)
-            self.v_body_last = self.v_body.copy()
-            #print("a_body norm1: ", np.linalg.norm(self.a_body))
+        # rotate ned gravity vector into body and flow frames
+        self.g_body = quaternion.transform(ned2body, self.g_ned)
+        self.g_flow = quaternion.transform(ned2flow, self.g_ned)
+
+        # compute acceleration in the body frame (w/o gravity)
+        a_body_g = np.array( [self.ax, self.ay, self.az] )
+        self.a_body = a_body_g - self.g_body
 
         # compute acceleration in the flow frame
-        if self.v_flow_last is None:
-            self.v_flow_last = self.v_flow.copy()
-        if not np.array_equal(self.v_flow, self.v_flow_last):
-            dt = self.dt * (self.update_count - self.last_update_count)
-            self.a_flow = (self.v_flow - self.v_flow_last) / dt
-            #print(self.update_count, "flow:", self.v_flow, self.v_flow_last, self.a_flow)
-            self.v_flow_last = self.v_flow.copy()
-            #print("a_flow norm1: ", np.linalg.norm(self.a_flow))
-            self.last_update_count = self.update_count
+        self.a_flow = quaternion.transform(body2flow, self.a_body)
 
         # lift, drag, and weight vector estimates
-
-        # rotate ned gravity vector into body frame
-        self.g_body = quaternion.transform(ned2body, self.g_ned)
-
-        # rotate ned gravity vector into flow frame
-        self.g_flow = quaternion.transform(ned2flow, self.g_ned)
 
         # is my math correct here? (for drag need grav & body_accel in
         # flight path frame of reference ... I think.
@@ -242,8 +248,6 @@ class StateManager():
                 val = self.throttle
             elif field == "aileron":
                 val = self.aileron * self.qbar
-            elif field == "abs(aileron)":
-                val = abs(self.aileron) * self.qbar
             elif field == "elevator":
                 val = self.elevator * self.qbar
             elif field == "rudder":
@@ -274,6 +278,8 @@ class StateManager():
                 val = self.g_body[0]
             elif field == "bgy":
                 val = self.g_body[1]
+            elif field == "abs(bgy)":
+                val = abs(self.g_body[1])
             elif field == "bgz":
                 val = self.g_body[2]
             elif field == "fgx":
@@ -306,11 +312,11 @@ class StateManager():
                 #val = self.v_body[0]**2 * 0.5 * np.sign(self.v_body[0])
                 val = self.v_body[0]
             elif field == "bvy":
-                #val = self.v_body[1]**2 * 0.5 * np.sign(self.v_body[1])
-                val = self.v_body[1] * self.qbar
+                val = self.v_body[1]**2 * 0.5 * np.sign(self.v_body[1])
+                # val = self.v_body[1]
             elif field == "bvz":
-                #val = self.v_body[2]**2 * 0.5 * np.sign(self.v_body[2])
-                val = self.v_body[2] * self.qbar
+                val = self.v_body[2]**2 * 0.5 * np.sign(self.v_body[2])
+                # val = self.v_body[2]
             elif field == "p":
                 val = self.p
             elif field == "q":
