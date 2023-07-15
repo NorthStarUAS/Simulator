@@ -50,15 +50,17 @@ sysid = SystemIdentification(args.vehicle)
 
 if flight_format == "cirrus_csv":
     independent_states = [
-        "aileron",
+        "aileron",                  # flight controls (* qbar)
         "elevator",
-        "rudder", "abs(rudder)",    # flight controls (* qbar)
+        "rudder",
         "flaps",
         "thrust",                   # based on throttle
         "drag",                     # (based on flow accel, and flow g
         "bgx", "bgy", "bgz",        # gravity rotated into body frame
-        "alpha",                    # angle of attack
-        "beta",                     # side slip
+        # "abs(bgy)",               # gravity effects related to abs(bank angle)
+        "sin(alpha)",               # angle of attack
+        "sin(beta)",                # side slip
+        # "bvx", "bvy", "bvz",      # (direct alpha/beta better) velocity components (body frame)
     ]
     dependent_states = [
         "airspeed",
@@ -151,9 +153,14 @@ we_interp = None
 # backup wind estimator if needed
 windest = Wind()
 
-from lib.wind2 import Wind2
-w2 = Wind2()
-pitot_scale, psi_bias, wn_interp, we_interp = w2.estimate( flight_interp.IterateGroup(data), imu_dt )
+if True or flight_format != "cirrus_csv":
+    # note: wind estimates are only needed for estimating alpha/beta (or
+    # bvz/bvy) which is not needed if the aircraft is instrumented with
+    # alpha/beta vanes and these are measured directly.
+
+    from lib.wind2 import Wind2
+    w2 = Wind2()
+    pitot_scale, psi_bias, wn_interp, we_interp = w2.estimate( flight_interp.IterateGroup(data), imu_dt )
 
 # iterate through the flight data log, cherry pick the selected parameters
 iter = flight_interp.IterateGroup(data)
@@ -217,7 +224,10 @@ for i in tqdm(range(iter.size())):
             asi_mps *= pitot_scale
         elif "pitot_scale" in airpt:
             asi_mps *= airpt["pitot_scale"]
-        sysid.state_mgr.set_airdata( asi_mps )
+        if "alpha" in airpt and "beta" in airpt:
+            sysid.state_mgr.set_airdata( asi_mps, airpt["alpha"]*d2r, airpt["beta"]*d2r )
+        else:
+            sysid.state_mgr.set_airdata( asi_mps )
         if wn_interp is not None and we_interp is not None:
             # post process wind estimate
             wn = wn_interp(imupt["time"])
@@ -229,8 +239,8 @@ for i in tqdm(range(iter.size())):
             we = cos(wind_psi) * wind_mps
             wn = sin(wind_psi) * wind_mps
             wd = 0
-        elif sysid.state_mgr.is_flying():
-            windest.update(imupt["time"], asi_mps, navpt["psi"], navpt["vn"], navpt["ve"])
+        elif flight_format == "cirrus_csv" and sysid.state_mgr.is_flying():
+            windest.update(imupt["time"], airpt["airspeed"], navpt["psi"], navpt["vn"], navpt["ve"])
             wn = windest.filt_long_wn.value
             we = windest.filt_long_we.value
             wd = 0
@@ -250,7 +260,10 @@ for i in tqdm(range(iter.size())):
                                               gpspt["vd"], wn, we, wd )
 
     if sysid.state_mgr.is_flying():
-        sysid.state_mgr.compute_body_frame_values(compute_body_vel=True)
+        if flight_format == "cirrus_csv":
+            sysid.state_mgr.compute_body_frame_values(compute_body_vel=True, have_alpha_beta=True)
+        else:
+            sysid.state_mgr.compute_body_frame_values(compute_body_vel=True)
         state = sysid.state_mgr.gen_state_vector()
         #print(sysid.state_mgr.state2dict(state))
         sysid.add_state_vec(state)
@@ -316,15 +329,15 @@ sysid.model_noise()
 sysid.analyze()
 sysid.save(args.write, imu_dt)
 
-# show an running estimate of dependent states.  Feed the dependent
-# estimate forward into next state rather than using the original
-# logged value.  This can show the convergence of the estimated
-# parameters versus truth (or show major problems in the model.)
+# show a running estimate of dependent states.  Feed the dependent estimate
+# forward into next state rather than using the original logged value.  This can
+# show the convergence of the estimated parameters versus truth (or show major
+# problems in the model.)
 
-# the difference here is we are propagating the prediction forward as
-# if we don't have other knowledge of the dependent states (i.e. what
-# would happen in a flight simulation, or if we used this system to
-# emulate airspeed or imu sensors?)
+# the difference here is we are propagating the prediction forward as if we
+# don't have other knowledge of the dependent states (i.e. what would happen in
+# a flight simulation, or if we used this system to emulate airspeed or imu
+# sensors?)
 
 dep_index_list = sysid.state_mgr.get_state_index( dependent_states )
 #print("dep_index list:", dep_index_list)
