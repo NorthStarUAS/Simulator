@@ -2,10 +2,10 @@
 # avoid getting lost in our index offsets as we play around with
 # different state parameters.
 
-from math import atan2, cos, sin, sqrt
+from math import atan2, sin, sqrt
 import numpy as np
 
-from lib.constants import d2r, r2d, gravity, kt2mps
+from lib.constants import gravity
 from lib import quaternion
 
 class StateManager():
@@ -42,13 +42,18 @@ class StateManager():
         self.g_body = np.array( [0.0, 0.0, 0.0] )
         self.g_flow = np.array( [0.0, 0.0, 0.0] )
         self.v_ned = np.array( [0.0, 0.0, 0.0] )
-        self.v_ned_last = None
         self.v_body = np.array( [0.0, 0.0, 0.0] )
         self.v_flow = np.array( [0.0, 0.0, 0.0] )
         self.a_body = np.array( [0.0, 0.0, 0.0] )
         self.a_flow = np.array( [0.0, 0.0, 0.0] )
-        self.update_count = 0
-        self.last_update_count = 0
+
+        self.p = 0
+        self.q = 0
+        self.r = 0
+        self.r_prev = 0
+        self.ax = 0
+        self.ay = 0
+        self.az = 0
 
     def set_state_names(self, ind_states, dep_states):
         self.ind_states = ind_states
@@ -110,16 +115,23 @@ class StateManager():
     def set_airdata(self, airspeed_mps, alpha_rad=None, beta_rad=None):
         self.airspeed_mps = airspeed_mps
         self.qbar = 0.5 * self.airspeed_mps**2
+        self.v_body[0] = airspeed_mps
         if alpha_rad is not None:
             self.alpha = alpha_rad
+            self.v_body[2] = -airspeed_mps * sin(alpha_rad)
         if beta_rad is not None:
             self.beta = beta_rad
+            self.v_body[1] = airspeed_mps * sin(beta_rad)
 
     def set_wind(self, wn, we):
         self.wn_filt = 0.95 * self.wn_filt + 0.05 * wn
         self.we_filt = 0.95 * self.we_filt + 0.05 * we
 
     def set_gyros(self, p, q, r):
+        self.p_prev = self.p
+        self.q_prev = self.q
+        self.r_prev = self.r
+
         self.p = p
         self.q = q
         self.r = r
@@ -137,6 +149,8 @@ class StateManager():
         self.v_ned = np.array( [vn + wn, ve + we, vd + wd] )
 
     def set_body_velocity(self, vx, vy, vz):
+        print("Current body velocity should be set from airdata + alpha/beta")
+        quit()
         self.v_body = np.array( [vx, vy, vz] )
 
     def set_pos(self, lon, lat, alt):
@@ -168,34 +182,20 @@ class StateManager():
         return self.flying
 
     # compute body (AND FLOW) frame of reference values
-    def compute_body_frame_values(self, compute_body_vel=True, have_alpha_beta=False):
-        self.update_count += 1
+    def compute_body_frame_values(self, have_alpha_beta=False):
         if self.dt is None:
             print("Did you forget to set dt for this system?")
             return None
 
         # transformation between NED coordations and body coordinates
-        ned2body = quaternion.eul2quat( self.phi_rad, self.the_rad,
-                                        self.psi_rad )
+        ned2body = quaternion.eul2quat( self.phi_rad, self.the_rad, self.psi_rad )
 
-        if self.v_ned_last is None:
-            self.v_ned_last = self.v_ned.copy()
-
-        if np.array_equal(self.v_ned, self.v_ned_last):
-            # v_ned hasn't changed, so nothing to do
-            return
-
-        dt = self.dt * (self.update_count - self.last_update_count)
-        self.v_ned_last = self.v_ned.copy()
-        self.last_update_count = self.update_count
-
-        if compute_body_vel:
+        if not have_alpha_beta:
             # rotate ned velocity vector into body frame
             self.v_body = quaternion.transform(ned2body, self.v_ned)
             #print("v_ned:", self.v_ned, np.linalg.norm(self.v_ned),
             #      "v_body:", self.v_body, np.linalg.norm(self.v_body))
 
-        if not have_alpha_beta:
             # compute alpha and beta from body frame velocity
             self.alpha = atan2( self.v_body[2], self.v_body[0] )
             self.beta = atan2( -self.v_body[1], self.v_body[0] )
@@ -226,15 +226,23 @@ class StateManager():
         # is my math correct here? (for drag need grav & body_accel in
         # flight path frame of reference ... I think.
 
-        self.drag = (self.thrust - self.g_flow[0]) - self.a_flow[0]
+        # self.drag = (self.thrust - self.g_flow[0]) - self.a_flow[0]
+        self.drag = self.a_flow[0] - self.thrust
         if self.qbar > 10:
             self.Cd = self.drag / self.qbar
         else:
             self.Cd = 0
 
         # do I need to think through lift frame of reference here too? --yes, please.
+        # flow frame vs body frame?
 
-        self.lift = -self.a_flow[2] - self.g_flow[2]
+        if True: # flow frame
+            # self.lift = -self.a_flow[2] - self.g_flow[2]
+            a_flow_g = quaternion.backTransform(body2flow, a_body_g)
+            self.lift = -a_flow_g[2]
+        else: # body frame
+            self.lift = -a_body_g[2]
+
         if self.qbar > 10:
             self.Cl = self.lift / self.qbar
         else:
@@ -300,8 +308,10 @@ class StateManager():
                 val = self.a_flow[1]
             elif field == "faz":
                 val = self.a_flow[2]
-            elif field == "airspeed":
+            elif field == "airspeed_old":
                 val = self.airspeed_mps
+            elif field == "qbar":
+                val = self.qbar
             elif field == "sin(alpha)":
                 val = sin(self.alpha) * self.qbar
             elif field == "sin(beta)":
@@ -312,17 +322,23 @@ class StateManager():
                 #val = self.v_body[0]**2 * 0.5 * np.sign(self.v_body[0])
                 val = self.v_body[0]
             elif field == "bvy":
-                val = self.v_body[1]**2 * 0.5 * np.sign(self.v_body[1])
-                # val = self.v_body[1]
+                # val = self.v_body[1]**2 * 0.5 * np.sign(self.v_body[1])
+                val = self.v_body[1]
             elif field == "bvz":
-                val = self.v_body[2]**2 * 0.5 * np.sign(self.v_body[2])
-                # val = self.v_body[2]
+                # val = self.v_body[2]**2 * 0.5 * np.sign(self.v_body[2])
+                val = self.v_body[2]
             elif field == "p":
                 val = self.p
             elif field == "q":
                 val = self.q
             elif field == "r":
                 val = self.r
+            elif field == "p_prev":
+                val = self.p_prev
+            elif field == "q_prev":
+                val = self.q_prev
+            elif field == "r_prev":
+                val = self.r_prev
             elif field == "ax":
                 val = self.ax
             elif field == "ay":
@@ -333,19 +349,19 @@ class StateManager():
                 print("Unknown field requested:", field, "aborting ...")
                 quit()
             #if True and params is not None and field in self.dep_states:
-            if True and params is not None:
+            if params is not None:
                 param = params[index]
-                min = param["min"]
-                max = param["max"]
-                median = param["median"]
-                std = param["std"]
-                n = 2
-                if val < min - n*std:
-                    val = min - n*std
-                    print(field, "clipped to:", val)
-                if val > max + n*std:
-                    val = max + n*std
-                    print(field, "clipped to:", val)
+                if param["type"] == "dependent":
+                    min = param["min"]
+                    max = param["max"]
+                    std = param["std"]
+                    n = 2
+                    if val < min - n*std:
+                        val = min - n*std
+                        print(field, "clipped to:", val)
+                    if val > max + n*std:
+                        val = max + n*std
+                        print(field, "clipped to:", val)
             result.append(val)
         return result
 
