@@ -53,19 +53,20 @@ if flight_format == "cirrus_csv":
         "aileron",                  # flight controls (* qbar)
         "elevator",
         "rudder",
-        "flaps",
         "thrust",                   # based on throttle
         "drag",                     # (based on flow accel, and flow g
         "bgx", "bgy", "bgz",        # gravity rotated into body frame
-        # "abs(bgy)",               # gravity effects related to abs(bank angle)
+        "qbar",
         "sin(alpha)",               # angle of attack
         "sin(beta)",                # side slip
-        # "bvx", "bvy", "bvz",      # (direct alpha/beta better) velocity components (body frame)
+        "p_prev", "q_prev", "r_prev", # additional history of rotational rates improves rotational fit.
     ]
     dependent_states = [
-        "airspeed",
         "bax", "bay", "baz",        # acceleration in body frame (no g)
         "p", "q", "r",              # imu (body) rates
+    ]
+    conditions = [
+        { "flaps": [0, 0.5, 1] }
     ]
 elif args.vehicle == "wing":
     independent_states = [
@@ -260,24 +261,25 @@ for i in tqdm(range(iter.size())):
                                               gpspt["vd"], wn, we, wd )
 
     if sysid.state_mgr.is_flying():
-        if flight_format == "cirrus_csv":
-            sysid.state_mgr.compute_body_frame_values(compute_body_vel=True, have_alpha_beta=True)
-        else:
-            sysid.state_mgr.compute_body_frame_values(compute_body_vel=True)
-        state = sysid.state_mgr.gen_state_vector()
-        #print(sysid.state_mgr.state2dict(state))
-        sysid.add_state_vec(state)
-        if args.vehicle == "wing":
-            coeff.append( [sysid.state_mgr.alpha*r2d,
-                           sysid.state_mgr.Cl, sysid.state_mgr.Cd,
-                           sysid.state_mgr.airspeed_mps,
-                           sysid.state_mgr.drag] )
+        if abs(sysid.state_mgr.flaps - 0) < 0.1:
+            if flight_format == "cirrus_csv":
+                sysid.state_mgr.compute_body_frame_values(have_alpha_beta=True)
+            else:
+                sysid.state_mgr.compute_body_frame_values(have_alpha_beta=False)
+            state = sysid.state_mgr.gen_state_vector()
+            #print(sysid.state_mgr.state2dict(state))
+            sysid.add_state_vec(state)
+            if args.vehicle == "wing":
+                coeff.append( [sysid.state_mgr.alpha*r2d,
+                               sysid.state_mgr.Cl, sysid.state_mgr.Cd,
+                               sysid.state_mgr.airspeed_mps,
+                               sysid.state_mgr.drag] )
 
 if True and len(coeff):
     coeff = np.array(coeff)
 
     # alpha vs Cl, Cd plot
-    num_bins = 25
+    num_bins = 100
     bins = np.linspace(-5, 20, num_bins+1) # alpha range
     print(bins)
 
@@ -298,28 +300,34 @@ if True and len(coeff):
     plt.xlabel("alpha (deg)")
     plt.legend()
 
-    # asi vs drag
-    num_bins = 25
-    max = np.max(coeff[:,3])
-    bins = np.linspace(0, max, num_bins+1) # alpha range
-    print(bins)
-
-    bin_indices = np.digitize( coeff[:,3], bins )
-
-    d1 = []
-    for i in range(num_bins):
-        bin = i + 1
-        drag_mean = np.mean(coeff[bin_indices==i+1,4])
-        if not np.isnan(drag_mean):
-            pt = 0.5 * (bins[i] + bins[i+1])
-            print( i, pt, drag_mean )
-            d1.append( [pt, drag_mean] )
-    d1 = np.array(d1)
     plt.figure()
-    plt.plot(d1[:,0], d1[:,1], label="airspeed vs drag")
-    plt.xlabel("airspeed (mps)")
+    plt.plot(d1[:,0], d1[:,2], label="Cd vs. alpha (deg)")
+    plt.xlabel("alpha (deg)")
     plt.legend()
-    plt.show()
+
+    if False:
+        # asi vs drag
+        num_bins = 50
+        max = np.max(coeff[:,3])
+        bins = np.linspace(0, max, num_bins+1) # alpha range
+        print(bins)
+
+        bin_indices = np.digitize( coeff[:,3], bins )
+
+        d1 = []
+        for i in range(num_bins):
+            bin = i + 1
+            drag_mean = np.mean(coeff[bin_indices==i+1,4])
+            if not np.isnan(drag_mean):
+                pt = 0.5 * (bins[i] + bins[i+1])
+                print( i, pt, drag_mean )
+                d1.append( [pt, drag_mean] )
+        d1 = np.array(d1)
+        plt.figure()
+        plt.plot(d1[:,0], d1[:,1], label="airspeed vs drag")
+        plt.xlabel("airspeed (mps)")
+        plt.legend()
+        plt.show()
 
 print("Number of states:", len(sysid.traindata_list[0]))
 print("Input state vectors:", len(sysid.traindata_list))
