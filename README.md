@@ -167,8 +167,6 @@ for the actual **A** matrix.  DMD uses additional simplifications
 because it is primarily concerned with finding the leading eigenvalues
 and eigenvectors of the **A** matrix.
 
-
-
 ## Simulation
 
 Once the **A** matrix is computed, this forms the heart of the flight
