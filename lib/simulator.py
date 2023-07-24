@@ -9,13 +9,13 @@ Engineering and Mechanics, UAV Lab.
 """
 
 import json
-from math import asin, atan2, cos, sin, sqrt, pi
+from math import asin, atan2, cos, sin, pi
 from matplotlib import pyplot as plt
 import numpy as np
 from scipy.optimize import least_squares
 
 from lib import quaternion
-from lib.constants import d2r, r2d
+from lib.constants import d2r, r2d, gravity
 from lib.state_mgr import StateManager
 
 class Simulator():
@@ -50,31 +50,23 @@ class Simulator():
                 dep_states.append( param["name"] )
         self.state_mgr.set_state_names( ind_states, dep_states )
         self.state_mgr.set_dt( self.dt )
-        
+
     def reset(self):
         initial_airspeed_mps = 10.0
-        self.state_mgr.set_airdata( initial_airspeed_mps )
+        self.state_mgr.set_airdata( initial_airspeed_mps, 0, 0 )
         self.state_mgr.set_throttle( 0.5 )
         self.state_mgr.set_flight_surfaces( aileron=0.0,
                                             elevator=-0.1,
                                             rudder=0.0 )
-        self.airspeed_mps = 0
         self.pos_ned = np.array( [0.0, 0.0, 0.0] )
         self.vel_ned = np.array( [initial_airspeed_mps, 0.0, 0.0] )
         self.state_mgr.set_ned_velocity( self.vel_ned[0],
                                          self.vel_ned[1],
                                          self.vel_ned[2],
                                          0.0, 0.0, 0.0 )
-        self.state_mgr.set_body_velocity( initial_airspeed_mps, 0.0, 0.0 )
-        self.phi_rad = 0.0
-        self.the_rad = 0.0
-        self.psi_rad = 0.0
-        self.state_mgr.set_orientation( self.phi_rad,
-                                        self.the_rad,
-                                        self.psi_rad )
-        self.ned2body = quaternion.eul2quat( self.phi_rad,
-                                             self.the_rad,
-                                             self.psi_rad )
+        # self.state_mgr.set_body_velocity( initial_airspeed_mps, 0.0, 0.0 )
+        self.state_mgr.set_orientation( 0, 0, 0 )
+        self.ned2body = quaternion.eul2quat( 0, 0, 0 )
         self.p = 0.0
         self.q = 0.0
         self.r = 0.0
@@ -121,7 +113,7 @@ class Simulator():
         errors.append(result["r"])
         print(errors)
         return errors
-    
+
     def trim(self, airspeed_mps):
         self.trim_airspeed_mps = airspeed_mps
         initial = [0.5, 0.0, 0.0, 0.0, 0.0, 0.08]
@@ -145,15 +137,15 @@ class Simulator():
                     sum += sin(self.trand[j]+self.time*2*pi*pt[0]) * pt[1]
                     #print(i, sum)
                 next[i] += sum
-                    
-        
+
+
     def update(self):
         state = self.state_mgr.gen_state_vector(self.params)
-        #print(self.state2dict(state))
+        print(self.state_mgr.state2dict(state))
 
         next = self.A @ state
         self.add_noise(next)
-        
+
         input = self.state_mgr.state2dict(state)
         result = self.state_mgr.dep2dict(next)
         #print("state:", state)
@@ -174,113 +166,166 @@ class Simulator():
                 print("%.3f (%s) " % (e[j], self.state_mgr.state_list[j]), end="")
             print(" = ", next[idx_list[0]])
 
-        if "airspeed" in result:
-            self.airspeed_mps = result["airspeed"]
-        else:
-            self.airspeed_mps = np.linalg.norm( [result["bvx"],
-                                                 result["bvy"],
-                                                 result["bvz"]] )
-        self.state_mgr.set_airdata(self.airspeed_mps)
-        qbar = self.state_mgr.qbar
+        if True:
+            # gyros
+            p = result["p"]
+            q = result["q"]
+            r = result["r"]
+            self.state_mgr.set_gyros(p, q, r)
 
-        if "bax" in result and "airspeed" in result:
-            # update body frame velocity from accel estimates (* dt)
-            self.bvx += result["bax"] * self.dt
-            self.bvy += result["bay"] * self.dt
-            self.bvz += result["baz"] * self.dt
-            # force bvx to be positive and non-zero (no tail slides here)
-            if self.bvx < 0.1:
-                self.bvx = 0.1
+            # attitude
+            rot_body = quaternion.eul2quat(p * self.dt, q * self.dt, r * self.dt)
+            self.ned2body = quaternion.multiply(self.ned2body, rot_body)
+            phi_rad, the_rad, psi_rad = quaternion.quat2eul(self.ned2body)
+            self.state_mgr.set_orientation(phi_rad, the_rad, psi_rad)
+
+            g_ned = np.array( [0.0, 0.0, gravity] )
+            g_body = quaternion.transform(self.ned2body, g_ned)
+
+            # accelerometers
+            bax = result["bax"]
+            bay = result["bay"]
+            baz = result["baz"]
+            self.state_mgr.set_accels(bax + g_body[0], bay + g_body[1], baz + g_body[2])
+
+            # body frame velocities from accel estimates (* dt)
+            self.bvx += bax * self.dt
+            self.bvy += bay * self.dt
+            self.bvz += baz * self.dt
+
             # try to clamp alpha/beta from getting crazy
-            if abs(self.bvy / self.bvx) > 0.1:
-                self.bvy = np.sign(self.bvy) * abs(self.bvx) * 0.1
-            if abs(self.bvz / self.bvx) > 0.1:
-                self.bvz = np.sign(self.bvz) * abs(self.bvx) * 0.1
-            # scale to airspeed
-            v = np.array( [self.bvx, self.bvy, self.bvz] )
-            v *= (self.airspeed_mps / np.linalg.norm(v))
-            self.bvx = v[0]
-            self.bvy = v[1]
-            self.bvz = v[2]
-            self.state_mgr.set_body_velocity( v[0], v[1], v[2] )
-            self.alpha = atan2( self.bvz, self.bvx )
-            self.beta = atan2( -self.bvy, self.bvx )
-        elif "bvx" in result:
-            self.bvx = result["bvx"]
-            self.bvy = result["bvy"]
-            self.bvz = result["bvz"]
-            self.state_mgr.set_body_velocity( self.bvx, self.bvy, self.bvz )
-            self.alpha = atan2( self.bvz, self.bvx )
-            self.beta = atan2( -self.bvy, self.bvx )
-        elif "sin(alpha)" in result:
-            s_alpha = result["sin(alpha)"] / qbar
-            s_beta = result["sin(beta)"] / qbar
-            
-            # protect against our linear state transtion going out of
-            # domain bounds
-            if s_alpha > 1: s_alpha = 1
-            if s_alpha < -1: s_alpha = -1
-            if s_beta > 1: s_beta = 1
-            if s_beta < -1: s_beta = -1
-            #print(s_alpha, s_beta)
-            self.state_mgr.alpha = asin(s_alpha)
-            self.state_mgr.beta = asin(s_beta)
-        
-            # protect against alpha/beta exceeding plausible
-            # thresholds for normal flight conditions
-            max_angle = 25 * d2r
-            if self.state_mgr.alpha > max_angle:
-                self.state_mgr.alpha = max_angle
-            if self.state_mgr.alpha < -max_angle:
-                self.state_mgr.alpha = -max_angle
-            if self.state_mgr.beta > max_angle:
-                self.state_mgr.beta = max_angle
-            if self.state_mgr.beta < -max_angle:
-                self.state_mgr.beta = -max_angle
-            self.bvx = cos(self.state_mgr.alpha) * self.airspeed_mps
-            self.bvy = sin(self.state_mgr.beta) * self.airspeed_mps
-            self.bvz = sin(self.state_mgr.alpha) * self.airspeed_mps
-            self.state_mgr.set_body_velocity( self.bvx, self.bvy, self.bvz )
-        
-        self.p = result["p"]
-        self.q = result["q"]
-        self.r = result["r"]
-        self.state_mgr.set_gyros(self.p, self.q, self.r)
-        if "ax" in result:
-            self.ax = result["ax"]
-            self.ay = result["ay"]
-            self.az = result["az"]
-            self.state_mgr.set_accels(self.ax, self.ay, self.az)
+            cutoff = 0.05
+            if abs(self.bvy / self.bvx) > cutoff:
+                self.bvy = np.sign(self.bvy) * abs(self.bvx) * cutoff
+            if abs(-self.bvz / self.bvx) > cutoff:
+                self.bvz = np.sign(self.bvz) * abs(self.bvx) * cutoff
 
-        # update attitude
-        rot_body = quaternion.eul2quat(self.p * self.dt,
-                                       self.q * self.dt,
-                                       self.r * self.dt)
-        self.ned2body = quaternion.multiply(self.ned2body, rot_body)
-        self.phi_rad, self.the_rad, self.psi_rad = quaternion.quat2eul(self.ned2body)
-        self.state_mgr.set_orientation(self.phi_rad, self.the_rad, self.psi_rad)
+            # alpha and beta from body frame velocity
+            alpha = atan2( self.bvz, self.bvx )
+            beta = atan2( self.bvy, self.bvx )
 
-        self.state_mgr.compute_body_frame_values(compute_body_vel=False)
-        
-        # velocity in ned frame
-        self.vel_ned = quaternion.backTransform( self.ned2body,
-                                                 np.array([self.bvx, self.bvy, self.bvz]) )
-        self.state_mgr.set_ned_velocity( self.vel_ned[0],
-                                         self.vel_ned[1],
-                                         self.vel_ned[2],
-                                         0.0, 0.0, 0.0 )
+            # airspeed (forward component of body velocity, we can generally
+            # ignore alpha/beta here due to insensitivity of pitot probe to
+            # exact angle of attack)
+            self.state_mgr.set_airdata(self.bvx, alpha, beta)
 
-        # update position
-        self.pos_ned += self.vel_ned * self.dt
+            self.state_mgr.compute_body_frame_values(have_alpha_beta=True)
+
+            # velocity in ned frame
+            self.vel_ned = quaternion.backTransform( self.ned2body, np.array([self.bvx, self.bvy, self.bvz]) )
+            self.state_mgr.set_ned_velocity( self.vel_ned[0], self.vel_ned[1], self.vel_ned[2], 0.0, 0.0, 0.0 )
+
+            # update position
+            self.pos_ned += self.vel_ned * self.dt
+
+        else:
+            if "airspeed" in result:
+                self.airspeed_mps = result["airspeed"]
+            else:
+                self.airspeed_mps = np.linalg.norm( [result["bvx"],
+                                                    result["bvy"],
+                                                    result["bvz"]] )
+            self.state_mgr.set_airdata(self.airspeed_mps)
+            qbar = self.state_mgr.qbar
+
+            if "bax" in result and "airspeed" in result:
+                # update body frame velocity from accel estimates (* dt)
+                self.bvx += result["bax"] * self.dt
+                self.bvy += result["bay"] * self.dt
+                self.bvz += result["baz"] * self.dt
+                # force bvx to be positive and non-zero (no tail slides here)
+                if self.bvx < 0.1:
+                    self.bvx = 0.1
+                # try to clamp alpha/beta from getting crazy
+                if abs(self.bvy / self.bvx) > 0.1:
+                    self.bvy = np.sign(self.bvy) * abs(self.bvx) * 0.1
+                if abs(self.bvz / self.bvx) > 0.1:
+                    self.bvz = np.sign(self.bvz) * abs(self.bvx) * 0.1
+                # scale to airspeed
+                v = np.array( [self.bvx, self.bvy, self.bvz] )
+                v *= (self.airspeed_mps / np.linalg.norm(v))
+                self.bvx = v[0]
+                self.bvy = v[1]
+                self.bvz = v[2]
+                self.state_mgr.set_body_velocity( v[0], v[1], v[2] )
+                self.alpha = atan2( self.bvz, self.bvx )
+                self.beta = atan2( -self.bvy, self.bvx )
+            elif "bvx" in result:
+                self.bvx = result["bvx"]
+                self.bvy = result["bvy"]
+                self.bvz = result["bvz"]
+                self.state_mgr.set_body_velocity( self.bvx, self.bvy, self.bvz )
+                self.alpha = atan2( self.bvz, self.bvx )
+                self.beta = atan2( -self.bvy, self.bvx )
+            elif "sin(alpha)" in result:
+                s_alpha = result["sin(alpha)"] / qbar
+                s_beta = result["sin(beta)"] / qbar
+
+                # protect against our linear state transtion going out of
+                # domain bounds
+                if s_alpha > 1: s_alpha = 1
+                if s_alpha < -1: s_alpha = -1
+                if s_beta > 1: s_beta = 1
+                if s_beta < -1: s_beta = -1
+                #print(s_alpha, s_beta)
+                self.state_mgr.alpha = asin(s_alpha)
+                self.state_mgr.beta = asin(s_beta)
+
+                # protect against alpha/beta exceeding plausible
+                # thresholds for normal flight conditions
+                max_angle = 25 * d2r
+                if self.state_mgr.alpha > max_angle:
+                    self.state_mgr.alpha = max_angle
+                if self.state_mgr.alpha < -max_angle:
+                    self.state_mgr.alpha = -max_angle
+                if self.state_mgr.beta > max_angle:
+                    self.state_mgr.beta = max_angle
+                if self.state_mgr.beta < -max_angle:
+                    self.state_mgr.beta = -max_angle
+                self.bvx = cos(self.state_mgr.alpha) * self.airspeed_mps
+                self.bvy = sin(self.state_mgr.beta) * self.airspeed_mps
+                self.bvz = sin(self.state_mgr.alpha) * self.airspeed_mps
+                self.state_mgr.set_body_velocity( self.bvx, self.bvy, self.bvz )
+
+            self.p = result["p"]
+            self.q = result["q"]
+            self.r = result["r"]
+            self.state_mgr.set_gyros(self.p, self.q, self.r)
+            if "ax" in result:
+                self.ax = result["ax"]
+                self.ay = result["ay"]
+                self.az = result["az"]
+                self.state_mgr.set_accels(self.ax, self.ay, self.az)
+
+            # update attitude
+            rot_body = quaternion.eul2quat(self.p * self.dt,
+                                        self.q * self.dt,
+                                        self.r * self.dt)
+            self.ned2body = quaternion.multiply(self.ned2body, rot_body)
+            self.phi_rad, self.the_rad, self.psi_rad = quaternion.quat2eul(self.ned2body)
+            self.state_mgr.set_orientation(self.phi_rad, self.the_rad, self.psi_rad)
+
+            self.state_mgr.compute_body_frame_values(compute_body_vel=False)
+
+            # velocity in ned frame
+            self.vel_ned = quaternion.backTransform( self.ned2body,
+                                                    np.array([self.bvx, self.bvy, self.bvz]) )
+            self.state_mgr.set_ned_velocity( self.vel_ned[0],
+                                            self.vel_ned[1],
+                                            self.vel_ned[2],
+                                            0.0, 0.0, 0.0 )
+
+            # update position
+            self.pos_ned += self.vel_ned * self.dt
 
         # store data point
         self.data.append(
-            [ self.time, self.airspeed_mps,
+            [ self.time, self.bvx,
               self.state_mgr.throttle,
               self.state_mgr.aileron,
               self.state_mgr.elevator,
               self.state_mgr.rudder,
-              self.phi_rad, self.the_rad, self.psi_rad,
+              phi_rad, the_rad, psi_rad,
               self.state_mgr.alpha, self.state_mgr.beta,
               self.p, self.q, self.r] )
         self.data[-1].extend( self.pos_ned.tolist() )
@@ -294,7 +339,7 @@ class Simulator():
         plt.figure()
         plt.plot( self.data[:,0], self.data[:,1], label="Airspeed (mps)" )
         plt.legend()
-        plt.figure() 
+        plt.figure()
         plt.plot( self.data[:,0], self.data[:,6]*r2d, label="Roll (deg)" )
         plt.plot( self.data[:,0], self.data[:,7]*r2d, label="Pitch (deg)" )
         plt.legend()
