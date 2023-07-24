@@ -1,18 +1,138 @@
-# rc-sim
+# Data-driven system identification and flight dynamics modeling
 
-Simple flight dynamics model creation and simulation.  Based on a
-novel data-driven approach which fits (learns) the flight
-characteristics of specific aircraft from their flight data log.  This
-system builds a working flight simulator model of your (or any)
-specific aircraft directly from the data log.
+## What is System Identification?
 
-This is not the answer to life, the universe, and everything, but it's
-a fun toy and I am fascinated by how much of an aircraft's flying
-characteristics can be captured in such a simple system.
-Traditionally approaches to flight simulation are very challenging to
-build from scratch.
+System Identification involves measuring the inputs and outputs of a dynamic
+system and then using that data to derive coefficients to equations of motion
+that compute forces and moments acting on that system.  In this way a simulation
+of the system can be constructed that mirrors the true system behavior
+mathematically when provided an identical set of inputs to the real system.
 
-## Brief description of the method
+## Why do System Identification?
+
+* Create a high fidelity flight simulation model (i.e. for training)
+* As a foundation for building and testing flight control laws and strategies.
+
+Accurate dynamics models and well tested flight control laws are important for
+everything from DIY drones to commercial jets to military aircraft.  These
+concepts are important and helpful for those that are just starting out in
+aviation design, to those in education, and to those in well established
+aviation industries.
+
+## Parameter Identification
+
+People much smarter than myself have worked out a fairly standard set of
+equations of motion governing the dynamics of flight.  These equations are built
+around parameters (or tables of parameters) that turn the more generalized
+equations into something that models a specific vehicle.
+
+The process of system identification uses wind tunnel tests or real world flight
+tests to gather data and estimate these parameters.  The process is rather
+involved and usually requires a fair bit of domain knowledge and experience with
+some high level math and engineering tools (like optimizers.)
+
+With enough care and effort the end result can be a high quality dynamics model
+that captures the essential behaviors and cross couplings in an aircraft, and
+furthermore allows changing fundamental properties of the aircraft and
+simulation like weight, air density (altitude), center of gravity, even some
+geometry variations while maintainting the validity of the simulation.
+
+## Proposed "Simple" System Identification strategy: "Aero DMD v2.0"
+
+This project proposes (and demonstrates) a new simplified method for system
+identification.
+
+* I have hunted around and so far not found anyone else doing or publishing or
+  proposing a method similar to this, so /please/ if you are reading this and
+  know of prior work or similar work, let me know so I can learn too!
+
+* This method is yet not officially named, but as a place holder I am calling it
+  Aero DMD v2.0 because (a) it is rooted in some theory and strategy I learned
+  while working on a Dynamic Mode Decmoposition project at the University of
+  Minnesota (DMD comes out of the fluids area), (b) it's Aero related, and (c)
+  I'm on my second iteration of the system so it is better than v1.0.
+
+## Theoretical Background
+
+Let $\mathbf{q}$ be a vector that contains all the relevant states in our
+system.  These states need to be things we can measure (like rotational rates
+and control surface positions.)  A flight simulator simply implements a function
+(or set of functions) $\bf{f}()$ that computes $\mathbf{q_{n+1}}$ (the next
+state) from $\mathbf{q_n}$ (the current state.) Generically this can be written
+as:
+
+$$
+\mathbf{ q_{n+1} = \bf{f}(q_n) }
+$$
+
+Flight testing (or testing in a wind tunnel) is a process of measuring some of
+the parameters directly and collecting current and next state data to fill in
+the specifics of the set of equations represented by $\bf{f}()$
+
+In this project I propose that the equation $\mathbf{ q_{n+1} = \bf{f}(q_n) }$
+can be modified and rewritten as:
+
+$$
+\mathbf{ q_{n+1} = \bf{A} * q_n }
+$$
+
+Where $\bf{A}$ is a matrix derived directly from real world flight test data and
+$\mathbf{q}$ is a vector of measurable states.
+
+This project demonstrates how the matrix $\bf{A}$ can be computed directly from
+flight test data, and how this matrix can be used to implement a high fidelity
+non-linear simulation of the measured vehicle.
+
+## States
+
+It is important to select a set of states that can be measured or estimated from
+data that is measured.  It is also important to include the set of states that
+are useful for driving a flight simulation.  State selection is critical for
+this process to work well and this involves at least some domain specific
+knowledge.
+
+How does this shake out?  What states are important to measure and what states
+are important for driving a flight simulator?
+
+All states (dependent and independent) must be measured (or estimated) during
+real world flight tests.  All the states are used to derive the $\bf{A}$ matrix.
+
+The differentiation between dependent and independent is only important for
+flight simulation.  Independent states are those that can be measured directly
+(control inputs), or computed directly by the simulation, or estimated using the
+same methods used to estimate the paramters from the live flight data.
+
+Notice that these states often include additional information (like qbar) in
+order to mimic the math more traditionally used to build up the equations of
+motion.  However, more specific conditions like air density, aircraft mass, CG,
+and surface areas will be cooked into the $\bf{A}$ matrix coefficients.
+
+### Independent states
+
+* Aileron, Elevator, Rudder commands -- these are multiplied by qbar so their
+  effectiveness is scaled with airspeed.
+* Lift (estimated from body frame Z acceleration and body frame
+  gravity vector Z component.)
+* Thrust (crudely estimated as sqrt(throttle) command.)
+* Drag (estimated as total forward acceleration in the body frame after gravity
+  is removed - thrust.)
+* The gravity vector is rotated into the body frame of reference and
+  has X (out the nose), Y (out the right wing), and Z (down)
+  components.  These states correspond to aircraft pitch and roll.
+* Angle of attack (alpha) and Angle of sideslip (beta.)
+* New: the rotational rates from the previous time step.
+
+### Dependent states
+
+* Rotational rates (p, q, r)
+* Body frame accelerations (with gravity removed.)
+
+That's it, that is pretty much all it is!  By learning how to predict
+the next value of these states given the current values we can build a
+representative flight dynamics model of the original aircraft
+(including many of it's asymmetries and idiosyncracies.)
+
+## Constructing the $\bf{A}$ matrix
 
 Assume you have conducted a real UAV flight and logged the data.  Back
 on the ground, you scan the recorded log file and assemble a small set
@@ -46,39 +166,6 @@ identical to Dynamic Mode Decomposition, except here we want to solve
 for the actual **A** matrix.  DMD uses additional simplifications
 because it is primarily concerned with finding the leading eigenvalues
 and eigenvectors of the **A** matrix.
-
-## States
-
-What states do we care about?  This is actually simpler than you might
-expect.
-
-### Independent states
-
-* Aileron, Elevator, Rudder commands (approximation of the control
-  surface positions) -- these are multiplied by qbar so their
-  effectiveness is scaled with airspeed.
-* Lift (estimated from body frame Z acceleration and body frame
-  gravity vector Z component.)
-* Thrust (crudely estimated as sqrt(throttle) command.)
-* Drag (estimated from thrust, body frame X acceleration and body
-  frame gravity vector X component)
-* The gravity vector is rotated into the body frame of reference and
-  has X (out the nose), Y (out the right wing), and Z (down)
-  components.  The X and Z components show up in the drag and lift
-  estimates.  The Y component of the gravity vector is included
-  directly.
-
-### Dependent states
-
-* Airspeed.
-* Alpha (angle of attack)
-* Beta (side slip angle)
-* Rotational rates (p, q, r)
-
-That's it, that is pretty much all it is!  By learning how to predict
-the next value of these states given the current values we can build a
-representative flight dynamics model of the original aircraft
-(including many of it's asymmetries and idiosyncracies.)
 
 ## Simulation
 
@@ -176,3 +263,11 @@ configuration and payload.
 * Currently this system is only tested for fixed wing models with an
   airspeed sensor.  I hope to think through what would be involved in
   adapting this to fitting multirotor models.
+
+## References
+
+* "Simulation, Parameter Identification and Flight Safety" - Technischen
+  Universität München. <https://www.fsd.ed.tum.de/research/modeling/>
+
+* "Aircraft Flight Dynamics" - Wikipedia.
+  <https://en.wikipedia.org/wiki/Aircraft_flight_dynamics>
