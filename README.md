@@ -83,21 +83,6 @@ This project demonstrates how the matrix $\bf{A}$ can be computed directly from
 flight test data, and how this matrix can be used to implement a high fidelity
 non-linear simulation of the measured vehicle.
 
-## Non-linear???
-
-If you think for a second about how matrix / vector multiplication works, it is
-clear that each element of $\mathbf{q_{n+1}}$ is a linear combination of each
-element of $\mathbf{q_n}$ multipled by a set of precomputed coefficients.  This
-aspect of the process is linear.
-
-I am still saying the resulting simulation is non-linear because the algorithm
-described here estimates rotational rates and body accelerations across a wide
-range of conditions at each time step, and those are integrated to compute
-attitude, velocity, and position.  Please read on ... I appreciate any feed
-back, corrections, or enlightenment!  I see the world from my one narrow
-perspective, and my background is computer science and paper airplanes and I do
-not have a phd in anything.
-
 ## States
 
 It is important to select a set of states that can be measured or estimated from
