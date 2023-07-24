@@ -57,29 +57,29 @@ identification.
 Let $\mathbf{q}$ be a vector that contains all the relevant states in our
 system.  These states need to be things we can measure (like rotational rates
 and control surface positions.)  A flight simulator simply implements a function
-(or set of functions) $\bm{f}()$ that computes $\mathbf{q_{n+1}}$ (the next
+(or set of functions) $\bf{f}()$ that computes $\mathbf{q_{n+1}}$ (the next
 state) from $\mathbf{q_n}$ (the current state.) Generically this can be written
 as:
 
 $$
-\mathbf{ q_{n+1} = \bm{f}(q_n) }
+\mathbf{ q_{n+1} = \bf{f}(q_n) }
 $$
 
 Flight testing (or testing in a wind tunnel) is a process of measuring some of
 the parameters directly and collecting current and next state data to fill in
-the specifics of the set of equations represented by $\bm{f}()$
+the specifics of the set of equations represented by $\bf{f}()$
 
-In this project I propose that the equation $\mathbf{ q_{n+1} = \bm{f}(q_n) }$
+In this project I propose that the equation $\mathbf{ q_{n+1} = \bf{f}(q_n) }$
 can be modified and rewritten as:
 
 $$
-\mathbf{ q_{n+1} = \bm{A} * q_n }
+\mathbf{ q_{n+1} = \bf{A} * q_n }
 $$
 
-Where $\bm{A}$ is a matrix derived directly from real world flight test data and
+Where $\bf{A}$ is a matrix derived directly from real world flight test data and
 $\mathbf{q}$ is a vector of measurable states.
 
-This project demonstrates how the matrix $\bm{A}$ can be computed directly from
+This project demonstrates how the matrix $\bf{A}$ can be computed directly from
 flight test data, and how this matrix can be used to implement a high fidelity
 non-linear simulation of the measured vehicle.
 
@@ -110,7 +110,7 @@ How does this shake out?  What states are important to measure and what states
 are important for driving a flight simulator?
 
 All states (dependent and independent) must be measured (or estimated) during
-real world flight tests.  All the states are used to derive the $\bm{A}$ matrix.
+real world flight tests.  All the states are used to derive the $\bf{A}$ matrix.
 
 The differentiation between dependent and independent is only important for
 flight simulation.  Independent states are those that can be measured directly
@@ -120,7 +120,7 @@ same methods used to estimate the paramters from the live flight data.
 Notice that these states often include additional information (like qbar) in
 order to mimic the math more traditionally used to build up the equations of
 motion.  However, more specific conditions like air density, aircraft mass, CG,
-and surface areas will be cooked into the $\bm{A}$ matrix coefficients.
+and surface areas will be cooked into the $\bf{A}$ matrix coefficients.
 
 ### Independent states
 
@@ -147,7 +147,7 @@ the next value of these states given the current values we can build a
 representative flight dynamics model of the original aircraft
 (including many of it's asymmetries and idiosyncracies.)
 
-## Constructing the $\bm{A}$ matrix
+## Constructing the $\bf{A}$ matrix
 
 Assume you have conducted a real UAV flight and logged the data.  Back
 on the ground, you scan the recorded log file and assemble a small set
