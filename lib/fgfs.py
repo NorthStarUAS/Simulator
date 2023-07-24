@@ -28,7 +28,7 @@ def send_to_fgfs(sim):
                       sim.state_mgr.phi_rad*r2d,
                       sim.state_mgr.the_rad*r2d,
                       sim.state_mgr.psi_rad*r2d,
-                      sim.airspeed_mps*mps2kt,
+                      sim.state_mgr.airspeed_mps*mps2kt,
                       -sim.state_mgr.aileron,
                       sim.state_mgr.aileron,
                       sim.state_mgr.elevator,
@@ -36,4 +36,4 @@ def send_to_fgfs(sim):
                       0         # (someday?) sim.state_mgr.flap
                     )
     sock.sendto(msg, (ip, port))
-    
+
