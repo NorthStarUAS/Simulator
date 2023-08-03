@@ -34,8 +34,11 @@ class StateManager():
         self.drag = 0
         self.Cd = 0
         self.thrust = 0
+        self.have_alpha = False
         self.alpha = 0
+        self.alpha_prev = 0
         self.beta = 0
+        self.beta_prev = 0
         self.flying = False
         self.ground_alt = None
         self.g_ned = np.array( [0.0, 0.0, gravity] )
@@ -48,7 +51,9 @@ class StateManager():
         self.a_flow = np.array( [0.0, 0.0, 0.0] )
 
         self.p = 0
+        self.p_prev = 0
         self.q = 0
+        self.q_prev = 0
         self.r = 0
         self.r_prev = 0
         self.ax = 0
@@ -116,12 +121,16 @@ class StateManager():
         self.airspeed_mps = airspeed_mps
         self.qbar = 0.5 * self.airspeed_mps**2
         self.v_body[0] = airspeed_mps
+        self.alpha_prev = self.alpha
         if alpha_rad is not None:
+            self.have_alpha = True
             self.alpha = alpha_rad
             self.v_body[2] = -airspeed_mps * sin(alpha_rad)
+        self.beta_prev = self.beta
         if beta_rad is not None:
             self.beta = beta_rad
             self.v_body[1] = airspeed_mps * sin(beta_rad)
+        # print("rudder:", self.rudder, "beta:", self.beta, "vby:", self.v_body[1])
 
     def set_wind(self, wn, we):
         self.wn_filt = 0.95 * self.wn_filt + 0.05 * wn
@@ -256,6 +265,8 @@ class StateManager():
                 val = self.throttle
             elif field == "aileron":
                 val = self.aileron * self.qbar
+            elif field == "abs(aileron)":
+                val = abs(self.aileron) * self.qbar
             elif field == "elevator":
                 val = self.elevator * self.qbar
             elif field == "rudder":
@@ -288,6 +299,8 @@ class StateManager():
                 val = self.g_body[1]
             elif field == "abs(bgy)":
                 val = abs(self.g_body[1])
+            elif field == "abs(bgy)":
+                val = abs(self.g_body[1])
             elif field == "bgz":
                 val = self.g_body[2]
             elif field == "fgx":
@@ -300,6 +313,8 @@ class StateManager():
                 val = self.a_body[0]
             elif field == "bay":
                 val = self.a_body[1]
+            elif field == "abs(bay)":
+                val = abs(self.a_body[1])
             elif field == "baz":
                 val = self.a_body[2]
             elif field == "fax":
@@ -312,12 +327,14 @@ class StateManager():
                 val = self.airspeed_mps
             elif field == "qbar":
                 val = self.qbar
-            elif field == "sin(alpha)":
+            elif field == "alpha":
                 val = sin(self.alpha) * self.qbar
-            elif field == "sin(beta)":
+            elif field == "alpha_prev":
+                val = sin(self.alpha_prev) * self.qbar
+            elif field == "beta":
                 val = sin(self.beta) * self.qbar
-            elif field == "abs(sin(beta))":
-                val = abs(sin(self.beta)) * self.qbar
+            elif field == "beta_prev":
+                val = sin(self.beta_prev) * self.qbar
             elif field == "bvx":
                 #val = self.v_body[0]**2 * 0.5 * np.sign(self.v_body[0])
                 val = self.v_body[0]
@@ -345,6 +362,8 @@ class StateManager():
                 val = self.ay
             elif field == "az":
                 val = self.az
+            elif field == "K":
+                val = 1.0
             else:
                 print("Unknown field requested:", field, "aborting ...")
                 quit()

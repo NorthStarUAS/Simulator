@@ -19,7 +19,7 @@ from tqdm import tqdm
 
 from flightdata import flight_loader, flight_interp
 
-from lib.constants import d2r, r2d, kt2mps
+from lib.constants import d2r, kt2mps
 from lib.system_id import SystemIdentification
 from lib.wind import Wind
 
@@ -50,18 +50,22 @@ sysid = SystemIdentification(args.vehicle)
 
 if flight_format == "cirrus_csv":
     independent_states = [
-        "aileron",                  # flight controls (* qbar)
+        "aileron", "abs(aileron)",  # flight controls (* qbar)
         "elevator",
-        "rudder",
+        "rudder", "abs(rudder)",
         "thrust",                   # based on throttle
         "drag",                     # (based on flow accel, and flow g
         "bgx", "bgy", "bgz",        # gravity rotated into body frame
-        "qbar",
-        "sin(alpha)",               # angle of attack
-        "sin(beta)",                # side slip
-        "p_prev", "q_prev", "r_prev", # additional history of rotational rates improves rotational fit.
+        "qbar",                     # effects due to misaligned airframe
+        "alpha_prev", "beta_prev",  # additional history (momentum) improves fit.
+        "p_prev", "q_prev", "r_prev",
+        "abs(bay)", "abs(bgy)",
+        "K",
     ]
     dependent_states = [
+        "bvx",
+        "alpha",               # angle of attack
+        "beta",                # side slip
         "bax", "bay", "baz",        # acceleration in body frame (no g)
         "p", "q", "r",              # imu (body) rates
     ]
@@ -260,78 +264,14 @@ for i in tqdm(range(iter.size())):
             sysid.state_mgr.set_ned_velocity( gpspt["vn"], gpspt["ve"],
                                               gpspt["vd"], wn, we, wd )
 
-    if sysid.state_mgr.is_flying():
-        if abs(sysid.state_mgr.flaps - 0) < 0.1:
-            if flight_format == "cirrus_csv":
-                sysid.state_mgr.compute_body_frame_values(have_alpha_beta=True)
-            else:
-                sysid.state_mgr.compute_body_frame_values(have_alpha_beta=False)
-            state = sysid.state_mgr.gen_state_vector()
-            #print(sysid.state_mgr.state2dict(state))
-            sysid.add_state_vec(state)
-            if args.vehicle == "wing":
-                coeff.append( [sysid.state_mgr.alpha*r2d,
-                               sysid.state_mgr.Cl, sysid.state_mgr.Cd,
-                               sysid.state_mgr.airspeed_mps,
-                               sysid.state_mgr.drag] )
+    sysid.time_update(args.vehicle)
 
-if True and len(coeff):
-    coeff = np.array(coeff)
 
-    # alpha vs Cl, Cd plot
-    num_bins = 100
-    bins = np.linspace(-5, 20, num_bins+1) # alpha range
-    print(bins)
-
-    bin_indices = np.digitize( coeff[:,0], bins )
-
-    d1 = []
-    for i in range(num_bins):
-        bin = i + 1
-        cl_mean = np.mean(coeff[bin_indices==i+1,1])
-        cd_mean = np.mean(coeff[bin_indices==i+1,2])
-        if not np.isnan(cl_mean):
-            pt = 0.5 * (bins[i] + bins[i+1])
-            print( i, pt, cl_mean, cd_mean )
-            d1.append( [pt, cl_mean, cd_mean] )
-    d1 = np.array(d1)
-    plt.figure()
-    plt.plot(d1[:,0], d1[:,1], label="Cl vs. alpha (deg)")
-    plt.xlabel("alpha (deg)")
-    plt.legend()
-
-    plt.figure()
-    plt.plot(d1[:,0], d1[:,2], label="Cd vs. alpha (deg)")
-    plt.xlabel("alpha (deg)")
-    plt.legend()
-
-    if False:
-        # asi vs drag
-        num_bins = 50
-        max = np.max(coeff[:,3])
-        bins = np.linspace(0, max, num_bins+1) # alpha range
-        print(bins)
-
-        bin_indices = np.digitize( coeff[:,3], bins )
-
-        d1 = []
-        for i in range(num_bins):
-            bin = i + 1
-            drag_mean = np.mean(coeff[bin_indices==i+1,4])
-            if not np.isnan(drag_mean):
-                pt = 0.5 * (bins[i] + bins[i+1])
-                print( i, pt, drag_mean )
-                d1.append( [pt, drag_mean] )
-        d1 = np.array(d1)
-        plt.figure()
-        plt.plot(d1[:,0], d1[:,1], label="airspeed vs drag")
-        plt.xlabel("airspeed (mps)")
-        plt.legend()
-        plt.show()
 
 print("Number of states:", len(sysid.traindata_list[0]))
 print("Input state vectors:", len(sysid.traindata_list))
 
+sysid.compute_lift_drag()
 sysid.fit()
 sysid.model_noise()
 sysid.analyze()

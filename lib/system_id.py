@@ -49,6 +49,7 @@ import numpy as np
 from scipy.optimize import least_squares, minimize
 from scipy.sparse import lil_matrix
 
+from lib.constants import r2d
 from lib.state_mgr import StateManager
 
 class SystemIdentification():
@@ -58,59 +59,89 @@ class SystemIdentification():
         self.A = None
         self.model = {}
         self.state_mgr = StateManager(vehicle)
+        self.coeff = []
 
-    def add_state_vec(self, state_vec):
-        self.traindata_list.append( state_vec )
+    def time_update(self, vehicle):
+        if self.state_mgr.is_flying():
+            if abs(self.state_mgr.flaps - 0.0) < 0.1:
+                self.state_mgr.compute_body_frame_values(self.state_mgr.have_alpha)
+                state = self.state_mgr.gen_state_vector()
+                #print(self.state_mgr.state2dict(state))
+                self.traindata_list.append( state )
+                if vehicle == "wing":
+                    self.coeff.append( [self.state_mgr.alpha*r2d, self.state_mgr.Cl, self.state_mgr.Cd,
+                                        self.state_mgr.airspeed_mps, self.state_mgr.drag] )
 
-    def opt_err(self, xk):
-        A = xk.reshape( (self.states, self.states) )
-        Yf = A @ self.X
-        E = self.Y - Yf
-        # generate a norm value per Y matrix column (per entry would
-        # be better computationally but massively blows up our
-        # available memory)
-        error = np.linalg.norm(E, axis=0)
-        return error
+    def compute_lift_drag(self):
+        if len(self.coeff):
+            coeff = np.array(self.coeff)
 
-    def opt_compute_bounds(self, A, logical_bounds):
-        # experiment with additing domain-knowledge constraints
-        lower = np.array([-np.inf] * self.states**2)
-        upper = np.array([np.inf] * self.states**2)
+            # fit a polynomial function for lift/drag coefficient curves
+            from scipy.optimize import curve_fit
 
-        for p1, p2, l, u in logical_bounds:
-            row, col = self.state_mgr.get_state_index( [p1, p2] )
-            n = self.states * row + col
-            lower[n] = l
-            upper[n] = u
-            if A[row,col] < lower[n]:
-                print("reseting A[%s,%s] from:" % (p1, p2), A[row,col], "to:", lower[n])
-                A[row,col] = lower[n]
-            if A[row,col] > upper[n]:
-                print("reseting A[%s,%s] from:" % (p1, p2), A[row,col], "to:", upper[n])
-                A[row,col] = upper[n]
-        return A, lower, upper
+            def func(x, a, b, c):
+                return a * x**2 + b * x + c
 
-    def opt_fit(self, A_guess=None):
-        self.states = len(self.traindata_list[0])
-        self.X = np.array(self.traindata_list[:-1]).T
-        self.Y = np.array(self.traindata_list[1:]).T
+            plt.figure()
+            plt.plot(coeff[:,0], coeff[:,1], ".", label="raw data")
+            self.alpha_popt, pcov = curve_fit(func, coeff[:,0], coeff[:,1])
+            plt.plot(coeff[:,0], func(coeff[:,0], *self.alpha_popt), '.', label='fit: a=%5.3f, b=%5.3f, c=%5.3f' % tuple(self.alpha_popt))
 
-        if A_guess is not None:
-            A = A_guess.copy()
-        else:
-            A = np.eye(self.states)
+            plt.figure()
+            plt.plot(coeff[:,0], coeff[:,2], ".", label="raw data")
+            self.drag_popt, pcov = curve_fit(func, coeff[:,0], coeff[:,2])
+            plt.plot(coeff[:,0], func(coeff[:,0], *self.drag_popt), '.', label='fit: a=%5.3f, b=%5.3f, c=%5.3f' % tuple(self.drag_popt))
 
-        # experiment with additing domain-knowledge constraints
-        logical_bounds = [
-            ["airspeed", "elevator", 0, np.inf],
-            ["airspeed", "q", -np.inf, 0],
-            ["airspeed", "bax", 0, np.inf]
-        ]
-        A, lower, upper = self.opt_compute_bounds(A, logical_bounds)
+            # alpha vs Cl, Cd plot
+            num_bins = 100
+            bins = np.linspace(-5, 20, num_bins+1) # alpha range
+            print(bins)
 
-        res = least_squares(self.opt_err, A.flatten(), bounds=(lower,upper), verbose=2)
-        print( res["x"].reshape((self.states, self.states)) )
-        return res["x"].reshape((self.states, self.states))
+            bin_indices = np.digitize( coeff[:,0], bins )
+
+            d1 = []
+            for i in range(num_bins):
+                bin = i + 1
+                cl_mean = np.mean(coeff[bin_indices==i+1,1])
+                cd_mean = np.mean(coeff[bin_indices==i+1,2])
+                if not np.isnan(cl_mean):
+                    pt = 0.5 * (bins[i] + bins[i+1])
+                    print( i, pt, cl_mean, cd_mean )
+                    d1.append( [pt, cl_mean, cd_mean] )
+            d1 = np.array(d1)
+            plt.figure()
+            plt.plot(d1[:,0], d1[:,1], label="Cl vs. alpha (deg)")
+            plt.xlabel("alpha (deg)")
+            plt.legend()
+
+            plt.figure()
+            plt.plot(d1[:,0], d1[:,2], label="Cd vs. alpha (deg)")
+            plt.xlabel("alpha (deg)")
+            plt.legend()
+
+            if False:
+                # asi vs drag
+                num_bins = 50
+                max = np.max(coeff[:,3])
+                bins = np.linspace(0, max, num_bins+1) # alpha range
+                print(bins)
+
+                bin_indices = np.digitize( coeff[:,3], bins )
+
+                d1 = []
+                for i in range(num_bins):
+                    bin = i + 1
+                    drag_mean = np.mean(coeff[bin_indices==i+1,4])
+                    if not np.isnan(drag_mean):
+                        pt = 0.5 * (bins[i] + bins[i+1])
+                        print( i, pt, drag_mean )
+                        d1.append( [pt, drag_mean] )
+                d1 = np.array(d1)
+                plt.figure()
+                plt.plot(d1[:,0], d1[:,1], label="airspeed vs drag")
+                plt.xlabel("airspeed (mps)")
+                plt.legend()
+                plt.show()
 
     def fit(self):
         self.traindata = np.array(self.traindata_list)
@@ -169,13 +200,6 @@ class SystemIdentification():
         self.A = (self.Y @ (v[:,:states] * (1/s)) @ u.T).compute()
         print("A rank:", np.linalg.matrix_rank(self.A))
         print("A:\n", self.A.shape, self.A)
-
-        if False:
-            # for grins try an optimizer approach to see what happens,
-            # this allows us to add constraints based on domain
-            # knowledge, but it can also disrupt the delicate balance
-            # in the feedback loop between dependent parameters, so ...
-            self.A = self.opt_fit() # use I as initial guess
 
         # compute expected ranges for dependent parameters
         self.model["parameters"] = []
@@ -331,3 +355,57 @@ class SystemIdentification():
         f = open(model_name, "w")
         json.dump(self.model, f, indent=4)
         f.close()
+
+    # This is an old code experiment using an optimizer to compute the A matrix
+    # instead of an SVD/least squares method.  It didn't produce great results,
+    # but might be useful to keep around for the future.
+
+    def opt_err(self, xk):
+        A = xk.reshape( (self.states, self.states) )
+        Yf = A @ self.X
+        E = self.Y - Yf
+        # generate a norm value per Y matrix column (per entry would
+        # be better computationally but massively blows up our
+        # available memory)
+        error = np.linalg.norm(E, axis=0)
+        return error
+
+    def opt_compute_bounds(self, A, logical_bounds):
+        # experiment with additing domain-knowledge constraints
+        lower = np.array([-np.inf] * self.states**2)
+        upper = np.array([np.inf] * self.states**2)
+
+        for p1, p2, l, u in logical_bounds:
+            row, col = self.state_mgr.get_state_index( [p1, p2] )
+            n = self.states * row + col
+            lower[n] = l
+            upper[n] = u
+            if A[row,col] < lower[n]:
+                print("reseting A[%s,%s] from:" % (p1, p2), A[row,col], "to:", lower[n])
+                A[row,col] = lower[n]
+            if A[row,col] > upper[n]:
+                print("reseting A[%s,%s] from:" % (p1, p2), A[row,col], "to:", upper[n])
+                A[row,col] = upper[n]
+        return A, lower, upper
+
+    def opt_fit(self, A_guess=None):
+        self.states = len(self.traindata_list[0])
+        self.X = np.array(self.traindata_list[:-1]).T
+        self.Y = np.array(self.traindata_list[1:]).T
+
+        if A_guess is not None:
+            A = A_guess.copy()
+        else:
+            A = np.eye(self.states)
+
+        # experiment with additing domain-knowledge constraints
+        logical_bounds = [
+            ["airspeed", "elevator", 0, np.inf],
+            ["airspeed", "q", -np.inf, 0],
+            ["airspeed", "bax", 0, np.inf]
+        ]
+        A, lower, upper = self.opt_compute_bounds(A, logical_bounds)
+
+        res = least_squares(self.opt_err, A.flatten(), bounds=(lower,upper), verbose=2)
+        print( res["x"].reshape((self.states, self.states)) )
+        return res["x"].reshape((self.states, self.states))

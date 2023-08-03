@@ -74,9 +74,9 @@ class Simulator():
         self.ax = 0.0
         self.ay = 0.0
         self.az = 0.0
-        self.bvx = 0.0
-        self.bvy = 0.0
-        self.bvz = 0.0
+        # self.bvx = 0.0
+        # self.bvy = 0.0
+        # self.bvz = 0.0
         self.state_mgr.set_accels( self.ax, self.ay, self.az )
         self.time = 0.0
         self.state_mgr.set_time( self.time )
@@ -188,31 +188,54 @@ class Simulator():
             baz = result["baz"]
             self.state_mgr.set_accels(bax + g_body[0], bay + g_body[1], baz + g_body[2])
 
-            # body frame velocities from accel estimates (* dt)
-            self.bvx += bax * self.dt
-            self.bvy += bay * self.dt
-            self.bvz += baz * self.dt
+            if False:
+                # body frame forward velocity from accel estimate (* dt)
+                self.bvx += bax * self.dt
 
-            # try to clamp alpha/beta from getting crazy
-            cutoff = 0.05
-            if abs(self.bvy / self.bvx) > cutoff:
-                self.bvy = np.sign(self.bvy) * abs(self.bvx) * cutoff
-            if abs(-self.bvz / self.bvx) > cutoff:
-                self.bvz = np.sign(self.bvz) * abs(self.bvx) * cutoff
+            airspeed_mps = result["bvx"]
+            qbar = 0.5 * airspeed_mps**2
 
-            # alpha and beta from body frame velocity
-            alpha = atan2( self.bvz, self.bvx )
-            beta = atan2( self.bvy, self.bvx )
+            # airdata
+            print(result["alpha"], result["beta"], qbar)
+            if qbar > 0.1:
+                sa = result["alpha"] / qbar
+                sb = result["beta"] / qbar
+                if sa < -0.25*pi: sa = -0.25*pi
+                if sa >  0.25*pi: sa =  0.25*pi
+                if sb < -0.25*pi: sb = -0.25*pi
+                if sb >  0.25*pi: sb =  0.25*pi
+                alpha_rad = asin(sa)
+                beta_rad = asin(sb)
+            else:
+                alpha_rad = 0
+                beta_rad = 0
+            self.state_mgr.set_airdata(airspeed_mps, alpha_rad, beta_rad)
 
-            # airspeed (forward component of body velocity, we can generally
-            # ignore alpha/beta here due to insensitivity of pitot probe to
-            # exact angle of attack)
-            self.state_mgr.set_airdata(self.bvx, alpha, beta)
+            if False:
+                self.bvy += bay * self.dt
+                self.bvz += baz * self.dt
+
+                # try to clamp alpha/beta from getting crazy
+                cutoff = 0.3
+                if abs(self.bvy / self.bvx) > cutoff:
+                    self.bvy = np.sign(self.bvy) * abs(self.bvx) * cutoff
+                if abs(-self.bvz / self.bvx) > cutoff:
+                    self.bvz = np.sign(self.bvz) * abs(self.bvx) * cutoff
+
+                # alpha and beta from body frame velocity
+                alpha = atan2( self.bvz, self.bvx )
+                beta = atan2( self.bvy, self.bvx )
+
+                # airspeed (forward component of body velocity, we can generally
+                # ignore alpha/beta here due to insensitivity of pitot probe to
+                # exact angle of attack)
+                self.state_mgr.set_airdata(self.bvx, alpha, beta)
 
             self.state_mgr.compute_body_frame_values(have_alpha_beta=True)
 
             # velocity in ned frame
-            self.vel_ned = quaternion.backTransform( self.ned2body, np.array([self.bvx, self.bvy, self.bvz]) )
+            # self.vel_ned = quaternion.backTransform( self.ned2body, np.array([self.bvx, self.bvy, self.bvz]) )
+            self.vel_ned = quaternion.backTransform( self.ned2body, self.state_mgr.v_body )
             self.state_mgr.set_ned_velocity( self.vel_ned[0], self.vel_ned[1], self.vel_ned[2], 0.0, 0.0, 0.0 )
 
             # update position
@@ -320,7 +343,7 @@ class Simulator():
 
         # store data point
         self.data.append(
-            [ self.time, self.bvx,
+            [ self.time, airspeed_mps,
               self.state_mgr.throttle,
               self.state_mgr.aileron,
               self.state_mgr.elevator,
