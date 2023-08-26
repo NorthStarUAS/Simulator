@@ -69,8 +69,10 @@ class SystemIdentification():
                 #print(self.state_mgr.state2dict(state))
                 self.traindata_list.append( state )
                 if vehicle == "wing":
-                    self.coeff.append( [self.state_mgr.alpha*r2d, self.state_mgr.Cl, self.state_mgr.Cd,
-                                        self.state_mgr.airspeed_mps, self.state_mgr.drag] )
+                    params = [ self.state_mgr.alpha*r2d, self.state_mgr.Cl, self.state_mgr.qbar,
+                               self.state_mgr.ax, self.state_mgr.a_body[0], self.state_mgr.throttle ]
+                    # print("params:", params)
+                    self.coeff.append( params )
 
     def compute_lift_drag(self):
         if len(self.coeff):
