@@ -192,8 +192,11 @@ class Simulator():
                 # body frame forward velocity from accel estimate (* dt)
                 self.bvx += bax * self.dt
 
-            airspeed_mps = result["bvx"]
-            qbar = 0.5 * airspeed_mps**2
+            if False:
+                airspeed_mps = result["bvx"]
+
+            self.state_mgr.airspeed_mps += self.state_mgr.ax * self.dt
+            qbar = 0.5 * self.state_mgr.airspeed_mps**2
 
             # airdata
             print(result["alpha"], result["beta"], qbar)
@@ -209,7 +212,7 @@ class Simulator():
             else:
                 alpha_rad = 0
                 beta_rad = 0
-            self.state_mgr.set_airdata(airspeed_mps, alpha_rad, beta_rad)
+            self.state_mgr.set_airdata(self.state_mgr.airspeed_mps, alpha_rad, beta_rad)
 
             if False:
                 self.bvy += bay * self.dt
@@ -343,7 +346,7 @@ class Simulator():
 
         # store data point
         self.data.append(
-            [ self.time, airspeed_mps,
+            [ self.time, self.state_mgr.airspeed_mps,
               self.state_mgr.throttle,
               self.state_mgr.aileron,
               self.state_mgr.elevator,
