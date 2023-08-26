@@ -53,8 +53,7 @@ if flight_format == "cirrus_csv":
         "aileron", "abs(aileron)",  # flight controls (* qbar)
         "elevator",
         "rudder", "abs(rudder)",
-        "thrust",                   # based on throttle
-        "drag",                     # (based on flow accel, and flow g
+        "throttle",
         "bgx", "bgy", "bgz",        # gravity rotated into body frame
         "qbar",                     # effects due to misaligned airframe
         "alpha_prev", "beta_prev",  # additional history (momentum) improves fit.
@@ -63,9 +62,8 @@ if flight_format == "cirrus_csv":
         "K",
     ]
     dependent_states = [
-        "bvx",
-        "alpha",               # angle of attack
-        "beta",                # side slip
+        "alpha",                    # angle of attack
+        "beta",                     # side slip
         "bax", "bay", "baz",        # acceleration in body frame (no g)
         "p", "q", "r",              # imu (body) rates
     ]
@@ -265,8 +263,6 @@ for i in tqdm(range(iter.size())):
                                               gpspt["vd"], wn, we, wd )
 
     sysid.time_update(args.vehicle)
-
-
 
 print("Number of states:", len(sysid.traindata_list[0]))
 print("Input state vectors:", len(sysid.traindata_list))
