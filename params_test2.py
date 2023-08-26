@@ -9,7 +9,7 @@ import numpy as np
 from scipy.optimize import curve_fit, least_squares
 
 # [ alpha*r2d, Cl, Cd, qbar, a_flow[0], throttle ]
-# [ alpha*r2d, Cl, qbar, ax, throttle ]
+# [ alpha*r2d, Cl, qbar, ax, a_3body[0], throttle ]
 data = []
 with open("params.txt", newline="") as csvfile:
     reader = csv.reader(csvfile)
@@ -22,17 +22,25 @@ alphas = data[:,0]
 Cls = data[:,1]
 qbars = data[:,2]
 axs = data[:,3]
-throttles = data[:,4]
+abody0s = data[:,4]
+throttles = data[:,5]
+
+# initial thrust model
+thrusts = []
+for i in range(len(throttles)):
+    thrust = 0.5 * sqrt(throttles[i]) * abs(gravity)
+    thrusts.append(thrust)
+thrusts = np.array(thrusts)
 
 print("alpha:", np.min(alphas), np.max(alphas))
 print("vel:", sqrt(np.max(qbars)))
 
-def compute_thrust(throttle, vel, xk):
-    # return xk[0]*sqrt(throttle)
-    return xk[0] * sqrt(throttle) * abs(gravity)
-    # return xk[0]*throttle**2 + xk[1]*throttle + xk[2]
-    # return pow(throttle, 1/4) * abs(gravity) * scale
-    # return xk[0]*vel**2 + xk[1]*vel + xk[2]*throttle**2 + xk[3]*throttle
+# def compute_thrust(throttle, vel, xk):
+#     # return xk[0]*sqrt(throttle)
+#     return xk[0] * sqrt(throttle) * abs(gravity)
+#     # return xk[0]*throttle**2 + xk[1]*throttle + xk[2]
+#     # return pow(throttle, 1/4) * abs(gravity) * scale
+#     # return xk[0]*vel**2 + xk[1]*vel + xk[2]*throttle**2 + xk[3]*throttle
 
 def compute_drag(accel_total, thrust):
     return thrust - accel_total
@@ -46,9 +54,8 @@ while True:
 
     cds = []
     for i in range(len(data)):
-        thrust = compute_thrust(throttles[i], sqrt(qbars[i]), [0.75])
-        #drag = compute_drag(data[i,4], thrust)
-        drag = thrust - axs[i]
+        # thrust = compute_thrust(throttles[i], sqrt(qbars[i]), [0.75])
+        drag = thrusts[i] - axs[i]
         cd = drag / qbars[i]
         cds.append(cd)
     cds = np.array(cds)
@@ -65,18 +72,21 @@ while True:
     plt.figure()
     plt.plot(alphas, cds, ".", label="cd raw data")
     plt.plot(alphas, func(alphas, *cd_popt), '.', label='fit: a=%5.3f, b=%5.3f, c=%5.3f' % tuple(cd_popt))
+    plt.xlabel("Alpha (deg)")
+    plt.ylabel("Coefficient of drag")
     plt.show()
 
     # using the alpha vs. drag function, generate new thrust data points
-    thrusts = []
     for i in range(len(data)):
-        drag = func(alphas[i], *cd_popt)
-        thrust = drag + axs[i]
-        thrusts.append(thrust)
+        cd = func(alphas[i], *cd_popt)
+        drag = cd * qbars[i]
+        gx = axs[i] - abody0s[i]
+        thrusts[i] = drag + axs[i] + gx # seperate out gravity from thrust
+        # thrusts[i] = cd + axs[i]
 
     # let's look at the thrust curves by airspeed range
     plt.figure()
-    step = 3
+    step = 5
     for s in range(0, 100, step):
         vals = []
         for i in range(len(data)):
@@ -86,11 +96,13 @@ while True:
         vals = np.array(vals)
         if ( len(vals)):
             print("vals:", vals.shape, vals)
-            plt.plot(vals[:,0], vals[:,1], ".", label="%d mps" % s)
+            # plt.plot(vals[:,0], vals[:,1], ".", label="%d mps" % s)
             popt, pcov = curve_fit(func, vals[:,0], vals[:,1])
             plt.plot(vals[:,0], func(vals[:,0], *popt), ".", label="%d mps" % s)
-            plt.legend()
-            plt.show()
+    plt.xlabel("Throttle position (normalized)")
+    plt.ylabel("Thrust Force/Acceleration (mps^2)")
+    plt.legend()
+    plt.show()
 
 # xk = [0, 0, 0, 0, 0]
 xk = np.random.rand(5)*2 - 1
