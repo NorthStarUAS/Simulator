@@ -70,7 +70,7 @@ class SystemIdentification():
                 self.traindata_list.append( state )
                 if vehicle == "wing":
                     params = [ self.state_mgr.alpha*r2d, self.state_mgr.Cl, self.state_mgr.Cd, self.state_mgr.qbar,
-                               self.state_mgr.ax, self.state_mgr.a_body_g[0], self.state_mgr.throttle ]
+                               self.state_mgr.accels[0], self.state_mgr.throttle ]
                     # print("params:", params)
                     self.coeff.append( params )
 

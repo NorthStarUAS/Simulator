@@ -152,50 +152,27 @@ class Simulator():
         #print("next:", result)
         #print()
 
-        if False:
-            # debug
-            field = "bvy"
-            idx_list = self.state_mgr.get_state_index( [field] )
-            row = self.A[idx_list[0],:]
-            print(field, "= ", end="")
-            e = []
-            for j in range(len(row)):
-                e.append(state[j]*row[j])
-            idx = np.argsort(-np.abs(e))
-            for j in idx:
-                print("%.3f (%s) " % (e[j], self.state_mgr.state_list[j]), end="")
-            print(" = ", next[idx_list[0]])
-
         if True:
             # rotational rates: predicted directly from the state update
             p = result["p"]
             q = result["q"]
             r = result["r"]
-            self.state_mgr.set_gyros(p, q, r)
+            self.state_mgr.set_gyros( np.array([p, q, r]) )
 
-            # attitude: integrate rotational rates
-            rot_body = quaternion.eul2quat(p * self.dt, q * self.dt, r * self.dt)
-            self.ned2body = quaternion.multiply(self.ned2body, rot_body)
-            phi_rad, the_rad, psi_rad = quaternion.quat2eul(self.ned2body)
-            self.state_mgr.set_orientation(phi_rad, the_rad, psi_rad)
+            # integrate body rates
+            self.state_mgr.update_attitude()
 
-            #  gravity
-            g_ned = np.array( [0.0, 0.0, gravity] )
-            g_body = quaternion.transform(self.ned2body, g_ned)
+            # gravity in body frame
+            self.state_mgr.update_gravity_body()
 
-            # accelerometers
+            # accelerometers: predicted directly from the state update
             ax = result["ax"]
             ay = result["ay"]
             az = result["az"]
-            # self.state_mgr.set_accels(bax + g_body[0], bay + g_body[1], baz + g_body[2])
-            self.state_mgr.set_accels(ax, ay, az)
+            self.state_mgr.set_accels( np.array([ax, ay, az]) )
 
-            if False:
-                # body frame forward velocity from accel estimate (* dt)
-                self.bvx += bax * self.dt
-
-            if False:
-                airspeed_mps = result["bvx"]
+            # integrate accels + g
+            self.state_mgr.update_body_velocity()
 
             self.state_mgr.airspeed_mps += (self.state_mgr.ax - g_body[0]) * self.dt
             qbar = 0.5 * self.state_mgr.airspeed_mps**2

@@ -50,15 +50,11 @@ class StateManager():
         self.a_body = np.array( [0.0, 0.0, 0.0] )
         self.a_flow_g = np.array( [0.0, 0.0, 0.0] )
 
-        self.p = 0
-        self.p_prev = 0
-        self.q = 0
-        self.q_prev = 0
-        self.r = 0
-        self.r_prev = 0
-        self.ax = 0
-        self.ay = 0
-        self.az = 0
+        self.gyros = np.array( [0.0, 0.0, 0.0] )
+        self.gyros_prev = np.array( [0.0, 0.0, 0.0] )
+        self.accels = np.array( [0.0, 0.0, 0.0] )
+
+        self.ned2body = quaternion.eul2quat( 0, 0, 0 )
 
     def set_state_names(self, ind_states, dep_states):
         self.ind_states = ind_states
@@ -116,6 +112,7 @@ class StateManager():
         self.phi_rad = phi_rad
         self.the_rad = the_rad
         self.psi_rad = psi_rad
+        self.ned2body = quaternion.eul2quat( phi_rad, the_rad, psi_rad )
 
     def set_airdata(self, airspeed_mps, alpha_rad=None, beta_rad=None):
         self.airspeed_mps = airspeed_mps
@@ -132,23 +129,17 @@ class StateManager():
             self.v_body[1] = airspeed_mps * sin(beta_rad)
         # print("rudder:", self.rudder, "beta:", self.beta, "vby:", self.v_body[1])
         # print("alpha:", self.alpha*r2d, "v_body:", self.v_body)
+
     def set_wind(self, wn, we):
         self.wn_filt = 0.95 * self.wn_filt + 0.05 * wn
         self.we_filt = 0.95 * self.we_filt + 0.05 * we
 
-    def set_gyros(self, p, q, r):
-        self.p_prev = self.p
-        self.q_prev = self.q
-        self.r_prev = self.r
+    def set_gyros(self, gyros):
+        self.gyros_prev = self.gyros.copy()
+        self.gyros = gyros
 
-        self.p = p
-        self.q = q
-        self.r = r
-
-    def set_accels(self, ax, ay, az):
-        self.ax = ax
-        self.ay = ay
-        self.az = az
+    def set_accels(self, accels):
+        self.accels = accels
 
     def set_ned_velocity(self, vn, ve, vd, wn, we, wd):
         # store NED velocity, corrected to remove wind effects
@@ -157,10 +148,24 @@ class StateManager():
         self.wd_filt = 0.95 * self.wd_filt + 0.05 * wd
         self.v_ned = np.array( [vn + wn, ve + we, vd + wd] )
 
-    def set_body_velocity(self, vx, vy, vz):
-        print("Current body velocity should be set from airdata + alpha/beta")
-        quit()
-        self.v_body = np.array( [vx, vy, vz] )
+    def set_body_velocity(self, v_body):
+        self.v_body = v_body
+
+    # update attitude
+    def update_attitude(self):
+        # attitude: integrate rotational rates
+        delta_rot = self.gyros * self.dt
+        rot_body = quaternion.eul2quat(delta_rot[0], delta_rot[1], delta_rot[2])
+        self.ned2body = quaternion.multiply(self.ned2body, rot_body)
+        self.phi_rad, self.the_rad, self.psi_rad = quaternion.quat2eul(self.ned2body)
+
+    # compute gravity vector in body frame
+    def update_gravity_body(self):
+        self.g_body = quaternion.transform(self.ned2body, self.g_ned)
+
+    # accels = (ax, ay, az), g_body = (gx, gy, gz)
+    def update_body_velocity(self):
+        self.v_body += self.accels + self.g_body
 
     def set_pos(self, lon, lat, alt):
         self.lon = lon
@@ -224,12 +229,11 @@ class StateManager():
         self.g_flow = quaternion.transform(ned2flow, self.g_ned)
 
         # compute acceleration in the body frame (w/o gravity)
-        self.a_body_g = np.array( [self.ax, self.ay, self.az] )
         # self.a_body = a_body_g - self.g_body
 
         # compute acceleration in the flow frame
         # self.a_flow = quaternion.transform(body2flow, self.a_body)
-        self.a_flow_g = quaternion.backTransform(body2flow, self.a_body_g)
+        self.a_flow_g = quaternion.backTransform(body2flow, self.accels)
 
         # lift, drag, and weight vector estimates
 
@@ -250,7 +254,7 @@ class StateManager():
             # self.lift = -self.a_flow[2] - self.g_flow[2]
             self.lift = -a_flow_g[2]
         else: # body frame
-            self.lift = -self.a_body_g[2]
+            self.lift = -self.accels[2]
 
         if self.qbar > 10:
             self.Cl = self.lift / self.qbar
@@ -345,23 +349,25 @@ class StateManager():
                 # val = self.v_body[2]**2 * 0.5 * np.sign(self.v_body[2])
                 val = self.v_body[2]
             elif field == "p":
-                val = self.p
+                val = self.gyros[0]
             elif field == "q":
-                val = self.q
+                val = self.gyros[1]
             elif field == "r":
-                val = self.r
+                val = self.gyros[2]
             elif field == "p_prev":
-                val = self.p_prev
+                val = self.gyros_prev[0]
             elif field == "q_prev":
-                val = self.q_prev
+                val = self.gyros_prev[1]
             elif field == "r_prev":
-                val = self.r_prev
+                val = self.gyros_prev[2]
             elif field == "ax":
-                val = self.ax
+                val = self.accels[0]
             elif field == "ay":
-                val = self.ay
+                val = self.accels[1]
+            elif field == "abs(ay)":
+                val = abs(self.accels[1])
             elif field == "az":
-                val = self.az
+                val = self.accels[2]
             elif field == "K":
                 val = 1.0
             else:
