@@ -58,13 +58,15 @@ if flight_format == "cirrus_csv":
         "qbar",                     # effects due to misaligned airframe
         "alpha_prev", "beta_prev",  # additional history (momentum) improves fit.
         "p_prev", "q_prev", "r_prev",
-        "abs(bay)", "abs(bgy)",
+        "abs(ay)", "abs(bgy)",
         "K",
     ]
     dependent_states = [
         "alpha",                    # angle of attack
-        "beta",                     # side slip
-        "bax", "bay", "baz",        # acceleration in body frame (no g)
+        "beta",                     # side slip angle
+        "ax",                       # thrust - drag
+        "ay",                       # side force
+        "az",                       # lift
         "p", "q", "r",              # imu (body) rates
     ]
     conditions = [
@@ -145,8 +147,6 @@ g = np.array( [ 0, 0, -9.81 ] )
 wn = 0
 we = 0
 wd = 0
-
-coeff = []
 
 pitot_scale = None
 psi_bias = None
