@@ -165,7 +165,7 @@ class Simulator():
             # gravity in body frame
             self.state_mgr.update_gravity_body()
 
-            # accelerometers: predicted directly from the state update
+            # body frame accels (forces): predicted directly from the state update
             ax = result["ax"]
             ay = result["ay"]
             az = result["az"]
