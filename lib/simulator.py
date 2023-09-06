@@ -141,7 +141,7 @@ class Simulator():
 
     def update(self):
         state = self.state_mgr.gen_state_vector(self.params)
-        print(self.state_mgr.state2dict(state))
+        # print(self.state_mgr.state2dict(state))
 
         next = self.A @ state
         self.add_noise(next)
@@ -167,26 +167,28 @@ class Simulator():
             print(" = ", next[idx_list[0]])
 
         if True:
-            # gyros
+            # rotational rates: predicted directly from the state update
             p = result["p"]
             q = result["q"]
             r = result["r"]
             self.state_mgr.set_gyros(p, q, r)
 
-            # attitude
+            # attitude: integrate rotational rates
             rot_body = quaternion.eul2quat(p * self.dt, q * self.dt, r * self.dt)
             self.ned2body = quaternion.multiply(self.ned2body, rot_body)
             phi_rad, the_rad, psi_rad = quaternion.quat2eul(self.ned2body)
             self.state_mgr.set_orientation(phi_rad, the_rad, psi_rad)
 
+            #  gravity
             g_ned = np.array( [0.0, 0.0, gravity] )
             g_body = quaternion.transform(self.ned2body, g_ned)
 
             # accelerometers
-            bax = result["bax"]
-            bay = result["bay"]
-            baz = result["baz"]
-            self.state_mgr.set_accels(bax + g_body[0], bay + g_body[1], baz + g_body[2])
+            ax = result["ax"]
+            ay = result["ay"]
+            az = result["az"]
+            # self.state_mgr.set_accels(bax + g_body[0], bay + g_body[1], baz + g_body[2])
+            self.state_mgr.set_accels(ax, ay, az)
 
             if False:
                 # body frame forward velocity from accel estimate (* dt)
@@ -195,7 +197,7 @@ class Simulator():
             if False:
                 airspeed_mps = result["bvx"]
 
-            self.state_mgr.airspeed_mps += self.state_mgr.ax * self.dt
+            self.state_mgr.airspeed_mps += (self.state_mgr.ax - g_body[0]) * self.dt
             qbar = 0.5 * self.state_mgr.airspeed_mps**2
 
             # airdata
