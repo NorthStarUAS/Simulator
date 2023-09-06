@@ -5,7 +5,7 @@
 from math import atan2, sin, sqrt
 import numpy as np
 
-from lib.constants import gravity
+from lib.constants import gravity, r2d
 from lib import quaternion
 
 class StateManager():
@@ -48,7 +48,7 @@ class StateManager():
         self.v_body = np.array( [0.0, 0.0, 0.0] )
         self.v_flow = np.array( [0.0, 0.0, 0.0] )
         self.a_body = np.array( [0.0, 0.0, 0.0] )
-        self.a_flow = np.array( [0.0, 0.0, 0.0] )
+        self.a_flow_g = np.array( [0.0, 0.0, 0.0] )
 
         self.p = 0
         self.p_prev = 0
@@ -125,13 +125,13 @@ class StateManager():
         if alpha_rad is not None:
             self.have_alpha = True
             self.alpha = alpha_rad
-            self.v_body[2] = -airspeed_mps * sin(alpha_rad)
+            self.v_body[2] = airspeed_mps * sin(alpha_rad)
         self.beta_prev = self.beta
         if beta_rad is not None:
             self.beta = beta_rad
             self.v_body[1] = airspeed_mps * sin(beta_rad)
         # print("rudder:", self.rudder, "beta:", self.beta, "vby:", self.v_body[1])
-
+        # print("alpha:", self.alpha*r2d, "v_body:", self.v_body)
     def set_wind(self, wn, we):
         self.wn_filt = 0.95 * self.wn_filt + 0.05 * wn
         self.we_filt = 0.95 * self.we_filt + 0.05 * we
@@ -224,11 +224,12 @@ class StateManager():
         self.g_flow = quaternion.transform(ned2flow, self.g_ned)
 
         # compute acceleration in the body frame (w/o gravity)
-        a_body_g = np.array( [self.ax, self.ay, self.az] )
-        self.a_body = a_body_g - self.g_body
+        self.a_body_g = np.array( [self.ax, self.ay, self.az] )
+        # self.a_body = a_body_g - self.g_body
 
         # compute acceleration in the flow frame
-        self.a_flow = quaternion.transform(body2flow, self.a_body)
+        # self.a_flow = quaternion.transform(body2flow, self.a_body)
+        self.a_flow_g = quaternion.backTransform(body2flow, self.a_body_g)
 
         # lift, drag, and weight vector estimates
 
@@ -236,7 +237,7 @@ class StateManager():
         # flight path frame of reference ... I think.
 
         # self.drag = (self.thrust - self.g_flow[0]) - self.a_flow[0]
-        self.drag = self.a_flow[0] - self.thrust
+        self.drag = self.a_flow_g[0] - self.thrust
         if self.qbar > 10:
             self.Cd = self.drag / self.qbar
         else:
@@ -245,12 +246,11 @@ class StateManager():
         # do I need to think through lift frame of reference here too? --yes, please.
         # flow frame vs body frame?
 
-        if True: # flow frame
+        if False: # flow frame
             # self.lift = -self.a_flow[2] - self.g_flow[2]
-            a_flow_g = quaternion.backTransform(body2flow, a_body_g)
             self.lift = -a_flow_g[2]
         else: # body frame
-            self.lift = -a_body_g[2]
+            self.lift = -self.a_body_g[2]
 
         if self.qbar > 10:
             self.Cl = self.lift / self.qbar
