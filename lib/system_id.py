@@ -69,8 +69,8 @@ class SystemIdentification():
                 #print(self.state_mgr.state2dict(state))
                 self.traindata_list.append( state )
                 if vehicle == "wing":
-                    params = [ self.state_mgr.alpha*r2d, self.state_mgr.Cl, self.state_mgr.qbar,
-                               self.state_mgr.ax, self.state_mgr.a_body[0], self.state_mgr.throttle ]
+                    params = [ self.state_mgr.alpha*r2d, self.state_mgr.Cl, self.state_mgr.Cd, self.state_mgr.qbar,
+                               self.state_mgr.ax, self.state_mgr.a_body_g[0], self.state_mgr.throttle ]
                     # print("params:", params)
                     self.coeff.append( params )
 
@@ -244,8 +244,10 @@ class SystemIdentification():
         M=1024
         from scipy import signal
         for i in range(len(dep_index_list)):
+            # parameter: window='hann' may need to be added to the
+            # signal.spectogram() call for older scipy/numpy versions that don't
+            # yet agree on this name.
             freqs, times, Sx = signal.spectrogram(diff[i,:], fs=(1/self.state_mgr.dt),
-                                                  window='hanning',
                                                   nperseg=M, noverlap=M - 100,
                                                   detrend=False, scaling='spectrum')
             f, ax = plt.subplots()
