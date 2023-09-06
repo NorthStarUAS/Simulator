@@ -1,5 +1,7 @@
 # a simple locally connected (pc) joystick interface
 
+from time import sleep
+
 have_pygame = False
 try:
     import pygame
@@ -7,6 +9,7 @@ try:
 except:
     print("pygame import failed, joystick inactive")
     print("consider: dnf install python3-pygame")
+    sleep(5)
 
 class Joystick():
     def __init__(self):
@@ -25,10 +28,10 @@ class Joystick():
         self.elevator = 0.0
         self.elevator_trim = 0.0
         self.rudder = 0.0
-        
+
         if not have_pygame:
             return
-        
+
         pygame.init()
         pygame.joystick.init()
         if pygame.joystick.get_count() > 0:
@@ -36,10 +39,10 @@ class Joystick():
             print("Detected a joystick")
         else:
             print("no joysticks found")
-        
+
         if not self.have_joystick:
             return
-        
+
         self.j = pygame.joystick.Joystick(0)
         self.j.init()
         self.num_axes = self.j.get_numaxes()
@@ -52,9 +55,9 @@ class Joystick():
     def update(self):
         if not self.have_joystick:
             return
-        
+
         pygame.event.pump()
-        
+
         for i in range(self.num_axes):
             self.axes[i] = self.j.get_axis(i)
         for i in range(self.num_buttons):
@@ -62,7 +65,7 @@ class Joystick():
         for i in range(self.num_hats):
             self.hats[i] = self.j.get_hat(i)
         print(self.axes, self.buttons, self.hats)
-        
+
         self.throttle = (1.0 - self.axes[3]) * 0.5
         self.aileron = self.axes[0]
         if self.num_buttons >= 6:
