@@ -56,14 +56,13 @@ if flight_format == "cirrus_csv":
         "throttle",
         "bgx", "bgy", "bgz",        # gravity rotated into body frame
         "qbar",                     # effects due to misaligned airframe
-        "alpha_prev", "beta_prev",  # additional history (momentum) improves fit.
+        "alpha", "beta",            # angle of attack, side slip angle
+        "alpha_prev", "beta_prev",  # additional history improves fit.
         "p_prev", "q_prev", "r_prev",
         "abs(ay)", "abs(bgy)",
-        "K",
+        "K",                        # constant factor (1*parameter)
     ]
     dependent_states = [
-        "alpha",                    # angle of attack
-        "beta",                     # side slip angle
         "ax",                       # thrust - drag
         "ay",                       # side force
         "az",                       # lift
@@ -186,7 +185,7 @@ for i in tqdm(range(iter.size())):
             p -= navpt["p_bias"]
             q -= navpt["q_bias"]
             r -= navpt["r_bias"]
-        sysid.state_mgr.set_gyros(p, q, r)
+        sysid.state_mgr.set_gyros( np.array([p, q, r]) )
         ax = imupt["ax"]
         ay = imupt["ay"]
         az = imupt["az"]
@@ -194,7 +193,7 @@ for i in tqdm(range(iter.size())):
             ax -= navpt["ax_bias"]
             ay -= navpt["ay_bias"]
             az -= navpt["az_bias"]
-        sysid.state_mgr.set_accels(ax, ay, az)
+        sysid.state_mgr.set_accels( np.array([ax, ay, az]) )
     if "act" in record:
         actpt = record["act"]
         if args.vehicle == "wing":
