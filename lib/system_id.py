@@ -289,7 +289,7 @@ class SystemIdentification():
             row = self.A[i,:]
             energy = []
             for j in range(states):
-                e = row[j] * params[j]["std"]
+                e = row[j] * (abs(params[j]["median"]) + 0.5 * abs(params[j]["std"])) * np.sign(params[j]["median"])
                 # e = row[j] * (params[j]["max"] - params[j]["min"]) # probably no ...
                 energy.append(e)
             idx = np.argsort(-np.abs(energy))
