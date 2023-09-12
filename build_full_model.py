@@ -56,7 +56,6 @@ if flight_format == "cirrus_csv":
         "throttle",
         "bgx", "bgy", "bgz",        # gravity rotated into body frame
         "qbar",                     # effects due to misaligned airframe
-        "alpha", "beta",            # angle of attack, side slip angle
         "alpha_prev", "beta_prev",  # additional history improves fit.
         "p_prev", "q_prev", "r_prev",
         "abs(ay)", "abs(bgy)",
@@ -66,6 +65,7 @@ if flight_format == "cirrus_csv":
         "ax",                       # thrust - drag
         "ay",                       # side force
         "az",                       # lift
+        "alpha", "beta",            # angle of attack, side slip angle
         "p", "q", "r",              # imu (body) rates
     ]
     conditions = [

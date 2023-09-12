@@ -5,7 +5,7 @@
 from math import atan2, sin, sqrt
 import numpy as np
 
-from lib.constants import gravity, r2d
+from lib.constants import gravity, d2r
 from lib import quaternion
 
 class StateManager():
@@ -165,7 +165,51 @@ class StateManager():
 
     # accels = (ax, ay, az), g_body = (gx, gy, gz)
     def update_body_velocity(self):
-        self.v_body += self.accels + self.g_body
+        self.v_body += (self.accels - self.g_body) * self.dt
+        print(self.g_ned, self.g_body, self.accels - self.g_body, self.v_body)
+
+    def update_airdata(self, ax_mps2, alpha_rad, beta_rad):
+        # self.accels[0] = ax_mps2
+        self.v_body[0] += ax_mps2 * self.dt
+        self.airspeed_mps = self.v_body[0]
+        self.qbar = 0.5 * self.airspeed_mps**2
+        self.alpha_prev = self.alpha
+        self.alpha = alpha_rad
+        self.v_body[2] = self.v_body[0] * sin(alpha_rad)
+        self.beta_prev = self.beta
+        self.beta = beta_rad
+        self.v_body[1] = self.v_body[0] * sin(beta_rad)
+
+        # hey, estimate ay, az accels! (and make the new vel official) and FIXME!
+        # print("FIXME!")
+        # self.accels[1] = (vby - self.v_body[1]) / self.dt # + self.g_body[1]
+        # self.v_body[1] = vby
+        # self.accels[2] = (vbz - self.v_body[2]) / self.dt # + self.g_body[2]
+        # self.v_body[2] = vby
+
+    def update_airdata_from_accels(self):
+        # todo: use observed min/max range from model
+
+        self.airspeed_mps = self.v_body[0]
+        self.qbar = 0.5 * self.airspeed_mps**2
+
+        # try to clamp side/vertical velocities from getting crazy
+        cutoff = 0.3
+        if abs(self.v_body[1] / self.v_body[0]) > cutoff:
+            self.v_body[1] = np.sign(self.v_body[1]) * abs(self.v_body[0]) * cutoff
+        if abs(-self.v_body[2] / self.v_body[0]) > cutoff:
+            self.v_body[2] = np.sign(self.v_body[2]) * abs(self.v_body[0]) * cutoff
+
+        # alpha and beta from body frame velocity
+        self.alpha_prev = self.alpha
+        self.beta_prev = self.beta
+        # max = 20 * d2r
+        self.alpha = atan2( self.v_body[2], self.v_body[0] )
+        # if abs(self.alpha) > max:
+        #     self.alpha = np.sign(self.alpha) * max
+        self.beta = atan2( self.v_body[1], self.v_body[0] )
+        # if abs(self.beta) > max:
+        #     self.beta = np.sign(self.beta) * max
 
     def set_pos(self, lon, lat, alt):
         self.lon = lon

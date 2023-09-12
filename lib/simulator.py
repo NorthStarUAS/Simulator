@@ -66,18 +66,9 @@ class Simulator():
                                          0.0, 0.0, 0.0 )
         # self.state_mgr.set_body_velocity( initial_airspeed_mps, 0.0, 0.0 )
         self.state_mgr.set_orientation( 0, 0, 0 )
-        self.ned2body = quaternion.eul2quat( 0, 0, 0 )
-        self.p = 0.0
-        self.q = 0.0
-        self.r = 0.0
-        self.state_mgr.set_gyros( self.p, self.q, self.r )
-        self.ax = 0.0
-        self.ay = 0.0
-        self.az = 0.0
-        # self.bvx = 0.0
-        # self.bvy = 0.0
-        # self.bvz = 0.0
-        self.state_mgr.set_accels( self.ax, self.ay, self.az )
+        self.state_mgr.ned2body = quaternion.eul2quat( 0, 0, 0 )
+        self.state_mgr.set_gyros( np.array([0.0, 0.0, 0.0]) )
+        self.state_mgr.set_accels( np.array([0.0, 0.0, 0.0]) )
         self.time = 0.0
         self.state_mgr.set_time( self.time )
         #self.last_vel_body = None
@@ -138,10 +129,9 @@ class Simulator():
                     #print(i, sum)
                 next[i] += sum
 
-
     def update(self):
         state = self.state_mgr.gen_state_vector(self.params)
-        # print(self.state_mgr.state2dict(state))
+        print("state->", self.state_mgr.state2dict(state))
 
         next = self.A @ state
         self.add_noise(next)
@@ -165,33 +155,54 @@ class Simulator():
             # gravity in body frame
             self.state_mgr.update_gravity_body()
 
-            # body frame accels (forces): predicted directly from the state update
-            ax = result["ax"]
-            ay = result["ay"]
-            az = result["az"]
-            self.state_mgr.set_accels( np.array([ax, ay, az]) )
+            if False:
+                # body frame accels (forces): predicted directly from the state update
+                ax = result["ax"]
+                ay = result["ay"]
+                az = result["az"]
+                self.state_mgr.set_accels( np.array([ax, ay, az]) )
 
-            # integrate accels + g
-            self.state_mgr.update_body_velocity()
+                # integrate accels + g
+                self.state_mgr.update_body_velocity()
 
-            self.state_mgr.airspeed_mps += (self.state_mgr.ax - g_body[0]) * self.dt
-            qbar = 0.5 * self.state_mgr.airspeed_mps**2
-
-            # airdata
-            print(result["alpha"], result["beta"], qbar)
-            if qbar > 0.1:
-                sa = result["alpha"] / qbar
-                sb = result["beta"] / qbar
-                if sa < -0.25*pi: sa = -0.25*pi
-                if sa >  0.25*pi: sa =  0.25*pi
-                if sb < -0.25*pi: sb = -0.25*pi
-                if sb >  0.25*pi: sb =  0.25*pi
-                alpha_rad = asin(sa)
-                beta_rad = asin(sb)
+                # airdata
+                self.state_mgr.update_airdata_from_accels()
             else:
-                alpha_rad = 0
-                beta_rad = 0
-            self.state_mgr.set_airdata(self.state_mgr.airspeed_mps, alpha_rad, beta_rad)
+                ax = result["ax"]  # sum of thrust - drag
+                ay = result["ay"]
+                az = result["az"]
+                self.state_mgr.set_accels( np.array([ax, ay, az]))
+
+                # alpha/beta are modeled as sin(angle) * qbar
+                if self.state_mgr.qbar > 0.1:
+                    sa = result["alpha"] / self.state_mgr.qbar
+                    sb = result["beta"] / self.state_mgr.qbar
+                    if sa < -0.25*pi: sa = -0.25*pi
+                    if sa >  0.25*pi: sa =  0.25*pi
+                    if sb < -0.25*pi: sb = -0.25*pi
+                    if sb >  0.25*pi: sb =  0.25*pi
+                    alpha_rad = asin(sa)
+                    beta_rad = asin(sb)
+                else:
+                    alpha_rad = 0
+                    beta_rad = 0
+
+                self.state_mgr.update_airdata(ax, alpha_rad, beta_rad)
+            if False:
+                print(result["alpha"], result["beta"], qbar)
+                if qbar > 0.1:
+                    sa = result["alpha"] / qbar
+                    sb = result["beta"] / qbar
+                    if sa < -0.25*pi: sa = -0.25*pi
+                    if sa >  0.25*pi: sa =  0.25*pi
+                    if sb < -0.25*pi: sb = -0.25*pi
+                    if sb >  0.25*pi: sb =  0.25*pi
+                    alpha_rad = asin(sa)
+                    beta_rad = asin(sb)
+                else:
+                    alpha_rad = 0
+                    beta_rad = 0
+                self.state_mgr.set_airdata(self.state_mgr.airspeed_mps, alpha_rad, beta_rad)
 
             if False:
                 self.bvy += bay * self.dt
@@ -213,11 +224,10 @@ class Simulator():
                 # exact angle of attack)
                 self.state_mgr.set_airdata(self.bvx, alpha, beta)
 
-            self.state_mgr.compute_body_frame_values(have_alpha_beta=True)
+            # self.state_mgr.compute_body_frame_values(have_alpha_beta=True)
 
             # velocity in ned frame
-            # self.vel_ned = quaternion.backTransform( self.ned2body, np.array([self.bvx, self.bvy, self.bvz]) )
-            self.vel_ned = quaternion.backTransform( self.ned2body, self.state_mgr.v_body )
+            self.vel_ned = quaternion.backTransform( self.state_mgr.ned2body, self.state_mgr.v_body )
             self.state_mgr.set_ned_velocity( self.vel_ned[0], self.vel_ned[1], self.vel_ned[2], 0.0, 0.0, 0.0 )
 
             # update position
@@ -330,9 +340,9 @@ class Simulator():
               self.state_mgr.aileron,
               self.state_mgr.elevator,
               self.state_mgr.rudder,
-              phi_rad, the_rad, psi_rad,
+              self.state_mgr.phi_rad, self.state_mgr.the_rad, self.state_mgr.psi_rad,
               self.state_mgr.alpha, self.state_mgr.beta,
-              self.p, self.q, self.r] )
+              self.state_mgr.gyros[0], self.state_mgr.gyros[1], self.state_mgr.gyros[2]] )
         self.data[-1].extend( self.pos_ned.tolist() )
         self.data[-1].extend( self.vel_ned.tolist() )
 
