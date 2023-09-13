@@ -47,7 +47,7 @@ class StateManager():
         self.v_ned = np.array( [0.0, 0.0, 0.0] )
         self.v_body = np.array( [0.0, 0.0, 0.0] )
         self.v_flow = np.array( [0.0, 0.0, 0.0] )
-        self.a_body = np.array( [0.0, 0.0, 0.0] )
+        # self.a_body = np.array( [0.0, 0.0, 0.0] )
         self.a_flow_g = np.array( [0.0, 0.0, 0.0] )
 
         self.gyros = np.array( [0.0, 0.0, 0.0] )
@@ -170,7 +170,7 @@ class StateManager():
 
     def update_airdata(self, ax_mps2, alpha_rad, beta_rad):
         # self.accels[0] = ax_mps2
-        self.v_body[0] += ax_mps2 * self.dt
+        self.v_body[0] += (self.accels[0] - self.g_body[0])  * self.dt
         self.airspeed_mps = self.v_body[0]
         self.qbar = 0.5 * self.airspeed_mps**2
         self.alpha_prev = self.alpha

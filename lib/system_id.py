@@ -64,6 +64,7 @@ class SystemIdentification():
     def time_update(self, vehicle):
         if self.state_mgr.is_flying():
             if abs(self.state_mgr.flaps - 0.0) < 0.1:
+                self.state_mgr.update_thrust_drag()
                 self.state_mgr.compute_body_frame_values(self.state_mgr.have_alpha)
                 state = self.state_mgr.gen_state_vector()
                 #print(self.state_mgr.state2dict(state))
