@@ -57,7 +57,9 @@ if flight_format == "cirrus_csv":
         "bgx", "bgy", "bgz",        # gravity rotated into body frame
         "qbar",                     # effects due to misaligned airframe
         "alpha_prev", "beta_prev",  # additional history improves fit.
-        "p_prev", "q_prev", "r_prev",
+        "ax_prev1", "ay_prev1", "az_prev1",
+        "p_prev1", "q_prev1", "r_prev1",
+        "p_prev2", "q_prev2", "r_prev2",
         "abs(ay)", "abs(bgy)",
         "K",                        # constant factor (1*parameter)
     ]

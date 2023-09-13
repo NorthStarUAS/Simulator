@@ -47,8 +47,10 @@ class StateManager():
         self.v_body = np.array( [0.0, 0.0, 0.0] )
 
         self.gyros = np.array( [0.0, 0.0, 0.0] )
-        self.gyros_prev = np.array( [0.0, 0.0, 0.0] )
+        self.gyros_prev1 = np.array( [0.0, 0.0, 0.0] )
+        self.gyros_prev2 = np.array( [0.0, 0.0, 0.0] )
         self.accels = np.array( [0.0, 0.0, 0.0] )
+        self.accels_prev1 = np.array( [0.0, 0.0, 0.0] )
 
         self.ned2body = quaternion.eul2quat( 0, 0, 0 )
 
@@ -131,10 +133,12 @@ class StateManager():
         self.we_filt = 0.95 * self.we_filt + 0.05 * we
 
     def set_gyros(self, gyros):
-        self.gyros_prev = self.gyros.copy()
+        self.gyros_prev2 = self.gyros_prev1.copy()
+        self.gyros_prev1 = self.gyros.copy()
         self.gyros = gyros
 
     def set_accels(self, accels):
+        self.accels_prev1 = self.accels.copy()
         self.accels = accels
 
     def set_ned_velocity(self, vn, ve, vd, wn, we, wd):
@@ -164,7 +168,7 @@ class StateManager():
         self.v_body += (self.accels - self.g_body) * self.dt
         print(self.g_ned, self.g_body, self.accels - self.g_body, self.v_body)
 
-    def update_airdata(self, ax_mps2, alpha_rad, beta_rad):
+    def update_airdata(self, alpha_rad, beta_rad):
         # self.accels[0] = ax_mps2
         self.v_body[0] += (self.accels[0] - self.g_body[0])  * self.dt
         self.airspeed_mps = self.v_body[0]
@@ -346,12 +350,18 @@ class StateManager():
                 val = self.gyros[1]
             elif field == "r":
                 val = self.gyros[2]
-            elif field == "p_prev":
-                val = self.gyros_prev[0]
-            elif field == "q_prev":
-                val = self.gyros_prev[1]
-            elif field == "r_prev":
-                val = self.gyros_prev[2]
+            elif field == "p_prev1":
+                val = self.gyros_prev1[0]
+            elif field == "q_prev1":
+                val = self.gyros_prev1[1]
+            elif field == "r_prev1":
+                val = self.gyros_prev1[2]
+            elif field == "p_prev2":
+                val = self.gyros_prev2[0]
+            elif field == "q_prev2":
+                val = self.gyros_prev2[1]
+            elif field == "r_prev2":
+                val = self.gyros_prev2[2]
             elif field == "ax":
                 val = self.accels[0]
             elif field == "ay":
@@ -360,6 +370,12 @@ class StateManager():
                 val = abs(self.accels[1])
             elif field == "az":
                 val = self.accels[2]
+            elif field == "ax_prev1":
+                val = self.accels_prev1[0]
+            elif field == "ay_prev1":
+                val = self.accels_prev1[1]
+            elif field == "az_prev1":
+                val = self.accels_prev1[2]
             elif field == "K":
                 val = 1.0
             else:
