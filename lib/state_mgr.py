@@ -43,12 +43,8 @@ class StateManager():
         self.ground_alt = None
         self.g_ned = np.array( [0.0, 0.0, gravity] )
         self.g_body = np.array( [0.0, 0.0, 0.0] )
-        self.g_flow = np.array( [0.0, 0.0, 0.0] )
         self.v_ned = np.array( [0.0, 0.0, 0.0] )
         self.v_body = np.array( [0.0, 0.0, 0.0] )
-        self.v_flow = np.array( [0.0, 0.0, 0.0] )
-        # self.a_body = np.array( [0.0, 0.0, 0.0] )
-        self.a_flow_g = np.array( [0.0, 0.0, 0.0] )
 
         self.gyros = np.array( [0.0, 0.0, 0.0] )
         self.gyros_prev = np.array( [0.0, 0.0, 0.0] )
@@ -239,7 +235,7 @@ class StateManager():
                 self.flying = False
         return self.flying
 
-    # compute body (AND FLOW) frame of reference values
+    # compute body frame of reference values
     def compute_body_frame_values(self, have_alpha_beta=False):
         if self.dt is None:
             print("Did you forget to set dt for this system?")
@@ -259,52 +255,27 @@ class StateManager():
             self.beta = atan2( -self.v_body[1], self.v_body[0] )
             #print("v(body):", v_body, "alpha = %.1f" % (self.alpha/d2r), "beta = %.1f" % (self.beta/d2r))
 
-        # compute flow frame of reference and velocity
-        body2flow = quaternion.eul2quat(0.0, -self.alpha, -self.beta)
-        ned2flow = quaternion.multiply(ned2body, body2flow)
-        #fphi, fthe, fpsi = quaternion.quat2eul(ned2flow)
-        #print("alpha: %.1f" % (self.alpha*r2d), "beta: %.1f" % (self.beta*r2d))
-        #print(" body (deg): %.1f %.1f %.1f" % (self.phi_rad*r2d, self.the_rad*r2d, self.psi_rad*r2d))
-        #print(" flow (deg): %.1f %.1f %.1f" % (fphi*r2d, fthe*r2d, fpsi*r2d))
-        self.v_flow = quaternion.transform(ned2flow, self.v_ned)
 
-        # rotate ned gravity vector into body and flow frames
+        # rotate ned gravity vector into body frame
         self.g_body = quaternion.transform(ned2body, self.g_ned)
-        self.g_flow = quaternion.transform(ned2flow, self.g_ned)
-
-        # compute acceleration in the body frame (w/o gravity)
-        # self.a_body = a_body_g - self.g_body
-
-        # compute acceleration in the flow frame
-        # self.a_flow = quaternion.transform(body2flow, self.a_body)
-        self.a_flow_g = quaternion.backTransform(body2flow, self.accels)
 
         # lift, drag, and weight vector estimates
 
         # is my math correct here? (for drag need grav & body_accel in
         # flight path frame of reference ... I think.
 
-        # self.drag = (self.thrust - self.g_flow[0]) - self.a_flow[0]
-        self.drag = self.a_flow_g[0] - self.thrust
+        self.drag = self.accels[0] - self.thrust
         if self.qbar > 10:
             self.Cd = self.drag / self.qbar
         else:
             self.Cd = 0
 
-        # do I need to think through lift frame of reference here too? --yes, please.
-        # flow frame vs body frame?
-
-        if False: # flow frame
-            # self.lift = -self.a_flow[2] - self.g_flow[2]
-            self.lift = -a_flow_g[2]
-        else: # body frame
-            self.lift = -self.accels[2]
+        self.lift = -self.accels[2]
 
         if self.qbar > 10:
             self.Cl = self.lift / self.qbar
         else:
             self.Cl = 0
-        #print(" lift:", self.a_flow[2], self.g_flow[2], self.lift)
 
     def gen_state_vector(self, params=None):
         result = []
@@ -351,12 +322,6 @@ class StateManager():
                 val = abs(self.g_body[1])
             elif field == "bgz":
                 val = self.g_body[2]
-            elif field == "fgx":
-                val = self.g_flow[0]
-            elif field == "fgy":
-                val = self.g_flow[1]
-            elif field == "fgz":
-                val = self.g_flow[2]
             elif field == "bax":
                 val = self.a_body[0]
             elif field == "bay":
@@ -365,14 +330,6 @@ class StateManager():
                 val = abs(self.a_body[1])
             elif field == "baz":
                 val = self.a_body[2]
-            elif field == "fax":
-                val = self.a_flow[0]
-            elif field == "fay":
-                val = self.a_flow[1]
-            elif field == "faz":
-                val = self.a_flow[2]
-            elif field == "airspeed_old":
-                val = self.airspeed_mps
             elif field == "qbar":
                 val = self.qbar
             elif field == "alpha":
@@ -383,15 +340,6 @@ class StateManager():
                 val = sin(self.beta) * self.qbar
             elif field == "beta_prev":
                 val = sin(self.beta_prev) * self.qbar
-            elif field == "bvx":
-                #val = self.v_body[0]**2 * 0.5 * np.sign(self.v_body[0])
-                val = self.v_body[0]
-            elif field == "bvy":
-                # val = self.v_body[1]**2 * 0.5 * np.sign(self.v_body[1])
-                val = self.v_body[1]
-            elif field == "bvz":
-                # val = self.v_body[2]**2 * 0.5 * np.sign(self.v_body[2])
-                val = self.v_body[2]
             elif field == "p":
                 val = self.gyros[0]
             elif field == "q":
