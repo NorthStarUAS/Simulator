@@ -56,7 +56,9 @@ if flight_format == "cirrus_csv":
         "throttle",
         "bgx", "bgy", "bgz",        # gravity rotated into body frame
         "qbar",                     # effects due to misaligned airframe
-        "alpha_prev", "beta_prev",  # additional history improves fit.
+        # additional state history improves fit and dependent parameter prediction.
+        "alpha_prev1", "alpha_prev2",
+        "beta_prev1", "beta_prev2",
         "ax_prev1", "ay_prev1", "az_prev1",
         "p_prev1", "q_prev1", "r_prev1",
         "p_prev2", "q_prev2", "r_prev2",

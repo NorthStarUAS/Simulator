@@ -36,9 +36,11 @@ class StateManager():
         self.thrust = 0
         self.have_alpha = False
         self.alpha = 0
-        self.alpha_prev = 0
+        self.alpha_prev1 = 0
+        self.alpha_prev2 = 0
         self.beta = 0
-        self.beta_prev = 0
+        self.beta_prev1 = 0
+        self.beta_prev2 = 0
         self.flying = False
         self.ground_alt = None
         self.g_ned = np.array( [0.0, 0.0, gravity] )
@@ -116,12 +118,14 @@ class StateManager():
         self.airspeed_mps = airspeed_mps
         self.qbar = 0.5 * self.airspeed_mps**2
         self.v_body[0] = airspeed_mps
-        self.alpha_prev = self.alpha
+        self.alpha_prev2 = self.alpha_prev1
+        self.alpha_prev1 = self.alpha
         if alpha_rad is not None:
             self.have_alpha = True
             self.alpha = alpha_rad
             self.v_body[2] = airspeed_mps * sin(alpha_rad)
-        self.beta_prev = self.beta
+        self.beta_prev2 = self.beta_prev1
+        self.beta_prev1 = self.beta
         if beta_rad is not None:
             self.beta = beta_rad
             self.v_body[1] = airspeed_mps * sin(beta_rad)
@@ -173,10 +177,12 @@ class StateManager():
         self.v_body[0] += (self.accels[0] - self.g_body[0])  * self.dt
         self.airspeed_mps = self.v_body[0]
         self.qbar = 0.5 * self.airspeed_mps**2
-        self.alpha_prev = self.alpha
+        self.alpha_prev2 = self.alpha_prev1
+        self.alpha_prev1 = self.alpha
         self.alpha = alpha_rad
         self.v_body[2] = self.v_body[0] * sin(alpha_rad)
-        self.beta_prev = self.beta
+        self.beta_prev2 = self.beta_prev1
+        self.beta_prev1 = self.beta
         self.beta = beta_rad
         self.v_body[1] = self.v_body[0] * sin(beta_rad)
 
@@ -201,8 +207,10 @@ class StateManager():
             self.v_body[2] = np.sign(self.v_body[2]) * abs(self.v_body[0]) * cutoff
 
         # alpha and beta from body frame velocity
-        self.alpha_prev = self.alpha
-        self.beta_prev = self.beta
+        self.alpha_prev2 = self.alpha_prev1
+        self.alpha_prev1 = self.alpha
+        self.beta_prev2 = self.beta_prev1
+        self.beta_prev1 = self.beta
         # max = 20 * d2r
         self.alpha = atan2( self.v_body[2], self.v_body[0] )
         # if abs(self.alpha) > max:
@@ -338,12 +346,16 @@ class StateManager():
                 val = self.qbar
             elif field == "alpha":
                 val = sin(self.alpha) * self.qbar
-            elif field == "alpha_prev":
-                val = sin(self.alpha_prev) * self.qbar
+            elif field == "alpha_prev1":
+                val = sin(self.alpha_prev1) * self.qbar
+            elif field == "alpha_prev2":
+                val = sin(self.alpha_prev2) * self.qbar
             elif field == "beta":
                 val = sin(self.beta) * self.qbar
-            elif field == "beta_prev":
-                val = sin(self.beta_prev) * self.qbar
+            elif field == "beta_prev1":
+                val = sin(self.beta_prev1) * self.qbar
+            elif field == "beta_prev2":
+                val = sin(self.beta_prev2) * self.qbar
             elif field == "p":
                 val = self.gyros[0]
             elif field == "q":
