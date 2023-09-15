@@ -52,7 +52,7 @@ class Simulator():
         self.state_mgr.set_dt( self.dt )
 
     def reset(self):
-        initial_airspeed_mps = 10.0
+        initial_airspeed_mps = 50.0
         self.state_mgr.set_airdata( initial_airspeed_mps, 0, 0 )
         self.state_mgr.set_throttle( 0.5 )
         self.state_mgr.set_flight_surfaces( aileron=0.0,
@@ -131,7 +131,7 @@ class Simulator():
 
     def update(self):
         state = self.state_mgr.gen_state_vector(self.params)
-        print("state->", self.state_mgr.state2dict(state))
+        # print("state->", self.state_mgr.state2dict(state))
 
         next = self.A @ state
         self.add_noise(next)
