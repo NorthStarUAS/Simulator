@@ -20,20 +20,20 @@ data = np.array(data).astype(float)
 
 alphas = data[:,0]
 Cls = data[:,1]
-qbars = data[:,2]
-axs = data[:,3]
-abody0s = data[:,4]
+Cds = data[:,2]
+qbars = data[:,3]
+axs = data[:,4]
 throttles = data[:,5]
 
 # initial thrust model
 thrusts = []
 for i in range(len(throttles)):
-    thrust = 0.5 * sqrt(throttles[i]) * abs(gravity)
+    thrust = 0.75 * sqrt(throttles[i]) * abs(gravity)
     thrusts.append(thrust)
 thrusts = np.array(thrusts)
 
 print("alpha:", np.min(alphas), np.max(alphas))
-print("vel:", sqrt(np.max(qbars)))
+print("vel:", sqrt(2*np.max(qbars)))
 
 # def compute_thrust(throttle, vel, xk):
 #     # return xk[0]*sqrt(throttle)
@@ -57,9 +57,30 @@ while True:
         # thrust = compute_thrust(throttles[i], sqrt(qbars[i]), [0.75])
         drag = thrusts[i] - axs[i]
         cd = drag / qbars[i]
+        print("ax:", axs[i], "drag:", drag, "qbar:", qbars[i], "cd:", cd)
         cds.append(cd)
     cds = np.array(cds)
     # print("cds:", cds.shape, cds)
+
+    # let's look at the drag curves by airspeed range
+    plt.figure()
+    step = 5
+    for s in range(0, 120, step):
+        vals = []
+        for i in range(len(data)):
+            vel = sqrt(2*qbars[i])
+            if vel >= s-(step*0.5) and vel <= s+(step*0.5):
+                vals.append( [ alphas[i], cds[i] ] )
+        vals = np.array(vals)
+        if ( len(vals)):
+            print("vals:", vals.shape, vals)
+            # plt.plot(vals[:,0], vals[:,1], ".", label="%d mps" % s)
+            popt, pcov = curve_fit(func, vals[:,0], vals[:,1])
+            plt.plot(vals[:,0], func(vals[:,0], *popt), ".", label="%d mps" % s)
+    plt.xlabel("Alpha (deg)")
+    plt.ylabel("Coefficient of Drag")
+    plt.legend()
+    plt.show()
 
     # print("data0:", data[:,0].shape)
     cd_popt, pcov = curve_fit(func, alphas, cds)
@@ -80,8 +101,7 @@ while True:
     for i in range(len(data)):
         cd = func(alphas[i], *cd_popt)
         drag = cd * qbars[i]
-        gx = axs[i] - abody0s[i]
-        thrusts[i] = drag + axs[i] + gx # seperate out gravity from thrust
+        thrusts[i] = drag + axs[i]  # seperate out gravity from thrust
         # thrusts[i] = cd + axs[i]
 
     # let's look at the thrust curves by airspeed range
