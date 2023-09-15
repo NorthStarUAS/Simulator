@@ -25,6 +25,7 @@ class Joystick():
         # logical values
         self.throttle = 0.0
         self.aileron = 0.0
+        self.rudder_trim = 0.0
         self.elevator = 0.0
         self.elevator_trim = 0.0
         self.rudder = 0.0
@@ -67,17 +68,24 @@ class Joystick():
         print(self.axes, self.buttons, self.hats)
 
         self.throttle = (1.0 - self.axes[3]) * 0.5
-        self.aileron = self.axes[0]
         if self.num_buttons >= 6:
-            if self.buttons[3]:
+            if self.buttons[5]:
                 self.elevator_trim -= 0.001
-            elif self.buttons[5]:
+            elif self.buttons[4]:
                 self.elevator_trim += 0.001
             if self.elevator_trim < -0.25: self.elevator_trim = -0.25
             if self.elevator_trim >  0.25: self.elevator_trim =  0.25
+        if self.num_buttons >= 12:
+            if self.buttons[11]:
+                self.rudder_trim -= 0.001
+            elif self.buttons[10]:
+                self.rudder_trim += 0.001
+            if self.rudder_trim < -0.25: self.rudder_trim = -0.25
+            if self.rudder_trim >  0.25: self.rudder_trim =  0.25
         if False and self.num_hats:
             self.elevator_trim += self.hats[0][1] * 0.001
             if self.elevator_trim < -0.25: self.elevator_trim = -0.25
             if self.elevator_trim >  0.25: self.elevator_trim =  0.25
+        self.aileron = self.axes[0]
         self.elevator = -self.axes[1] + self.elevator_trim
-        self.rudder = self.axes[2]
+        self.rudder = self.axes[2] + self.rudder_trim
