@@ -11,8 +11,8 @@ from lib import quaternion
 class StateManager():
     def __init__(self, vehicle="wing"):
         self.vehicle = vehicle
-        self.ind_states = []
-        self.dep_states = []
+        self.internal_states = []
+        self.output_states = []
         self.state_list = []
         self.dt = None
         self.airborne_thresh_mps = 10 # default for small fixed wing drone
@@ -56,10 +56,10 @@ class StateManager():
 
         self.ned2body = quaternion.eul2quat( 0, 0, 0 )
 
-    def set_state_names(self, ind_states, dep_states):
-        self.ind_states = ind_states
-        self.dep_states = dep_states
-        self.state_list = self.ind_states + self.dep_states
+    def set_state_names(self, internal_states, output_states):
+        self.internal_states = internal_states
+        self.output_states = output_states
+        self.state_list = self.internal_states + self.output_states
 
     def get_state_index(self, state_name_list):
         result = []
@@ -393,10 +393,10 @@ class StateManager():
             else:
                 print("Unknown field requested:", field, "aborting ...")
                 quit()
-            #if True and params is not None and field in self.dep_states:
+            #if True and params is not None and field in self.output_states:
             if params is not None:
                 param = params[index]
-                if param["type"] == "dependent":
+                if param["type"] == "output":
                     min = param["min"]
                     max = param["max"]
                     std = param["std"]
@@ -416,10 +416,10 @@ class StateManager():
             result[self.state_list[i]] = state[i]
         return result
 
-    def dep2dict(self, state):
-        dep_list = self.get_state_index( self.dep_states )
+    def output2dict(self, state):
+        output_list = self.get_state_index( self.output_states )
         result = {}
-        for i in range(len(dep_list)):
-            result[self.state_list[dep_list[i]]] = state[i]
+        for i in range(len(output_list)):
+            result[self.state_list[output_list[i]]] = state[i]
         return result
 

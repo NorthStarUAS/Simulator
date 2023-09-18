@@ -49,14 +49,14 @@ if len(data["imu"]) == 0 and len(data["gps"]) == 0:
 sysid = SystemIdentification(args.vehicle)
 
 if flight_format == "cirrus_csv":
-    independent_states = [
+    internal_states = [
         "aileron", "abs(aileron)",  # flight controls (* qbar)
         "elevator",
         "rudder", "abs(rudder)",
         "throttle",
         "bgx", "bgy", "bgz",        # gravity rotated into body frame
         "qbar",                     # effects due to misaligned airframe
-        # additional state history improves fit and dependent parameter prediction.
+        # additional state history improves fit and output parameter prediction.
         "alpha_prev1", "alpha_prev2",
         "beta_prev1", "beta_prev2",
         "ax_prev1", "ay_prev1", "az_prev1",
@@ -65,7 +65,7 @@ if flight_format == "cirrus_csv":
         "abs(ay)", "abs(bgy)",
         "K",                        # constant factor (1*parameter)
     ]
-    dependent_states = [
+    output_states = [
         "ax",                       # thrust - drag
         "ay",                       # side force
         "az",                       # lift
@@ -76,7 +76,7 @@ if flight_format == "cirrus_csv":
         { "flaps": [0, 0.5, 1] }
     ]
 elif args.vehicle == "wing":
-    independent_states = [
+    internal_states = [
         "aileron", "abs(aileron)",
         "elevator",
         "rudder", "abs(rudder)",    # flight controls (* qbar)
@@ -86,13 +86,13 @@ elif args.vehicle == "wing":
         "bgx", "bgy", "bgz",        # gravity rotated into body frame
         "bvx", "bvy", "bvz",        # velocity components (body frame)
     ]
-    dependent_states = [
+    output_states = [
         "airspeed",
         "bax", "bay", "baz",        # acceleration in body frame (no g)
         "p", "q", "r",              # imu (body) rates
     ]
 elif args.vehicle == "quad":
-    independent_states = [
+    internal_states = [
         "motor[0]",
         "motor[1]",
         "motor[2]",
@@ -101,14 +101,14 @@ elif args.vehicle == "quad":
         #"ax", "ay", "az",           # imu (body) accels
         #"bax", "bay", "baz",        # acceleration in body frame (no g)
     ]
-    dependent_states = [
+    output_states = [
         #"bvx", "bvy",
         "bvz",                        # velocity components (body frame)
         #"p", "q", "r",               # imu (body) rates
     ]
 
-state_names = independent_states + dependent_states
-sysid.state_mgr.set_state_names(independent_states, dependent_states)
+state_names = internal_states + output_states
+sysid.state_mgr.set_state_names(internal_states, output_states)
 
 if flight_format == "cirrus_csv":
     sysid.state_mgr.set_is_flying_thresholds(60*kt2mps, 50*kt2mps)
@@ -276,48 +276,89 @@ sysid.model_noise()
 sysid.analyze()
 sysid.save(args.write, imu_dt)
 
-# show a running estimate of dependent states.  Feed the dependent estimate
-# forward into next state rather than using the original logged value.  This can
-# show the convergence of the estimated parameters versus truth (or show major
-# problems in the model.)
+if True:
+    # show a running estimate of output states.  Feed the output estimate
+    # forward into next state rather than using the original logged value.  This can
+    # show the convergence of the estimated parameters versus truth (or show major
+    # problems in the model fit.)
 
-# the difference here is we are propagating the prediction forward as if we
-# don't have other knowledge of the dependent states (i.e. what would happen in
-# a flight simulation, or if we used this system to emulate airspeed or imu
-# sensors?)
+    # the difference here is we are propagating the prediction forward as if we
+    # don't have any external knowledge of the output states (i.e. this is what
+    # would happen in a flight simulation, or if we used this system to emulate
+    # airspeed or imu sensors?)
 
-dep_index_list = sysid.state_mgr.get_state_index( dependent_states )
-#print("dep_index list:", dep_index_list)
-est_val = [0.0] * len(dependent_states)
-pred = []
-v = []
-for i in range(len(sysid.traindata)):
-    v  = sysid.traindata[i].copy()
-    for j, index in enumerate(dep_index_list):
-        v[index] = est_val[j]
-    #print("A:", A.shape, A)
-    #print("v:", np.array(v).shape, np.array(v))
-    p = sysid.A @ np.array(v)
-    #print("p:", p)
-    for j, index in enumerate(dep_index_list):
-        est_val[j] = p[j]
-        param = sysid.model["parameters"][index]
-        min = param["min"]
-        max = param["max"]
-        med = param["median"]
-        std = param["std"]
-        #if est_val[j] < med - 2*std: est_val[j] = med - 2*std
-        #if est_val[j] > med + 2*std: est_val[j] = med + 2*std
-        if est_val[j] < min - std: est_val[j] = min - std
-        if est_val[j] > max + std: est_val[j] = max + std
-    pred.append(p)
-Ypred = np.array(pred).T
+    output_index_list = sysid.state_mgr.get_state_index( output_states )
+    #print("output_index list:", output_index_list)
+    est_val = [0.0] * len(output_states)
+    pred = []
+    v = []
+    for i in range(len(sysid.traindata)):
+        v  = sysid.traindata[i].copy()
+        for j, index in enumerate(output_index_list):
+            v[index] = est_val[j]
+        #print("A:", A.shape, A)
+        #print("v:", np.array(v).shape, np.array(v))
+        p = sysid.A @ np.array(v)
+        #print("p:", p)
+        for j, index in enumerate(output_index_list):
+            est_val[j] = p[j]
+            param = sysid.model["parameters"][index]
+            min = param["min"]
+            max = param["max"]
+            med = param["median"]
+            std = param["std"]
+            #if est_val[j] < med - 2*std: est_val[j] = med - 2*std
+            #if est_val[j] > med + 2*std: est_val[j] = med + 2*std
+            if est_val[j] < min - std: est_val[j] = min - std
+            if est_val[j] > max + std: est_val[j] = max + std
+        pred.append(p)
+    Ypred = np.array(pred).T
 
-index_list = sysid.state_mgr.get_state_index( dependent_states )
-for j in range(len(index_list)):
-    plt.figure()
-    plt.plot(np.array(sysid.traindata).T[index_list[j],:], label="%s (orig)" % state_names[index_list[j]])
-    plt.plot(Ypred[j,:], label="%s (pred)" % state_names[index_list[j]])
-    plt.legend()
-plt.show()
+    index_list = sysid.state_mgr.get_state_index( output_states )
+    for j in range(len(index_list)):
+        plt.figure()
+        plt.plot(np.array(sysid.traindata).T[index_list[j],:], label="%s (orig)" % state_names[index_list[j]])
+        plt.plot(Ypred[j,:], label="%s (pred)" % state_names[index_list[j]])
+        plt.legend()
+    plt.show()
+
+if True:
+    # a more adventurous test!
+
+    # show a running estimate of output states.  Feed the output estimate
+    # forward into next state rather than using the original logged value.  This can
+    # show the convergence of the estimated parameters versus truth (or show major
+    # problems in the model.)
+
+    # the difference here is we are propagating the prediction forward as if we
+    # don't have other knowledge of the output states (i.e. what would happen in
+    # a flight simulation, or if we used this system to emulate airspeed or imu
+    # sensors?)
+
+    from lib.simulator import Simulator
+    sim = Simulator()
+    sim.load(args.write)
+    sim.reset()
+
+    incepter_list = ["aileron", "elevator", "rudder", "throttle",]
+    inc_index_list = sysid.state_mgr.get_state_index( incepter_list )
+
+    simdata = [ sysid.traindata[0] ]
+    for i in range(len(sysid.traindata)):
+        v  = sysid.traindata[i].copy()
+        # set incepters from original data
+        sim.state_mgr.set_throttle(v[inc_index_list[3]])
+        sim.state_mgr.set_flight_surfaces(v[inc_index_list[0]], v[inc_index_list[1]], v[inc_index_list[2]] )
+        sim.update()
+        state = sim.state_mgr.gen_state_vector()
+        simdata.append(state)
+    simdata = np.array(simdata)
+
+    index_list = sysid.state_mgr.get_state_index( state_names )
+    for i in range(len(index_list)):
+        plt.figure()
+        plt.plot(np.array(sysid.traindata).T[index_list[i],:], label="%s (orig)" % state_names[index_list[i]])
+        plt.plot(np.array(simdata).T[index_list[i],:], label="%s (sim)" % state_names[index_list[i]])
+        plt.legend()
+    plt.show()
 

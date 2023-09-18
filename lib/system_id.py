@@ -159,12 +159,12 @@ class SystemIdentification():
                 filt = signal.sosfilt(sos, self.traindata[:,i]).astype(float)
                 self.traindata[:,i] = filt
 
-        dep_list = self.state_mgr.get_state_index( self.state_mgr.dep_states )
-        print("dep_list:", dep_list)
+        output_list = self.state_mgr.get_state_index( self.state_mgr.output_states )
+        print("output_list:", output_list)
 
         states = len(self.traindata[0])
         self.X = np.array(self.traindata[:-1]).T
-        self.Y = np.array(self.traindata[1:,dep_list]).T
+        self.Y = np.array(self.traindata[1:,output_list]).T
         print("X:\n", self.X.shape, np.array(self.X))
         print("Y:\n", self.Y.shape, np.array(self.Y))
 
@@ -202,17 +202,17 @@ class SystemIdentification():
         print("A rank:", np.linalg.matrix_rank(self.A))
         print("A:\n", self.A.shape, self.A)
 
-        # compute expected ranges for dependent parameters
+        # compute expected ranges for output parameters
         self.model["parameters"] = []
         for i in range(states):
             row = self.X[i,:]
             min = np.min(row)
             max = np.max(row)
             mean = np.mean(row)
-            if self.state_mgr.state_list[i] in self.state_mgr.ind_states:
-                var_type = "independent"
+            if self.state_mgr.state_list[i] in self.state_mgr.internal_states:
+                var_type = "internal"
             else:
-                var_type = "dependent"
+                var_type = "output"
             self.model["parameters"].append(
                 {
                     "name": self.state_mgr.state_list[i],
@@ -225,13 +225,12 @@ class SystemIdentification():
             )
 
     def model_noise(self):
-        # look at the frequency of the error terms in the dependent
-        # states which suggest unmodeled effects such as short period
-        # oscillations and turbulence, or artifacts in the data log
-        # (like a 5hz gps update rate showing up in ekf velocity
-        # estimate.)
+        # look at the frequency of the error terms in the output states which
+        # suggest unmodeled effects such as short period oscillations and
+        # turbulence, or artifacts in the data log (like a 5hz gps update rate
+        # showing up in ekf velocity estimate.)
 
-        dep_index_list = self.state_mgr.get_state_index( self.state_mgr.dep_states )
+        output_index_list = self.state_mgr.get_state_index( self.state_mgr.output_states )
         pred = []
         for i in range(len(self.X.T)):
             v  = self.traindata[i,:].copy()
@@ -242,7 +241,7 @@ class SystemIdentification():
 
         M=1024
         from scipy import signal
-        for i in range(len(dep_index_list)):
+        for i in range(len(output_index_list)):
             # parameter: window='hann' may need to be added to the
             # signal.spectogram() call for older scipy/numpy versions that don't
             # yet agree on this name.
@@ -251,7 +250,7 @@ class SystemIdentification():
                                                   detrend=False, scaling='spectrum')
             f, ax = plt.subplots()
             ax.pcolormesh(times, freqs, 10 * np.log10(Sx), cmap='viridis')
-            ax.set_title(self.state_mgr.dep_states[i] + " Spectogram")
+            ax.set_title(self.state_mgr.output_states[i] + " Spectogram")
             ax.set_ylabel('Frequency [Hz]')
             ax.set_xlabel('Time [s]');
             means = Sx.mean(axis=1)   # average each rows (by freq)
@@ -269,7 +268,7 @@ class SystemIdentification():
                     pt = 0.5 * (bins[j] + bins[j+1])
                     #print( j, pt, total )
                     d1.append( [pt, total] )
-            self.model["parameters"][dep_index_list[i]]["noise"] = d1
+            self.model["parameters"][output_index_list[i]]["noise"] = d1
             d1 = np.array(d1)
             plt.figure()
             plt.plot(d1[:,0], d1[:,1], label="freq vs energy")
@@ -278,12 +277,12 @@ class SystemIdentification():
         plt.show()
 
     def analyze(self):
-        dep_index_list = self.state_mgr.get_state_index( self.state_mgr.dep_states )
+        output_index_list = self.state_mgr.get_state_index( self.state_mgr.output_states )
         states = len(self.traindata_list[0])
         params = self.model["parameters"]
 
-        # report leading contributions towards computing each dependent state
-        for i in range(len(self.state_mgr.dep_states)):
+        # report leading contributions towards computing each output state
+        for i in range(len(self.state_mgr.output_states)):
             #print(self.state_names[i])
             row = self.A[i,:]
             energy = []
@@ -293,9 +292,9 @@ class SystemIdentification():
                 energy.append(e)
             idx = np.argsort(-np.abs(energy))
             total = np.sum(np.abs(energy))
-            dep_idx = dep_index_list[i]
-            params[dep_idx]["formula"] = self.state_mgr.state_list[dep_idx] + " = "
-            formula = self.state_mgr.state_list[dep_idx] + " = "
+            output_idx = output_index_list[i]
+            params[output_idx]["formula"] = self.state_mgr.state_list[output_idx] + " = "
+            formula = self.state_mgr.state_list[output_idx] + " = "
             first = True
             for j in idx:
                 perc = 100 * energy[j] / total
@@ -309,8 +308,8 @@ class SystemIdentification():
                     else:
                         formula += " - "
                 formula += self.state_mgr.state_list[j] + " %.1f%%" % abs(perc)
-            params[dep_index_list[i]]["formula"] = formula
-            print(params[dep_index_list[i]]["formula"])
+            params[output_index_list[i]]["formula"] = formula
+            print(params[output_index_list[i]]["formula"])
 
     def save(self, model_name, dt):
         # the median delta t from the data log is important to include
@@ -319,8 +318,8 @@ class SystemIdentification():
         # realtime performance.
 
         self.model["dt"] = dt
-        self.model["rows"] = len(self.state_mgr.dep_states)
-        self.model["cols"] = len(self.state_mgr.dep_states) + len(self.state_mgr.ind_states)
+        self.model["rows"] = len(self.state_mgr.output_states)
+        self.model["cols"] = len(self.state_mgr.output_states) + len(self.state_mgr.internal_states)
         self.model["A"] = self.A.flatten().tolist()
 
         f = open(model_name, "w")

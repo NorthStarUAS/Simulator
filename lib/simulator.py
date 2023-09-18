@@ -35,20 +35,20 @@ class Simulator():
         cols = len(self.params)
         rows = 0
         for param in self.params:
-            if param["type"] == "dependent":
+            if param["type"] == "output":
                 rows += 1
         print("size:", rows, "x", cols)
         self.dt = model["dt"]
         self.A = np.array(model["A"]).reshape(rows, cols)
         print("A:\n", self.A)
-        ind_states = []
-        dep_states = []
+        internal_states = []
+        output_states = []
         for param in model["parameters"]:
-            if param["type"] == "independent":
-                ind_states.append( param["name"] )
+            if param["type"] == "internal":
+                internal_states.append( param["name"] )
             else:
-                dep_states.append( param["name"] )
-        self.state_mgr.set_state_names( ind_states, dep_states )
+                output_states.append( param["name"] )
+        self.state_mgr.set_state_names( internal_states, output_states )
         self.state_mgr.set_dt( self.dt )
 
     def reset(self):
@@ -137,7 +137,7 @@ class Simulator():
         self.add_noise(next)
 
         input = self.state_mgr.state2dict(state)
-        result = self.state_mgr.dep2dict(next)
+        result = self.state_mgr.output2dict(next)
         #print("state:", state)
         #print("next:", result)
         #print()
