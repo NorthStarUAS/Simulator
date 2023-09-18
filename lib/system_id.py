@@ -209,10 +209,14 @@ class SystemIdentification():
             min = np.min(row)
             max = np.max(row)
             mean = np.mean(row)
-            if self.state_mgr.state_list[i] in self.state_mgr.internal_states:
+            if self.state_mgr.state_list[i] in self.state_mgr.input_states:
+                var_type = "input"
+            elif self.state_mgr.state_list[i] in self.state_mgr.internal_states:
                 var_type = "internal"
-            else:
+            elif self.state_mgr.state_list[i] in self.state_mgr.output_states:
                 var_type = "output"
+            else:
+                var_type = "unknown"
             self.model["parameters"].append(
                 {
                     "name": self.state_mgr.state_list[i],
@@ -319,7 +323,7 @@ class SystemIdentification():
 
         self.model["dt"] = dt
         self.model["rows"] = len(self.state_mgr.output_states)
-        self.model["cols"] = len(self.state_mgr.output_states) + len(self.state_mgr.internal_states)
+        self.model["cols"] = len(self.state_mgr.state_list)
         self.model["A"] = self.A.flatten().tolist()
 
         f = open(model_name, "w")

@@ -41,14 +41,19 @@ class Simulator():
         self.dt = model["dt"]
         self.A = np.array(model["A"]).reshape(rows, cols)
         print("A:\n", self.A)
+        input_states = []
         internal_states = []
         output_states = []
         for param in model["parameters"]:
-            if param["type"] == "internal":
+            if param["type"] == "input":
+                input_states.append( param["name"] )
+            elif param["type"] == "internal":
                 internal_states.append( param["name"] )
-            else:
+            elif param["type"] == "output":
                 output_states.append( param["name"] )
-        self.state_mgr.set_state_names( internal_states, output_states )
+            else:
+                raise Exception("Sorry, unknown state:", param)
+        self.state_mgr.set_state_names( input_states, internal_states, output_states )
         self.state_mgr.set_dt( self.dt )
 
     def reset(self):

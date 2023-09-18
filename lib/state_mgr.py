@@ -11,6 +11,7 @@ from lib import quaternion
 class StateManager():
     def __init__(self, vehicle="wing"):
         self.vehicle = vehicle
+        self.input_states = []
         self.internal_states = []
         self.output_states = []
         self.state_list = []
@@ -56,10 +57,11 @@ class StateManager():
 
         self.ned2body = quaternion.eul2quat( 0, 0, 0 )
 
-    def set_state_names(self, internal_states, output_states):
+    def set_state_names(self, input_states, internal_states, output_states):
+        self.input_states = input_states
         self.internal_states = internal_states
         self.output_states = output_states
-        self.state_list = self.internal_states + self.output_states
+        self.state_list = self.input_states + self.internal_states + self.output_states
 
     def get_state_index(self, state_name_list):
         result = []
@@ -391,8 +393,7 @@ class StateManager():
             elif field == "K":
                 val = 1.0
             else:
-                print("Unknown field requested:", field, "aborting ...")
-                quit()
+                raise Exception("Sorry, unknown field name requested:", field)
             #if True and params is not None and field in self.output_states:
             if params is not None:
                 param = params[index]
