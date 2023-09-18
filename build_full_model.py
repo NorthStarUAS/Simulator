@@ -49,11 +49,16 @@ if len(data["imu"]) == 0 and len(data["gps"]) == 0:
 sysid = SystemIdentification(args.vehicle)
 
 if flight_format == "cirrus_csv":
-    internal_states = [
-        "aileron", "abs(aileron)",  # flight controls (* qbar)
+    input_states = [
+        # flight controls (* qbar)
+        "aileron",
         "elevator",
-        "rudder", "abs(rudder)",
+        "rudder",
         "throttle",
+    ]
+    internal_states = [
+        "abs(aileron)",
+        "abs(rudder)",
         "bgx", "bgy", "bgz",        # gravity rotated into body frame
         "qbar",                     # effects due to misaligned airframe
         # additional state history improves fit and output parameter prediction.
@@ -107,8 +112,8 @@ elif args.vehicle == "quad":
         #"p", "q", "r",               # imu (body) rates
     ]
 
-state_names = internal_states + output_states
-sysid.state_mgr.set_state_names(internal_states, output_states)
+state_names = input_states + internal_states + output_states
+sysid.state_mgr.set_state_names(input_states, internal_states, output_states)
 
 if flight_format == "cirrus_csv":
     sysid.state_mgr.set_is_flying_thresholds(60*kt2mps, 50*kt2mps)

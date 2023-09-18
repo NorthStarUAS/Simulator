@@ -141,7 +141,6 @@ class Simulator():
         next = self.A @ state
         self.add_noise(next)
 
-        input = self.state_mgr.state2dict(state)
         result = self.state_mgr.output2dict(next)
         #print("state:", state)
         #print("next:", result)
