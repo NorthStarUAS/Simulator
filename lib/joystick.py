@@ -92,10 +92,9 @@ class Joystick():
                 joy["buttons"][i] = handle.get_button(i)
             for i in range(joy["num_hats"]):
                 joy["hats"][i] = handle.get_hat(i)
-            print(joy)
+            # print(joy)
 
         self.throttle = (1.0 - self.get_joy_value(self.mapping["throttle"])) * 0.5
-        print(self.throttle)
         # if self.num_buttons >= 6:
         #     if self.buttons[5]:
         #         self.elevator_trim -= 0.001
