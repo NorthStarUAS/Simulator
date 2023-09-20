@@ -9,18 +9,21 @@ try:
 except:
     print("pygame import failed, joystick inactive")
     print("consider: dnf install python3-pygame")
+    print("or pip install pygame")
     sleep(5)
 
 class Joystick():
     def __init__(self):
         # physical values
-        self.have_joystick = False
-        self.num_axes = 0
-        self.num_buttons = 0
-        self.num_hats = 0
-        self.axes = []
-        self.buttons = []
-        self.hats = []
+        self.num_joysticks = 0
+        self.joys = []
+        self.mapping = {
+            "aileron": [None] * 3, 
+            "elevator": [None] * 3, 
+            "elevator_trim": [None] * 3, 
+            "rudder": [None] * 3, 
+            "throttle": [None] * 3, 
+        }
 
         # logical values
         self.throttle = 0.0
@@ -35,57 +38,83 @@ class Joystick():
 
         pygame.init()
         pygame.joystick.init()
-        if pygame.joystick.get_count() > 0:
-            self.have_joystick = True
-            print("Detected a joystick")
-        else:
+        self.num_joysticks = pygame.joystick.get_count()
+        if not self.num_joysticks:
             print("no joysticks found")
-
-        if not self.have_joystick:
+            sleep(5)
             return
+        print("Detected joysticks:", pygame.joystick.get_count())
 
-        self.j = pygame.joystick.Joystick(0)
-        self.j.init()
-        self.num_axes = self.j.get_numaxes()
-        self.axes = [0.0] * self.num_axes
-        self.num_buttons = self.j.get_numbuttons()
-        self.buttons = [0] * self.num_buttons
-        self.num_hats = self.j.get_numhats()
-        self.hats = [0] * self.num_hats
+        for i in range(self.num_joysticks):
+            name = pygame.joystick.Joystick(i).get_name()
+            handle = pygame.joystick.Joystick(i)
+            print("  name:", name)
+            joy = {}
+            joy["name"] = name
+            joy["handle"] = handle
+            joy["handle"].init()
+            joy["num_axes"] = handle.get_numaxes()
+            joy["axes"] = [0.0] * joy["num_axes"]
+            joy["num_buttons"] = handle.get_numbuttons()
+            joy["buttons"] = [0] * joy["num_buttons"]
+            joy["num_hats"] = handle.get_numhats()
+            joy["hats"] = [0] * joy["num_hats"]
+            self.joys.append(joy)
+            if name == "CLSE Joystick Infinity":
+                self.mapping["aileron"] = ["axis", i, 0]
+                self.mapping["elevator"] = ["axis", i, 1]
+                self.mapping["elevator_trim"] = ["hat:", 0, 1]
+            elif name == "TWCS Throttle":
+                self.mapping["throttle"] = ["axis", i, 2]
+                self.mapping["rudder"] = ["axis", i, 7]
+        print("Joystick structures:", self.joys)
+        print("Joystick mapping:", self.mapping)
+
+    def get_joy_value(self, mapping):
+        source, joy_num, axis_num = mapping
+        val = 0.0
+        if source is not None:
+            if source == "axis":
+                val = self.joys[joy_num]["axes"][axis_num]
+        return val
 
     def update(self):
-        if not self.have_joystick:
+        if not self.num_joysticks:
             return
 
         pygame.event.pump()
 
-        for i in range(self.num_axes):
-            self.axes[i] = self.j.get_axis(i)
-        for i in range(self.num_buttons):
-            self.buttons[i] = self.j.get_button(i)
-        for i in range(self.num_hats):
-            self.hats[i] = self.j.get_hat(i)
-        print(self.axes, self.buttons, self.hats)
+        for joy in self.joys:
+            handle = joy["handle"]
+            for i in range(joy["num_axes"]):
+                joy["axes"][i] = handle.get_axis(i)
+            for i in range(joy["num_buttons"]):
+                joy["buttons"][i] = handle.get_button(i)
+            for i in range(joy["num_hats"]):
+                joy["hats"][i] = handle.get_hat(i)
+            print(joy)
 
-        self.throttle = (1.0 - self.axes[3]) * 0.5
-        if self.num_buttons >= 6:
-            if self.buttons[5]:
-                self.elevator_trim -= 0.001
-            elif self.buttons[4]:
-                self.elevator_trim += 0.001
-            if self.elevator_trim < -0.25: self.elevator_trim = -0.25
-            if self.elevator_trim >  0.25: self.elevator_trim =  0.25
-        if self.num_buttons >= 12:
-            if self.buttons[11]:
-                self.rudder_trim -= 0.001
-            elif self.buttons[10]:
-                self.rudder_trim += 0.001
-            if self.rudder_trim < -0.25: self.rudder_trim = -0.25
-            if self.rudder_trim >  0.25: self.rudder_trim =  0.25
+        self.throttle = (1.0 - self.get_joy_value(self.mapping["throttle"])) * 0.5
+        print(self.throttle)
+        # if self.num_buttons >= 6:
+        #     if self.buttons[5]:
+        #         self.elevator_trim -= 0.001
+        #     elif self.buttons[4]:
+        #         self.elevator_trim += 0.001
+        #     if self.elevator_trim < -0.25: self.elevator_trim = -0.25
+        #     if self.elevator_trim >  0.25: self.elevator_trim =  0.25
+        # if self.num_buttons >= 12:
+        #     if self.buttons[11]:
+        #         self.rudder_trim -= 0.001
+        #     elif self.buttons[10]:
+        #         self.rudder_trim += 0.001
+        #     if self.rudder_trim < -0.25: self.rudder_trim = -0.25
+        #     if self.rudder_trim >  0.25: self.rudder_trim =  0.25
         if False and self.num_hats:
             self.elevator_trim += self.hats[0][1] * 0.001
             if self.elevator_trim < -0.25: self.elevator_trim = -0.25
             if self.elevator_trim >  0.25: self.elevator_trim =  0.25
-        self.aileron = self.axes[0]
-        self.elevator = -self.axes[1] + self.elevator_trim
-        self.rudder = self.axes[2] + self.rudder_trim
+        self.aileron = self.get_joy_value(self.mapping["aileron"])
+        self.elevator_trim += 0.001 * self.get_joy_value(self.mapping["elevator_trim"])
+        self.elevator = -self.get_joy_value(self.mapping["elevator"]) + self.elevator_trim
+        self.rudder = self.get_joy_value(self.mapping["rudder"]) + self.rudder_trim
