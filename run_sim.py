@@ -14,9 +14,10 @@ import numpy as np
 import time
 from apscheduler.schedulers.background import BackgroundScheduler # pip install APScheduler (dnf install python3-APScheduler)
 
-from lib import fgfs
 from lib.joystick import Joystick
 from lib.simulator import Simulator
+from visuals.fgfs import fgfs
+from visuals.xp.xp import XPlane
 
 # command line arguments
 parser = argparse.ArgumentParser(description="run the simulation")
@@ -35,6 +36,8 @@ sim.reset()
 if not args.no_trim:
     sim.trim(20)
 
+xp = XPlane()
+
 def expo(x, y):
     print(x, y)
     result = x**y
@@ -51,12 +54,14 @@ def update():
                                       )
     sim.update()
     fgfs.send_to_fgfs(sim)
+    xp.update(sim)
 
 if args.realtime:
     sched = BackgroundScheduler()
     sched.add_job(update, 'interval', seconds=sim.dt)
     sched.start()
-    time.sleep(run_time)
+    while True:
+        time.sleep(run_time)
     sched.shutdown()
 else:
     while sim.time <= run_time:
