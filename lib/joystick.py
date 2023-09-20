@@ -63,7 +63,7 @@ class Joystick():
             if name == "CLSE Joystick Infinity":
                 self.mapping["aileron"] = ["axis", i, 0]
                 self.mapping["elevator"] = ["axis", i, 1]
-                self.mapping["elevator_trim"] = ["hat:", 0, 1]
+                self.mapping["elevator_trim"] = ["hat", 0, [0,1]]
             elif name == "TWCS Throttle":
                 self.mapping["throttle"] = ["axis", i, 2]
                 self.mapping["rudder"] = ["axis", i, 7]
@@ -76,6 +76,8 @@ class Joystick():
         if source is not None:
             if source == "axis":
                 val = self.joys[joy_num]["axes"][axis_num]
+            elif source == "hat":
+                val = self.joys[joy_num]["hats"][axis_num[0]][axis_num[1]]
         return val
 
     def update(self):
@@ -115,5 +117,6 @@ class Joystick():
             if self.elevator_trim >  0.25: self.elevator_trim =  0.25
         self.aileron = self.get_joy_value(self.mapping["aileron"])
         self.elevator_trim += 0.001 * self.get_joy_value(self.mapping["elevator_trim"])
+        print("elevator trim:", self.elevator_trim)
         self.elevator = -self.get_joy_value(self.mapping["elevator"]) + self.elevator_trim
         self.rudder = self.get_joy_value(self.mapping["rudder"]) + self.rudder_trim
