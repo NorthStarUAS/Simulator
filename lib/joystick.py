@@ -18,11 +18,11 @@ class Joystick():
         self.num_joysticks = 0
         self.joys = []
         self.mapping = {
-            "aileron": [None] * 3, 
-            "elevator": [None] * 3, 
-            "elevator_trim": [None] * 3, 
-            "rudder": [None] * 3, 
-            "throttle": [None] * 3, 
+            "aileron": [None] * 3,
+            "elevator": [None] * 3,
+            "elevator_trim": [None] * 3,
+            "rudder": [None] * 3,
+            "throttle": [None] * 3,
         }
 
         # logical values
@@ -63,21 +63,33 @@ class Joystick():
             if name == "CLSE Joystick Infinity":
                 self.mapping["aileron"] = ["axis", i, 0]
                 self.mapping["elevator"] = ["axis", i, 1]
-                self.mapping["elevator_trim"] = ["hat", 0, [0,1]]
+                self.mapping["elevator_trim"] = ["hat", i, 0, 1]
             elif name == "TWCS Throttle":
                 self.mapping["throttle"] = ["axis", i, 2]
                 self.mapping["rudder"] = ["axis", i, 7]
+            elif name == "Thrustmaster T.16000M":
+                self.mapping["aileron"] = ["axis", i, 0]
+                self.mapping["elevator"] = ["axis", i, 1]
+                self.mapping["rudder"] = ["axis", i, 2]
+                self.mapping["throttle"] = ["axis", i, 3]
+                self.mapping["elevator_trim_down"] = ["button", i, 4]
+                self.mapping["elevator_trim_up"] = ["button", i, 5]
         print("Joystick structures:", self.joys)
         print("Joystick mapping:", self.mapping)
 
     def get_joy_value(self, mapping):
-        source, joy_num, axis_num = mapping
+        source = mapping[0]
+        joy_num = mapping[1]
+        axis_num = mapping[2]
         val = 0.0
         if source is not None:
             if source == "axis":
                 val = self.joys[joy_num]["axes"][axis_num]
             elif source == "hat":
-                val = self.joys[joy_num]["hats"][axis_num[0]][axis_num[1]]
+                axis_sub = mapping[3]
+                val = self.joys[joy_num]["hats"][axis_num][axis_sub]
+            elif source == "button":
+                val = self.joys[joy_num]["buttons"][axis_num]
         return val
 
     def update(self):
@@ -94,16 +106,9 @@ class Joystick():
                 joy["buttons"][i] = handle.get_button(i)
             for i in range(joy["num_hats"]):
                 joy["hats"][i] = handle.get_hat(i)
-            # print(joy)
+            print(joy)
 
         self.throttle = (1.0 - self.get_joy_value(self.mapping["throttle"])) * 0.5
-        # if self.num_buttons >= 6:
-        #     if self.buttons[5]:
-        #         self.elevator_trim -= 0.001
-        #     elif self.buttons[4]:
-        #         self.elevator_trim += 0.001
-        #     if self.elevator_trim < -0.25: self.elevator_trim = -0.25
-        #     if self.elevator_trim >  0.25: self.elevator_trim =  0.25
         # if self.num_buttons >= 12:
         #     if self.buttons[11]:
         #         self.rudder_trim -= 0.001
@@ -111,12 +116,14 @@ class Joystick():
         #         self.rudder_trim += 0.001
         #     if self.rudder_trim < -0.25: self.rudder_trim = -0.25
         #     if self.rudder_trim >  0.25: self.rudder_trim =  0.25
-        if False and self.num_hats:
-            self.elevator_trim += self.hats[0][1] * 0.001
-            if self.elevator_trim < -0.25: self.elevator_trim = -0.25
-            if self.elevator_trim >  0.25: self.elevator_trim =  0.25
         self.aileron = self.get_joy_value(self.mapping["aileron"])
-        self.elevator_trim += 0.001 * self.get_joy_value(self.mapping["elevator_trim"])
+        trim_cmd = 0
+        trim_cmd -= self.get_joy_value(self.mapping["elevator_trim_down"])
+        trim_cmd += self.get_joy_value(self.mapping["elevator_trim_up"])
+        trim_cmd += self.get_joy_value(self.mapping["elevator_trim"])
+        self.elevator_trim += 0.001 * trim_cmd
+        if self.elevator_trim < -0.25: self.elevator_trim = -0.25
+        if self.elevator_trim > 0.25: self.elevator_trim = 0.25
         print("elevator trim:", self.elevator_trim)
         self.elevator = -self.get_joy_value(self.mapping["elevator"]) + self.elevator_trim
         self.rudder = self.get_joy_value(self.mapping["rudder"]) + self.rudder_trim
