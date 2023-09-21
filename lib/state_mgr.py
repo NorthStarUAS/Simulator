@@ -397,7 +397,8 @@ class StateManager():
             #if True and params is not None and field in self.output_states:
             if params is not None:
                 param = params[index]
-                if param["type"] == "output":
+                t = param["type"]
+                if t == "input" or t == "output":
                     min = param["min"]
                     max = param["max"]
                     std = param["std"]
