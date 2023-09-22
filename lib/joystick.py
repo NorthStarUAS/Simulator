@@ -1,5 +1,6 @@
 # a simple locally connected (pc) joystick interface
 
+from math import exp
 from time import sleep
 
 have_pygame = False
@@ -72,13 +73,18 @@ class Joystick():
             elif name == "Thrustmaster T.16000M":
                 self.mapping["aileron"] = ["axis", i, 0]
                 self.mapping["elevator"] = ["axis", i, 1]
-                self.mapping["rudder"] = ["axis", i, 2]
+                self.mapping["rudder"] = ["axis", i, 2, {"expo": 2}]
                 self.mapping["throttle"] = ["axis", i, 3]
                 self.mapping["elevator_trim_down"] = ["button", i, 4]
                 self.mapping["elevator_trim_up"] = ["button", i, 5]
 
         print("Joystick structures:", self.joys)
         print("Joystick mapping:", self.mapping)
+
+    # reference: https://www.rcgroups.com/forums/showthread.php?375044-what-is-the-formula-for-the-expo-function
+    def expo(self, x, val):
+        print(x, val, x * exp(abs(val*x))/exp(val))
+        return x * exp(abs(val*x))/exp(val)
 
     def get_input_value(self, name):
         val = 0.0
@@ -90,6 +96,10 @@ class Joystick():
             if source is not None:
                 if source == "axis":
                     val = self.joys[joy_num]["axes"][element_num]
+                    if len(mapping) > 3:
+                        options = mapping[3]
+                        if "expo" in options:
+                            val = self.expo(val, options["expo"])
                 elif source == "hat":
                     sub_num = mapping[3]
                     val = self.joys[joy_num]["hats"][element_num][sub_num]
@@ -103,6 +113,7 @@ class Joystick():
 
         pygame.event.pump()
 
+        # read all the raw input data
         for joy in self.joys:
             handle = joy["handle"]
             for i in range(joy["num_axes"]):
@@ -122,13 +133,14 @@ class Joystick():
         #     if self.rudder_trim < -0.25: self.rudder_trim = -0.25
         #     if self.rudder_trim >  0.25: self.rudder_trim =  0.25
         self.aileron = self.get_input_value("aileron")
-        trim_cmd = 0
-        trim_cmd -= self.get_input_value("elevator_trim_down")
-        trim_cmd += self.get_input_value("elevator_trim_up")
-        trim_cmd += self.get_input_value("elevator_trim")
-        self.elevator_trim += 0.001 * trim_cmd
-        if self.elevator_trim < -0.25: self.elevator_trim = -0.25
-        if self.elevator_trim > 0.25: self.elevator_trim = 0.25
-        print("elevator trim:", self.elevator_trim)
+        if True:
+            trim_cmd = 0
+            trim_cmd -= self.get_input_value("elevator_trim_down")
+            trim_cmd += self.get_input_value("elevator_trim_up")
+            trim_cmd += self.get_input_value("elevator_trim")
+            self.elevator_trim += 0.001 * trim_cmd
+            if self.elevator_trim < -0.25: self.elevator_trim = -0.25
+            if self.elevator_trim > 0.25: self.elevator_trim = 0.25
+            print("elevator trim:", self.elevator_trim)
         self.elevator = -self.get_input_value("elevator") + self.elevator_trim
         self.rudder = self.get_input_value("rudder") + self.rudder_trim
