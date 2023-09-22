@@ -12,6 +12,7 @@ Engineering and Mechanics, UAV Lab.
 """
 
 import argparse
+import json
 from math import cos, pi, sin
 from matplotlib import pyplot as plt
 import numpy as np
@@ -301,9 +302,18 @@ for i, cond in enumerate(conditions):
     print("  Number of states:", len(cond_list[i]["traindata_list"][0]))
     print("  Input state vectors:", len(cond_list[i]["traindata_list"]))
 
+# stub / top of our model structure to save
+root_dict = {
+    "dt": imu_dt,
+    "rows": len(state_mgr.output_states),
+    "cols": len(state_mgr.state_list),
+    "conditions": [],
+}
+
 # create a solution for each condition
 for i, cond in enumerate(conditions):
     print(i, cond)
+    condition_dict = { "condition": cond }
     traindata = np.array(cond_list[i]["traindata_list"])
     coeff = np.array(cond_list[i]["coeff"])
 
@@ -312,7 +322,18 @@ for i, cond in enumerate(conditions):
     sysid.fit(state_mgr, traindata)
     sysid.model_noise(state_mgr, traindata)
     sysid.analyze(state_mgr, traindata)
-    sysid.save(args.write, imu_dt, state_mgr)
+    condition_dict["model"] = sysid.model
+    condition_dict["A"] = sysid.A.flatten().tolist()
+    root_dict["conditions"].append(condition_dict)
+
+# the median delta t from the data log is important to include
+# with the state transition matrix because the state
+# transition matrix coefficients assume this value for
+# realtime performance.
+
+f = open(args.write, "w")
+json.dump(root_dict, f, indent=4)
+f.close()
 
 if True:
     # show a running estimate of output states.  Feed the output estimate
@@ -330,8 +351,8 @@ if True:
     est_val = [0.0] * len(output_states)
     pred = []
     v = []
-    for i in range(len(sysid.traindata)):
-        v  = sysid.traindata[i].copy()
+    for i in range(len(traindata)):
+        v  = traindata[i].copy()
         for j, index in enumerate(output_index_list):
             v[index] = est_val[j]
         #print("A:", A.shape, A)
@@ -355,7 +376,7 @@ if True:
     index_list = state_mgr.get_state_index( output_states )
     for j in range(len(index_list)):
         plt.figure()
-        plt.plot(np.array(sysid.traindata).T[index_list[j],:], label="%s (orig)" % state_names[index_list[j]])
+        plt.plot(np.array(traindata).T[index_list[j],:], label="%s (orig)" % state_names[index_list[j]])
         plt.plot(Ypred[j,:], label="%s (pred)" % state_names[index_list[j]])
         plt.legend()
     plt.show()
@@ -382,9 +403,9 @@ if True:
     incepter_list = ["aileron", "elevator", "rudder", "throttle",]
     inc_index_list = state_mgr.get_state_index( incepter_list )
 
-    simdata = [ sysid.traindata[0] ]
-    for i in range(len(sysid.traindata)):
-        v  = sysid.traindata[i].copy()
+    simdata = [ traindata[0] ]
+    for i in range(len(traindata)):
+        v  = traindata[i].copy()
         # set incepters from original data
         sim.state_mgr.set_throttle(v[inc_index_list[3]])
         sim.state_mgr.set_flight_surfaces(v[inc_index_list[0]], v[inc_index_list[1]], v[inc_index_list[2]] )
@@ -396,7 +417,7 @@ if True:
     index_list = state_mgr.get_state_index( state_names )
     for i in range(len(index_list)):
         plt.figure()
-        plt.plot(np.array(sysid.traindata).T[index_list[i],:], label="%s (orig)" % state_names[index_list[i]])
+        plt.plot(np.array(traindata).T[index_list[i],:], label="%s (orig)" % state_names[index_list[i]])
         plt.plot(np.array(simdata).T[index_list[i],:], label="%s (sim)" % state_names[index_list[i]])
         plt.legend()
     plt.show()
