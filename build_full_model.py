@@ -304,12 +304,15 @@ for i, cond in enumerate(conditions):
 # create a solution for each condition
 for i, cond in enumerate(conditions):
     print(i, cond)
+    traindata = np.array(cond_list[i]["traindata_list"])
+    coeff = np.array(cond_list[i]["coeff"])
+
     sysid = SystemIdentification(args.vehicle)
-    sysid.compute_lift_curve()
-    sysid.fit()
-    sysid.model_noise()
-    sysid.analyze()
-    sysid.save(args.write, imu_dt)
+    sysid.compute_lift_curve(coeff)
+    sysid.fit(state_mgr, traindata)
+    sysid.model_noise(state_mgr, traindata)
+    sysid.analyze(state_mgr, traindata)
+    sysid.save(args.write, imu_dt, state_mgr)
 
 if True:
     # show a running estimate of output states.  Feed the output estimate

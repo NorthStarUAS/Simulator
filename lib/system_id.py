@@ -51,12 +51,8 @@ from lib.state_mgr import StateManager
 
 class SystemIdentification():
     def __init__(self, vehicle):
-        self.traindata_list = []
-        self.traindata = None
         self.A = None
         self.model = {}
-        # self.state_mgr = StateManager(vehicle)
-        # self.coeff = []
 
     def compute_lift_curve(self, coeff):
         if len(coeff):
@@ -85,12 +81,13 @@ class SystemIdentification():
                 if not np.isnan(cl_mean):
                     pt = 0.5 * (bins[i] + bins[i+1])
                     print( i, pt, cl_mean )
-                    d1.append( [pt, cl_mean, cd_mean] )
+                    d1.append( [pt, cl_mean] )
             d1 = np.array(d1)
             plt.figure()
             plt.plot(d1[:,0], d1[:,1], label="Cl vs. alpha (deg)")
             plt.xlabel("alpha (deg)")
             plt.legend()
+            plt.show()
 
     def compute_drag_no_sorry(self):
         if len(coeff):
@@ -152,27 +149,25 @@ class SystemIdentification():
                 plt.legend()
                 plt.show()
 
-    def fit(self):
-        self.traindata = np.array(self.traindata_list)
-
+    def fit(self, state_mgr, traindata):
         if False:    # need to use filtfilt here to avoid phase change
             # signal smoothing experiment
             from scipy import signal
-            idx_list = self.state_mgr.get_state_index( ["p", "q", "r"] )
+            idx_list = state_mgr.get_state_index( ["p", "q", "r"] )
             for i in idx_list:
                 print(i)
-                print(self.traindata[:,i].shape)
-                sos = signal.butter(4, 15, 'low', fs=(1/self.state_mgr.dt),
+                print(traindata[:,i].shape)
+                sos = signal.butter(4, 15, 'low', fs=(1/state_mgr.dt),
                                     output='sos')
-                filt = signal.sosfilt(sos, self.traindata[:,i]).astype(float)
-                self.traindata[:,i] = filt
+                filt = signal.sosfilt(sos, traindata[:,i]).astype(float)
+                traindata[:,i] = filt
 
-        output_list = self.state_mgr.get_state_index( self.state_mgr.output_states )
+        output_list = state_mgr.get_state_index( state_mgr.output_states )
         print("output_list:", output_list)
 
-        states = len(self.traindata[0])
-        self.X = np.array(self.traindata[:-1]).T
-        self.Y = np.array(self.traindata[1:,output_list]).T
+        states = len(traindata[0])
+        self.X = np.array(traindata[:-1]).T
+        self.Y = np.array(traindata[1:,output_list]).T
         print("X:\n", self.X.shape, np.array(self.X))
         print("Y:\n", self.Y.shape, np.array(self.Y))
 
@@ -217,17 +212,17 @@ class SystemIdentification():
             min = np.min(row)
             max = np.max(row)
             mean = np.mean(row)
-            if self.state_mgr.state_list[i] in self.state_mgr.input_states:
+            if state_mgr.state_list[i] in state_mgr.input_states:
                 var_type = "input"
-            elif self.state_mgr.state_list[i] in self.state_mgr.internal_states:
+            elif state_mgr.state_list[i] in state_mgr.internal_states:
                 var_type = "internal"
-            elif self.state_mgr.state_list[i] in self.state_mgr.output_states:
+            elif state_mgr.state_list[i] in state_mgr.output_states:
                 var_type = "output"
             else:
                 var_type = "unknown"
             self.model["parameters"].append(
                 {
-                    "name": self.state_mgr.state_list[i],
+                    "name": state_mgr.state_list[i],
                     "min": np.min(row),
                     "max": np.max(row),
                     "median": np.median(row),
@@ -236,16 +231,16 @@ class SystemIdentification():
                 }
             )
 
-    def model_noise(self):
+    def model_noise(self, state_mgr, traindata):
         # look at the frequency of the error terms in the output states which
         # suggest unmodeled effects such as short period oscillations and
         # turbulence, or artifacts in the data log (like a 5hz gps update rate
         # showing up in ekf velocity estimate.)
 
-        output_index_list = self.state_mgr.get_state_index( self.state_mgr.output_states )
+        output_index_list = state_mgr.get_state_index( state_mgr.output_states )
         pred = []
         for i in range(len(self.X.T)):
-            v  = self.traindata[i,:].copy()
+            v  = traindata[i,:].copy()
             p = self.A @ np.array(v)
             pred.append(p)
         Ypred = np.array(pred).T
@@ -257,12 +252,12 @@ class SystemIdentification():
             # parameter: window='hann' may need to be added to the
             # signal.spectogram() call for older scipy/numpy versions that don't
             # yet agree on this name.
-            freqs, times, Sx = signal.spectrogram(diff[i,:], fs=(1/self.state_mgr.dt),
+            freqs, times, Sx = signal.spectrogram(diff[i,:], fs=(1/state_mgr.dt),
                                                   nperseg=M, noverlap=M - 100,
                                                   detrend=False, scaling='spectrum')
             f, ax = plt.subplots()
             ax.pcolormesh(times, freqs, 10 * np.log10(Sx), cmap='viridis')
-            ax.set_title(self.state_mgr.output_states[i] + " Spectogram")
+            ax.set_title(state_mgr.output_states[i] + " Spectogram")
             ax.set_ylabel('Frequency [Hz]')
             ax.set_xlabel('Time [s]');
             means = Sx.mean(axis=1)   # average each rows (by freq)
@@ -288,13 +283,13 @@ class SystemIdentification():
             plt.legend()
         plt.show()
 
-    def analyze(self):
-        output_index_list = self.state_mgr.get_state_index( self.state_mgr.output_states )
-        states = len(self.traindata_list[0])
+    def analyze(self, state_mgr, traindata):
+        output_index_list = state_mgr.get_state_index( state_mgr.output_states )
+        states = len(traindata[0])
         params = self.model["parameters"]
 
         # report leading contributions towards computing each output state
-        for i in range(len(self.state_mgr.output_states)):
+        for i in range(len(state_mgr.output_states)):
             #print(self.state_names[i])
             row = self.A[i,:]
             energy = []
@@ -305,8 +300,8 @@ class SystemIdentification():
             idx = np.argsort(-np.abs(energy))
             total = np.sum(np.abs(energy))
             output_idx = output_index_list[i]
-            params[output_idx]["formula"] = self.state_mgr.state_list[output_idx] + " = "
-            formula = self.state_mgr.state_list[output_idx] + " = "
+            params[output_idx]["formula"] = state_mgr.state_list[output_idx] + " = "
+            formula = state_mgr.state_list[output_idx] + " = "
             first = True
             for j in idx:
                 perc = 100 * energy[j] / total
@@ -319,7 +314,7 @@ class SystemIdentification():
                         formula += " + "
                     else:
                         formula += " - "
-                formula += self.state_mgr.state_list[j] + " %.1f%%" % abs(perc)
+                formula += state_mgr.state_list[j] + " %.1f%%" % abs(perc)
             params[output_index_list[i]]["formula"] = formula
             print(params[output_index_list[i]]["formula"])
 
@@ -330,8 +325,8 @@ class SystemIdentification():
         # realtime performance.
 
         self.model["dt"] = dt
-        self.model["rows"] = len(self.state_mgr.output_states)
-        self.model["cols"] = len(self.state_mgr.state_list)
+        self.model["rows"] = len(state_mgr.output_states)
+        self.model["cols"] = len(state_mgr.state_list)
         self.model["A"] = self.A.flatten().tolist()
 
         f = open(model_name, "w")
