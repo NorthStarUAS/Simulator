@@ -78,7 +78,8 @@ if flight_format == "cirrus_csv":
         "p", "q", "r",              # imu (body) rates
     ]
     conditions = [
-        { "flaps": [0, 0.5, 1] }
+        { "flaps": 0 },
+        { "flaps": 0.5 }
     ]
 elif args.vehicle == "wing":
     internal_states = [
