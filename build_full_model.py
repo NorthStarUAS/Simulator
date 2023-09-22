@@ -19,7 +19,8 @@ from tqdm import tqdm
 
 from flightdata import flight_loader, flight_interp
 
-from lib.constants import d2r, kt2mps
+from lib.constants import d2r, r2d, kt2mps
+from lib.state_mgr import StateManager
 from lib.system_id import SystemIdentification
 from lib.wind import Wind
 
@@ -46,7 +47,7 @@ if len(data["imu"]) == 0 and len(data["gps"]) == 0:
     print("not enough data loaded to continue.")
     quit()
 
-sysid = SystemIdentification(args.vehicle)
+state_mgr = StateManager(args.vehicle)
 
 if flight_format == "cirrus_csv":
     input_states = [
@@ -114,10 +115,10 @@ elif args.vehicle == "quad":
     ]
 
 state_names = input_states + internal_states + output_states
-sysid.state_mgr.set_state_names(input_states, internal_states, output_states)
+state_mgr.set_state_names(input_states, internal_states, output_states)
 
 if flight_format == "cirrus_csv":
-    sysid.state_mgr.set_is_flying_thresholds(60*kt2mps, 50*kt2mps)
+    state_mgr.set_is_flying_thresholds(60*kt2mps, 50*kt2mps)
 
 # dt estimation
 print("Estimating median dt from IMU records:")
@@ -145,7 +146,7 @@ imu_dt = float("%.4f" % np.median(dt_data))
 print("imu dt:", imu_dt)
 print("max airspeed in flight:", max_airspeed )
 
-sysid.state_mgr.set_dt(imu_dt)
+state_mgr.set_dt(imu_dt)
 
 print("Parsing flight data log:")
 actpt = {}
@@ -174,6 +175,27 @@ if True or flight_format != "cirrus_csv":
     w2 = Wind2()
     pitot_scale, psi_bias, wn_interp, we_interp = w2.estimate( flight_interp.IterateGroup(data), imu_dt )
 
+# condition data collectors
+cond_list = []
+for i in range(len(conditions)):
+    cond_list.append( { "traindata_list": [], "coeff": [] } )
+
+def time_update(vehicle):
+    if state_mgr.is_flying():
+        state_mgr.compute_body_frame_values(state_mgr.have_alpha)
+        state = state_mgr.gen_state_vector()
+        # print(state_mgr.state2dict(state))
+        for i, condition in enumerate(conditions):
+            # print(i, condition)
+            if "flaps" in condition and abs(state_mgr.flaps - condition["flaps"]) < 0.1:
+                # print(True)
+                cond_list[i]["traindata_list"].append( state )
+                if vehicle == "wing":
+                    params = [ state_mgr.alpha*r2d, state_mgr.Cl, state_mgr.Cd, state_mgr.qbar,
+                                state_mgr.accels[0], state_mgr.throttle ]
+                    # print("params:", params)
+                    cond_list[i]["coeff"].append( params )
+
 # iterate through the flight data log, cherry pick the selected parameters
 iter = flight_interp.IterateGroup(data)
 for i in tqdm(range(iter.size())):
@@ -187,7 +209,7 @@ for i in tqdm(range(iter.size())):
         continue
     if "imu" in record:
         imupt = record["imu"]
-        sysid.state_mgr.set_time( imupt["time"] )
+        state_mgr.set_time( imupt["time"] )
         p = imupt["p"]
         q = imupt["q"]
         r = imupt["r"]
@@ -195,7 +217,7 @@ for i in tqdm(range(iter.size())):
             p -= navpt["p_bias"]
             q -= navpt["q_bias"]
             r -= navpt["r_bias"]
-        sysid.state_mgr.set_gyros( np.array([p, q, r]) )
+        state_mgr.set_gyros( np.array([p, q, r]) )
         ax = imupt["ax"]
         ay = imupt["ay"]
         az = imupt["az"]
@@ -203,11 +225,11 @@ for i in tqdm(range(iter.size())):
             ax -= navpt["ax_bias"]
             ay -= navpt["ay_bias"]
             az -= navpt["az_bias"]
-        sysid.state_mgr.set_accels( np.array([ax, ay, az]) )
+        state_mgr.set_accels( np.array([ax, ay, az]) )
     if "act" in record:
         actpt = record["act"]
         if args.vehicle == "wing":
-            sysid.state_mgr.set_throttle( actpt["throttle"] )
+            state_mgr.set_throttle( actpt["throttle"] )
             ail = actpt["aileron"]
             ele = actpt["elevator"]
             rud = actpt["rudder"]
@@ -219,9 +241,9 @@ for i in tqdm(range(iter.size())):
                 flaps = actpt["flaps"]
             else:
                 flaps = 0
-            sysid.state_mgr.set_flight_surfaces( ail, ele, rud, flaps )
+            state_mgr.set_flight_surfaces( ail, ele, rud, flaps )
         elif args.vehicle == "quad":
-            sysid.state_mgr.set_motors( [ actpt["output[0]"],
+            state_mgr.set_motors( [ actpt["output[0]"],
                                           actpt["output[1]"],
                                           actpt["output[2]"],
                                           actpt["output[3]"] ] )
@@ -237,9 +259,9 @@ for i in tqdm(range(iter.size())):
         elif "pitot_scale" in airpt:
             asi_mps *= airpt["pitot_scale"]
         if "alpha" in airpt and "beta" in airpt:
-            sysid.state_mgr.set_airdata( asi_mps, airpt["alpha"]*d2r, airpt["beta"]*d2r )
+            state_mgr.set_airdata( asi_mps, airpt["alpha"]*d2r, airpt["beta"]*d2r )
         else:
-            sysid.state_mgr.set_airdata( asi_mps )
+            state_mgr.set_airdata( asi_mps )
         if wn_interp is not None and we_interp is not None:
             # post process wind estimate
             wn = wn_interp(imupt["time"])
@@ -251,7 +273,7 @@ for i in tqdm(range(iter.size())):
             we = cos(wind_psi) * wind_mps
             wn = sin(wind_psi) * wind_mps
             wd = 0
-        elif flight_format == "cirrus_csv" and sysid.state_mgr.is_flying():
+        elif flight_format == "cirrus_csv" and state_mgr.is_flying():
             windest.update(imupt["time"], airpt["airspeed"], navpt["psi"], navpt["vn"], navpt["ve"])
             wn = windest.filt_long_wn.value
             we = windest.filt_long_we.value
@@ -262,25 +284,32 @@ for i in tqdm(range(iter.size())):
         psi = navpt["psi"]
         if psi_bias is not None:
             psi += psi_bias
-        sysid.state_mgr.set_orientation( navpt["phi"], navpt["the"], navpt["psi"] )
-        sysid.state_mgr.set_pos(navpt["lon"], navpt["lat"], navpt["alt"])
+        state_mgr.set_orientation( navpt["phi"], navpt["the"], navpt["psi"] )
+        state_mgr.set_pos(navpt["lon"], navpt["lat"], navpt["alt"])
         if args.vehicle == "wing" or np.linalg.norm([navpt["vn"], navpt["ve"], navpt["vd"]]) > 0.000001:
-            sysid.state_mgr.set_ned_velocity( navpt["vn"], navpt["ve"],
+            state_mgr.set_ned_velocity( navpt["vn"], navpt["ve"],
                                               navpt["vd"], wn, we, wd )
         else:
-            sysid.state_mgr.set_ned_velocity( gpspt["vn"], gpspt["ve"],
+            state_mgr.set_ned_velocity( gpspt["vn"], gpspt["ve"],
                                               gpspt["vd"], wn, we, wd )
 
-    sysid.time_update(args.vehicle)
+    time_update(args.vehicle)
 
-print("Number of states:", len(sysid.traindata_list[0]))
-print("Input state vectors:", len(sysid.traindata_list))
+print("Conditions report:")
+for i, cond in enumerate(conditions):
+    print(i, cond)
+    print("  Number of states:", len(cond_list[i]["traindata_list"][0]))
+    print("  Input state vectors:", len(cond_list[i]["traindata_list"]))
 
-sysid.compute_lift_drag()
-sysid.fit()
-sysid.model_noise()
-sysid.analyze()
-sysid.save(args.write, imu_dt)
+# create a solution for each condition
+for i, cond in enumerate(conditions):
+    print(i, cond)
+    sysid = SystemIdentification(args.vehicle)
+    sysid.compute_lift_curve()
+    sysid.fit()
+    sysid.model_noise()
+    sysid.analyze()
+    sysid.save(args.write, imu_dt)
 
 if True:
     # show a running estimate of output states.  Feed the output estimate
@@ -293,7 +322,7 @@ if True:
     # would happen in a flight simulation, or if we used this system to emulate
     # airspeed or imu sensors?)
 
-    output_index_list = sysid.state_mgr.get_state_index( output_states )
+    output_index_list = state_mgr.get_state_index( output_states )
     #print("output_index list:", output_index_list)
     est_val = [0.0] * len(output_states)
     pred = []
@@ -320,7 +349,7 @@ if True:
         pred.append(p)
     Ypred = np.array(pred).T
 
-    index_list = sysid.state_mgr.get_state_index( output_states )
+    index_list = state_mgr.get_state_index( output_states )
     for j in range(len(index_list)):
         plt.figure()
         plt.plot(np.array(sysid.traindata).T[index_list[j],:], label="%s (orig)" % state_names[index_list[j]])
@@ -342,12 +371,13 @@ if True:
     # sensors?)
 
     from lib.simulator import Simulator
+    from lib.state_mgr import StateManager
     sim = Simulator()
     sim.load(args.write)
     sim.reset()
 
     incepter_list = ["aileron", "elevator", "rudder", "throttle",]
-    inc_index_list = sysid.state_mgr.get_state_index( incepter_list )
+    inc_index_list = state_mgr.get_state_index( incepter_list )
 
     simdata = [ sysid.traindata[0] ]
     for i in range(len(sysid.traindata)):
@@ -360,7 +390,7 @@ if True:
         simdata.append(state)
     simdata = np.array(simdata)
 
-    index_list = sysid.state_mgr.get_state_index( state_names )
+    index_list = state_mgr.get_state_index( state_names )
     for i in range(len(index_list)):
         plt.figure()
         plt.plot(np.array(sysid.traindata).T[index_list[i],:], label="%s (orig)" % state_names[index_list[i]])

@@ -47,7 +47,6 @@ import json
 from matplotlib import pyplot as plt
 import numpy as np
 
-from lib.constants import r2d
 from lib.state_mgr import StateManager
 
 class SystemIdentification():
@@ -56,27 +55,11 @@ class SystemIdentification():
         self.traindata = None
         self.A = None
         self.model = {}
-        self.state_mgr = StateManager(vehicle)
-        self.coeff = []
+        # self.state_mgr = StateManager(vehicle)
+        # self.coeff = []
 
-    def time_update(self, vehicle):
-        if self.state_mgr.is_flying():
-            # conditions -> here <-
-            if abs(self.state_mgr.flaps - 0.0) < 0.1:
-                self.state_mgr.compute_body_frame_values(self.state_mgr.have_alpha)
-                state = self.state_mgr.gen_state_vector()
-                #print(self.state_mgr.state2dict(state))
-                self.traindata_list.append( state )
-                if vehicle == "wing":
-                    params = [ self.state_mgr.alpha*r2d, self.state_mgr.Cl, self.state_mgr.Cd, self.state_mgr.qbar,
-                               self.state_mgr.accels[0], self.state_mgr.throttle ]
-                    # print("params:", params)
-                    self.coeff.append( params )
-
-    def compute_lift_drag(self):
-        if len(self.coeff):
-            coeff = np.array(self.coeff)
-
+    def compute_lift_curve(self, coeff):
+        if len(coeff):
             # fit a polynomial function for lift/drag coefficient curves
             from scipy.optimize import curve_fit
 
@@ -88,12 +71,7 @@ class SystemIdentification():
             self.alpha_popt, pcov = curve_fit(func, coeff[:,0], coeff[:,1])
             plt.plot(coeff[:,0], func(coeff[:,0], *self.alpha_popt), '.', label='fit: a=%5.3f, b=%5.3f, c=%5.3f' % tuple(self.alpha_popt))
 
-            plt.figure()
-            plt.plot(coeff[:,0], coeff[:,2], ".", label="raw data")
-            self.drag_popt, pcov = curve_fit(func, coeff[:,0], coeff[:,2])
-            plt.plot(coeff[:,0], func(coeff[:,0], *self.drag_popt), '.', label='fit: a=%5.3f, b=%5.3f, c=%5.3f' % tuple(self.drag_popt))
-
-            # alpha vs Cl, Cd plot
+            # alpha vs Cl plot
             num_bins = 100
             bins = np.linspace(-5, 20, num_bins+1) # alpha range
             print(bins)
@@ -104,10 +82,9 @@ class SystemIdentification():
             for i in range(num_bins):
                 bin = i + 1
                 cl_mean = np.mean(coeff[bin_indices==i+1,1])
-                cd_mean = np.mean(coeff[bin_indices==i+1,2])
                 if not np.isnan(cl_mean):
                     pt = 0.5 * (bins[i] + bins[i+1])
-                    print( i, pt, cl_mean, cd_mean )
+                    print( i, pt, cl_mean )
                     d1.append( [pt, cl_mean, cd_mean] )
             d1 = np.array(d1)
             plt.figure()
@@ -115,6 +92,37 @@ class SystemIdentification():
             plt.xlabel("alpha (deg)")
             plt.legend()
 
+    def compute_drag_no_sorry(self):
+        if len(coeff):
+            coeff = np.array(coeff)
+
+            # fit a polynomial function for lift/drag coefficient curves
+            from scipy.optimize import curve_fit
+
+            def func(x, a, b, c):
+                return a * x**2 + b * x + c
+
+            plt.figure()
+            plt.plot(coeff[:,0], coeff[:,2], ".", label="raw data")
+            self.drag_popt, pcov = curve_fit(func, coeff[:,0], coeff[:,2])
+            plt.plot(coeff[:,0], func(coeff[:,0], *self.drag_popt), '.', label='fit: a=%5.3f, b=%5.3f, c=%5.3f' % tuple(self.drag_popt))
+
+            # alpha vs Cd plot (needs to be alpha/asi vs Cd)
+            num_bins = 100
+            bins = np.linspace(-5, 20, num_bins+1) # alpha range
+            print(bins)
+
+            bin_indices = np.digitize( coeff[:,0], bins )
+
+            d1 = []
+            for i in range(num_bins):
+                bin = i + 1
+                cd_mean = np.mean(coeff[bin_indices==i+1,2])
+                if not np.isnan(cl_mean):
+                    pt = 0.5 * (bins[i] + bins[i+1])
+                    print( i, pt, cl_mean, cd_mean )
+                    d1.append( [pt, cl_mean, cd_mean] )
+            d1 = np.array(d1)
             plt.figure()
             plt.plot(d1[:,0], d1[:,2], label="Cd vs. alpha (deg)")
             plt.xlabel("alpha (deg)")
