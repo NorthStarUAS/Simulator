@@ -38,20 +38,10 @@ if not args.no_trim:
 
 xp = XPlane()
 
-def expo(x, y):
-    print(x, y)
-    result = x**y
-    if np.sign(result) != np.sign(x):
-        result *= -1
-    return result
-
 def update():
     joystick.update()
     sim.state_mgr.set_throttle(joystick.throttle)
-    sim.state_mgr.set_flight_surfaces( joystick.aileron,
-                                       joystick.elevator,
-                                       expo(joystick.rudder, args.rudder_expo)
-                                      )
+    sim.state_mgr.set_flight_surfaces(joystick.aileron, joystick.elevator, joystick.rudder)
     sim.update()
     fgfs.send_to_fgfs(sim)
     xp.update(sim)
