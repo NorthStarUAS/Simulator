@@ -205,7 +205,7 @@ class SystemIdentification():
         print("A:\n", self.A.shape, self.A)
 
         # compute expected ranges for output parameters
-        self.model["parameters"] = []
+        self.parameters = []
         for i in range(states):
             row = self.X[i,:]
             min = np.min(row)
@@ -219,7 +219,7 @@ class SystemIdentification():
                 var_type = "output"
             else:
                 var_type = "unknown"
-            self.model["parameters"].append(
+            self.parameters.append(
                 {
                     "name": state_mgr.state_list[i],
                     "min": np.min(row),
@@ -274,7 +274,7 @@ class SystemIdentification():
                     pt = 0.5 * (bins[j] + bins[j+1])
                     #print( j, pt, total )
                     d1.append( [pt, total] )
-            self.model["parameters"][output_index_list[i]]["noise"] = d1
+            self.parameters[output_index_list[i]]["noise"] = d1
             d1 = np.array(d1)
             plt.figure()
             plt.plot(d1[:,0], d1[:,1], label="freq vs energy")
@@ -285,7 +285,7 @@ class SystemIdentification():
     def analyze(self, state_mgr, traindata):
         output_index_list = state_mgr.get_state_index( state_mgr.output_states )
         states = len(traindata[0])
-        params = self.model["parameters"]
+        params = self.parameters
 
         # report leading contributions towards computing each output state
         for i in range(len(state_mgr.output_states)):

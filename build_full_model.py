@@ -324,7 +324,7 @@ for i, cond in enumerate(conditions):
     sysid.fit(state_mgr, traindata)
     sysid.model_noise(state_mgr, traindata)
     sysid.analyze(state_mgr, traindata)
-    condition_dict["model"] = sysid.model
+    condition_dict["parameters"] = sysid.parameters
     condition_dict["A"] = sysid.A.flatten().tolist()
     root_dict["conditions"].append(condition_dict)
 
@@ -365,7 +365,7 @@ if True:
             #print("p:", p)
             for j, index in enumerate(output_index_list):
                 est_val[j] = p[j]
-                param = sysid.model["parameters"][index]
+                param = sysid.parameters[index]
                 min = param["min"]
                 max = param["max"]
                 med = param["median"]
