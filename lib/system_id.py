@@ -254,11 +254,12 @@ class SystemIdentification():
             freqs, times, Sx = signal.spectrogram(diff[i,:], fs=(1/state_mgr.dt),
                                                   nperseg=M, noverlap=M - 100,
                                                   detrend=False, scaling='spectrum')
-            f, ax = plt.subplots()
-            ax.pcolormesh(times, freqs, 10 * np.log10(Sx), cmap='viridis')
-            ax.set_title(state_mgr.output_states[i] + " Spectogram")
-            ax.set_ylabel('Frequency [Hz]')
-            ax.set_xlabel('Time [s]');
+            if False:
+                f, ax = plt.subplots()
+                ax.pcolormesh(times, freqs, 10 * np.log10(Sx), cmap='viridis')
+                ax.set_title(state_mgr.output_states[i] + " Spectogram")
+                ax.set_ylabel('Frequency [Hz]')
+                ax.set_xlabel('Time [s]');
             means = Sx.mean(axis=1)   # average each rows (by freq)
             num_bins = 15
             bins = np.linspace(0.5, num_bins+0.5, num_bins+1) # freq range
@@ -275,12 +276,14 @@ class SystemIdentification():
                     #print( j, pt, total )
                     d1.append( [pt, total] )
             self.parameters[output_index_list[i]]["noise"] = d1
-            d1 = np.array(d1)
-            plt.figure()
-            plt.plot(d1[:,0], d1[:,1], label="freq vs energy")
-            plt.xlabel("freq")
-            plt.legend()
-        plt.show()
+            if False:
+                d1 = np.array(d1)
+                plt.figure()
+                plt.plot(d1[:,0], d1[:,1], label="freq vs energy")
+                plt.xlabel("freq")
+                plt.legend()
+        if False:
+            plt.show()
 
     def analyze(self, state_mgr, traindata):
         output_index_list = state_mgr.get_state_index( state_mgr.output_states )
