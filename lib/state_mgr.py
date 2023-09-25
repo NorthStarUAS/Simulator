@@ -15,7 +15,7 @@ class StateManager():
         self.internal_states = []
         self.output_states = []
         self.state_list = []
-        self.dt = None
+        self.dt = 0.02
         self.airborne_thresh_mps = 10 # default for small fixed wing drone
         self.land_thresh_mps = 7      # default for small fixed wing drone
         self.airspeed_mps = 0
@@ -24,10 +24,15 @@ class StateManager():
         self.wd_filt = 0
 
         self.aileron = 0
+        self.aileron_prev1 = 0
         self.elevator = 0
+        self.elevator_prev1 = 0
         self.rudder = 0
+        self.rudder_prev1 = 0
+        self.rudder_rate = 0
         self.flaps = 0
         self.throttle = 0
+        self.throttle_prev1 = 0
 
         self.qbar = 0
         self.lift = 0
@@ -87,6 +92,7 @@ class StateManager():
         self.time = time
 
     def set_throttle(self, throttle):
+        self.throttle_prev1 = self.throttle
         self.throttle = throttle
         if self.throttle < 0: self.throttle = 0
         if self.throttle > 1: self.throttle = 1
@@ -94,9 +100,15 @@ class StateManager():
         self.thrust = sqrt(self.throttle) * 0.75 * abs(gravity)
 
     def set_flight_surfaces(self, aileron, elevator, rudder, flaps=0):
+        self.aileron_prev1 = self.aileron
         self.aileron = aileron
+        self.elevator_prev1 = self.elevator
         self.elevator = elevator
+
+        self.rudder_prev1 = self.rudder
         self.rudder = rudder
+        self.rudder_rate = (self.rudder - self.rudder_prev1) / self.dt
+
         self.flaps = flaps
         if self.aileron < -1: self.aileron = -1
         if self.aileron > 1: self.aileron = 1
@@ -296,14 +308,22 @@ class StateManager():
         for index, field in enumerate(self.state_list):
             if field == "throttle":
                 val = self.throttle
+            elif field == "throttle_prev1":
+                val = self.throttle_prev1
             elif field == "aileron":
                 val = self.aileron * self.qbar
+            elif field == "aileron_prev1":
+                val = self.aileron_prev1 * self.qbar
             elif field == "abs(aileron)":
                 val = abs(self.aileron) * self.qbar
             elif field == "elevator":
                 val = self.elevator * self.qbar
+            elif field == "elevator_prev1":
+                val = self.elevator_prev1 * self.qbar
             elif field == "rudder":
                 val = self.rudder * self.qbar
+            elif field == "rudder_rate":
+                val = self.rudder_rate * self.qbar
             elif field == "abs(rudder)":
                 val = abs(self.rudder) * self.qbar
             elif field == "flaps":

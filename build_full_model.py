@@ -61,6 +61,8 @@ if flight_format == "cirrus_csv":
     internal_states = [
         "abs(aileron)",
         "abs(rudder)",
+        "aileron_prev1", "elevator_prev1", "rudder_rate",
+        "throttle_prev1",
         "bgx", "bgy", "bgz",        # gravity rotated into body frame
         "qbar",                     # effects due to misaligned airframe
         # additional state history improves fit and output parameter prediction.
