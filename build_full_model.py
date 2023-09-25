@@ -336,50 +336,51 @@ json.dump(root_dict, f, indent=4)
 f.close()
 
 if True:
-    # show a running estimate of output states.  Feed the output estimate
-    # forward into next state rather than using the original logged value.  This can
-    # show the convergence of the estimated parameters versus truth (or show major
-    # problems in the model fit.)
+    # for each condition, show a running estimate of output states.  Feed the
+    # output estimate forward into next state rather than using the original
+    # logged value.  This can show the convergence of the estimated parameters
+    # versus truth (or show major problems in the model fit.)
 
     # the difference here is we are propagating the prediction forward as if we
     # don't have any external knowledge of the output states (i.e. this is what
     # would happen in a flight simulation, or if we used this system to emulate
     # airspeed or imu sensors?)
+    for i, cond in enumerate(conditions):
+        traindata = np.array(cond_list[i]["traindata_list"])
+        output_index_list = state_mgr.get_state_index( output_states )
+        #print("output_index list:", output_index_list)
+        est_val = [0.0] * len(output_states)
+        pred = []
+        v = []
+        for i in range(len(traindata)):
+            v  = traindata[i].copy()
+            for j, index in enumerate(output_index_list):
+                v[index] = est_val[j]
+            #print("A:", A.shape, A)
+            #print("v:", np.array(v).shape, np.array(v))
+            p = sysid.A @ np.array(v)
+            #print("p:", p)
+            for j, index in enumerate(output_index_list):
+                est_val[j] = p[j]
+                param = sysid.model["parameters"][index]
+                min = param["min"]
+                max = param["max"]
+                med = param["median"]
+                std = param["std"]
+                #if est_val[j] < med - 2*std: est_val[j] = med - 2*std
+                #if est_val[j] > med + 2*std: est_val[j] = med + 2*std
+                if est_val[j] < min - std: est_val[j] = min - std
+                if est_val[j] > max + std: est_val[j] = max + std
+            pred.append(p)
+        Ypred = np.array(pred).T
 
-    output_index_list = state_mgr.get_state_index( output_states )
-    #print("output_index list:", output_index_list)
-    est_val = [0.0] * len(output_states)
-    pred = []
-    v = []
-    for i in range(len(traindata)):
-        v  = traindata[i].copy()
-        for j, index in enumerate(output_index_list):
-            v[index] = est_val[j]
-        #print("A:", A.shape, A)
-        #print("v:", np.array(v).shape, np.array(v))
-        p = sysid.A @ np.array(v)
-        #print("p:", p)
-        for j, index in enumerate(output_index_list):
-            est_val[j] = p[j]
-            param = sysid.model["parameters"][index]
-            min = param["min"]
-            max = param["max"]
-            med = param["median"]
-            std = param["std"]
-            #if est_val[j] < med - 2*std: est_val[j] = med - 2*std
-            #if est_val[j] > med + 2*std: est_val[j] = med + 2*std
-            if est_val[j] < min - std: est_val[j] = min - std
-            if est_val[j] > max + std: est_val[j] = max + std
-        pred.append(p)
-    Ypred = np.array(pred).T
-
-    index_list = state_mgr.get_state_index( output_states )
-    for j in range(len(index_list)):
-        plt.figure()
-        plt.plot(np.array(traindata).T[index_list[j],:], label="%s (orig)" % state_names[index_list[j]])
-        plt.plot(Ypred[j,:], label="%s (pred)" % state_names[index_list[j]])
-        plt.legend()
-    plt.show()
+        index_list = state_mgr.get_state_index( output_states )
+        for j in range(len(index_list)):
+            plt.figure()
+            plt.plot(np.array(traindata).T[index_list[j],:], label="%s (orig)" % state_names[index_list[j]])
+            plt.plot(Ypred[j,:], label="%s (pred)" % state_names[index_list[j]])
+            plt.legend()
+        plt.show()
 
 if True:
     # a more adventurous test!
