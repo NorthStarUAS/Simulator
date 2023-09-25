@@ -318,6 +318,8 @@ for i, cond in enumerate(conditions):
     coeff = np.array(cond_list[i]["coeff"])
 
     sysid = SystemIdentification(args.vehicle)
+    cond_list[i]["sysid"] = sysid
+
     sysid.compute_lift_curve(coeff)
     sysid.fit(state_mgr, traindata)
     sysid.model_noise(state_mgr, traindata)
@@ -346,6 +348,7 @@ if True:
     # would happen in a flight simulation, or if we used this system to emulate
     # airspeed or imu sensors?)
     for i, cond in enumerate(conditions):
+        sysid = cond_list[i]["sysid"]
         traindata = np.array(cond_list[i]["traindata_list"])
         output_index_list = state_mgr.get_state_index( output_states )
         #print("output_index list:", output_index_list)
