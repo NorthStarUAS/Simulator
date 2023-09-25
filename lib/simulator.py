@@ -8,7 +8,6 @@ Engineering and Mechanics, UAV Lab.
 
 """
 
-import json
 from math import asin, atan2, cos, sin, pi
 from matplotlib import pyplot as plt
 import numpy as np
@@ -26,25 +25,15 @@ class Simulator():
         self.state_mgr = StateManager()
         self.reset()
 
-    def load(self, model):
-        f = open(model, "r")
-        model = json.load(f)
-        print(model)
-        f.close()
-        self.params = model["parameters"]
-        cols = len(self.params)
-        rows = 0
-        for param in self.params:
-            if param["type"] == "output":
-                rows += 1
-        print("size:", rows, "x", cols)
-        self.dt = model["dt"]
-        self.A = np.array(model["A"]).reshape(rows, cols)
+    def setup(self, dt, A, params):
+        self.params = params
+        self.dt = dt
+        self.A = A
         print("A:\n", self.A)
         input_states = []
         internal_states = []
         output_states = []
-        for param in model["parameters"]:
+        for param in params:
             if param["type"] == "input":
                 input_states.append( param["name"] )
             elif param["type"] == "internal":

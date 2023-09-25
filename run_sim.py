@@ -9,10 +9,11 @@ Engineering and Mechanics, UAV Lab.
 
 """
 
+from apscheduler.schedulers.background import BackgroundScheduler # pip install APScheduler (dnf install python3-APScheduler)
 import argparse
+import json
 import numpy as np
 import time
-from apscheduler.schedulers.background import BackgroundScheduler # pip install APScheduler (dnf install python3-APScheduler)
 
 from lib.joystick import Joystick
 from lib.simulator import Simulator
@@ -30,13 +31,26 @@ args = parser.parse_args()
 run_time = 600
 
 joystick = Joystick()
-sim = Simulator()
-sim.load(args.model)
-sim.reset()
+xp = XPlane()
+
+f = open(args.model, "r")
+model = json.load(f)
+print(model)
+f.close()
+
+cond_list = model["conditions"]
+rows = model["rows"]
+cols = model["cols"]
+dt = model["dt"]
+for condition in model["conditions"]:
+    sim = Simulator()
+    condition["sim"] = sim
+    A = np.array(condition["A"]).reshape(rows, cols)
+    sim.setup(dt, A, condition["parameters"])
+    sim.reset()
+
 if not args.no_trim:
     sim.trim(20)
-
-xp = XPlane()
 
 def update():
     joystick.update()
