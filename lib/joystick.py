@@ -35,7 +35,7 @@ class Joystick():
         self.elevator = 0.0
         self.elevator_trim = 0.0
         self.rudder = 0.0
-        self.flaps = 0.5
+        self.flaps = 0.0
         self.gear = 1.0
 
         if not have_pygame:
