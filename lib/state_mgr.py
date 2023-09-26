@@ -29,7 +29,6 @@ class StateManager():
         self.elevator_prev1 = 0
         self.rudder = 0
         self.rudder_prev1 = 0
-        self.rudder_rate = 0
         self.flaps = 0
         self.throttle = 0
         self.throttle_prev1 = 0
@@ -43,10 +42,8 @@ class StateManager():
         self.have_alpha = False
         self.alpha = 0
         self.alpha_prev1 = 0
-        self.alpha_prev2 = 0
         self.beta = 0
         self.beta_prev1 = 0
-        self.beta_prev2 = 0
         self.flying = False
         self.ground_alt = None
         self.g_ned = np.array( [0.0, 0.0, gravity] )
@@ -56,7 +53,6 @@ class StateManager():
 
         self.gyros = np.array( [0.0, 0.0, 0.0] )
         self.gyros_prev1 = np.array( [0.0, 0.0, 0.0] )
-        self.gyros_prev2 = np.array( [0.0, 0.0, 0.0] )
         self.accels = np.array( [0.0, 0.0, 0.0] )
         self.accels_prev1 = np.array( [0.0, 0.0, 0.0] )
 
@@ -107,7 +103,6 @@ class StateManager():
 
         self.rudder_prev1 = self.rudder
         self.rudder = rudder
-        self.rudder_rate = (self.rudder - self.rudder_prev1) / self.dt
 
         self.flaps = flaps
         if self.aileron < -1: self.aileron = -1
@@ -132,13 +127,11 @@ class StateManager():
         self.airspeed_mps = airspeed_mps
         self.qbar = 0.5 * self.airspeed_mps**2
         self.vel_body[0] = airspeed_mps
-        self.alpha_prev2 = self.alpha_prev1
         self.alpha_prev1 = self.alpha
         if alpha_rad is not None:
             self.have_alpha = True
             self.alpha = alpha_rad
             self.vel_body[2] = airspeed_mps * sin(alpha_rad)
-        self.beta_prev2 = self.beta_prev1
         self.beta_prev1 = self.beta
         if beta_rad is not None:
             self.beta = beta_rad
@@ -151,7 +144,6 @@ class StateManager():
         self.we_filt = 0.95 * self.we_filt + 0.05 * we
 
     def set_gyros(self, gyros):
-        self.gyros_prev2 = self.gyros_prev1.copy()
         self.gyros_prev1 = self.gyros.copy()
         self.gyros = gyros
 
@@ -191,11 +183,9 @@ class StateManager():
         self.vel_body[0] += (self.accels[0] - self.g_body[0])  * self.dt
         self.airspeed_mps = self.vel_body[0]
         self.qbar = 0.5 * self.airspeed_mps**2
-        self.alpha_prev2 = self.alpha_prev1
         self.alpha_prev1 = self.alpha
         self.alpha = alpha_rad
         self.vel_body[2] = self.vel_body[0] * sin(alpha_rad)
-        self.beta_prev2 = self.beta_prev1
         self.beta_prev1 = self.beta
         self.beta = beta_rad
         self.vel_body[1] = self.vel_body[0] * sin(beta_rad)
@@ -221,9 +211,7 @@ class StateManager():
             self.vel_body[2] = np.sign(self.vel_body[2]) * abs(self.vel_body[0]) * cutoff
 
         # alpha and beta from body frame velocity
-        self.alpha_prev2 = self.alpha_prev1
         self.alpha_prev1 = self.alpha
-        self.beta_prev2 = self.beta_prev1
         self.beta_prev1 = self.beta
         # max = 20 * d2r
         self.alpha = atan2( self.vel_body[2], self.vel_body[0] )
@@ -322,8 +310,6 @@ class StateManager():
                 val = self.elevator_prev1 * self.qbar
             elif field == "rudder":
                 val = self.rudder * self.qbar
-            elif field == "rudder_rate":
-                val = self.rudder_rate * self.qbar
             elif field == "abs(rudder)":
                 val = abs(self.rudder) * self.qbar
             elif field == "flaps":
@@ -370,14 +356,10 @@ class StateManager():
                 val = sin(self.alpha) * self.qbar
             elif field == "alpha_prev1":
                 val = sin(self.alpha_prev1) * self.qbar
-            elif field == "alpha_prev2":
-                val = sin(self.alpha_prev2) * self.qbar
             elif field == "beta":
                 val = sin(self.beta) * self.qbar
             elif field == "beta_prev1":
                 val = sin(self.beta_prev1) * self.qbar
-            elif field == "beta_prev2":
-                val = sin(self.beta_prev2) * self.qbar
             elif field == "p":
                 val = self.gyros[0]
             elif field == "q":
@@ -390,12 +372,6 @@ class StateManager():
                 val = self.gyros_prev1[1]
             elif field == "r_prev1":
                 val = self.gyros_prev1[2]
-            elif field == "p_prev2":
-                val = self.gyros_prev2[0]
-            elif field == "q_prev2":
-                val = self.gyros_prev2[1]
-            elif field == "r_prev2":
-                val = self.gyros_prev2[2]
             elif field == "ax":
                 val = self.accels[0]
             elif field == "ay":
