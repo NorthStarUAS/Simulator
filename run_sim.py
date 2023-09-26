@@ -17,6 +17,7 @@ import time
 
 from lib.joystick import Joystick
 from lib.simulator import Simulator
+from lib.state_mgr import StateManager
 from visuals.fgfs import fgfs
 from visuals.xp.xp import XPlane
 
@@ -38,11 +39,13 @@ model = json.load(f)
 print(model)
 f.close()
 
+state_mgr = StateManager()
+
 rows = model["rows"]
 cols = model["cols"]
 dt = model["dt"]
 for condition in model["conditions"]:
-    sim = Simulator()
+    sim = Simulator(state_mgr)
     condition["sim"] = sim
     A = np.array(condition["A"]).reshape(rows, cols)
     sim.setup(dt, A, condition["parameters"])
@@ -54,17 +57,15 @@ if not args.no_trim: # fixme
 def update():
     global model
     joystick.update()
-    sim = None
     for i, condition in enumerate(model["conditions"]):
-        print(i, condition["condition"])
         if "flaps" in condition["condition"] and abs(joystick.flaps - condition["condition"]["flaps"]) < 0.1:
+            print(i, condition["condition"])
             sim = condition["sim"]
-            break
-    sim.state_mgr.set_throttle(joystick.throttle)
-    sim.state_mgr.set_flight_surfaces(joystick.aileron, joystick.elevator, joystick.rudder)
-    sim.update()
-    fgfs.send_to_fgfs(sim)
-    xp.update(sim)
+            state_mgr.set_throttle(joystick.throttle)
+            state_mgr.set_flight_surfaces(joystick.aileron, joystick.elevator, joystick.rudder)
+            sim.update()
+            fgfs.send_to_fgfs(state_mgr)
+            xp.update(state_mgr)
 
 if args.realtime:
     sched = BackgroundScheduler()

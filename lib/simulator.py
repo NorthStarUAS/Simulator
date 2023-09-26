@@ -18,11 +18,11 @@ from lib.constants import d2r, r2d, gravity
 from lib.state_mgr import StateManager
 
 class Simulator():
-    def __init__(self):
+    def __init__(self, state_mgr):
         self.A = None
         self.dt = None
         self.trand = None
-        self.state_mgr = StateManager()
+        self.state_mgr = state_mgr
         self.reset()
 
     def setup(self, dt, A, params):
@@ -52,13 +52,9 @@ class Simulator():
         self.state_mgr.set_flight_surfaces( aileron=0.0,
                                             elevator=-0.1,
                                             rudder=0.0 )
-        self.pos_ned = np.array( [0.0, 0.0, 0.0] )
-        self.vel_ned = np.array( [initial_airspeed_mps, 0.0, 0.0] )
-        self.state_mgr.set_ned_velocity( self.vel_ned[0],
-                                         self.vel_ned[1],
-                                         self.vel_ned[2],
-                                         0.0, 0.0, 0.0 )
-        # self.state_mgr.set_body_velocity( initial_airspeed_mps, 0.0, 0.0 )
+        self.state_mgr.pos_ned = np.array( [0.0, 0.0, 0.0] )
+        # fixme? # self.state_mgr.set_body_velocity( initial_airspeed_mps, 0.0, 0.0 )
+        self.state_mgr.vel_ned = np.array( [initial_airspeed_mps, 0.0, 0.0] )
         self.state_mgr.set_orientation( 0, 0, 0 )
         self.state_mgr.ned2body = quaternion.eul2quat( 0, 0, 0 )
         self.state_mgr.set_gyros( np.array([0.0, 0.0, 0.0]) )
@@ -169,11 +165,10 @@ class Simulator():
         self.state_mgr.update_airdata(alpha_rad, beta_rad)
 
         # velocity in ned frame
-        self.vel_ned = quaternion.backTransform( self.state_mgr.ned2body, self.state_mgr.v_body )
-        self.state_mgr.set_ned_velocity( self.vel_ned[0], self.vel_ned[1], self.vel_ned[2], 0.0, 0.0, 0.0 )
+        self.state_mgr.vel_ned = quaternion.backTransform( self.state_mgr.ned2body, self.state_mgr.vel_body )
 
         # update position
-        self.pos_ned += self.vel_ned * self.dt
+        self.state_mgr.pos_ned += self.state_mgr.vel_ned * self.dt
 
         # store data point
         self.data.append(
@@ -185,8 +180,8 @@ class Simulator():
               self.state_mgr.phi_rad, self.state_mgr.the_rad, self.state_mgr.psi_rad,
               self.state_mgr.alpha, self.state_mgr.beta,
               self.state_mgr.gyros[0], self.state_mgr.gyros[1], self.state_mgr.gyros[2]] )
-        self.data[-1].extend( self.pos_ned.tolist() )
-        self.data[-1].extend( self.vel_ned.tolist() )
+        self.data[-1].extend( self.state_mgr.pos_ned.tolist() )
+        self.data[-1].extend( self.state_mgr.vel_ned.tolist() )
 
         # update time
         self.time += self.dt

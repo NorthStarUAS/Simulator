@@ -51,8 +51,8 @@ class StateManager():
         self.ground_alt = None
         self.g_ned = np.array( [0.0, 0.0, gravity] )
         self.g_body = np.array( [0.0, 0.0, 0.0] )
-        self.v_ned = np.array( [0.0, 0.0, 0.0] )
-        self.v_body = np.array( [0.0, 0.0, 0.0] )
+        self.vel_ned = np.array( [0.0, 0.0, 0.0] )
+        self.vel_body = np.array( [0.0, 0.0, 0.0] )
 
         self.gyros = np.array( [0.0, 0.0, 0.0] )
         self.gyros_prev1 = np.array( [0.0, 0.0, 0.0] )
@@ -131,20 +131,20 @@ class StateManager():
     def set_airdata(self, airspeed_mps, alpha_rad=None, beta_rad=None):
         self.airspeed_mps = airspeed_mps
         self.qbar = 0.5 * self.airspeed_mps**2
-        self.v_body[0] = airspeed_mps
+        self.vel_body[0] = airspeed_mps
         self.alpha_prev2 = self.alpha_prev1
         self.alpha_prev1 = self.alpha
         if alpha_rad is not None:
             self.have_alpha = True
             self.alpha = alpha_rad
-            self.v_body[2] = airspeed_mps * sin(alpha_rad)
+            self.vel_body[2] = airspeed_mps * sin(alpha_rad)
         self.beta_prev2 = self.beta_prev1
         self.beta_prev1 = self.beta
         if beta_rad is not None:
             self.beta = beta_rad
-            self.v_body[1] = airspeed_mps * sin(beta_rad)
-        # print("rudder:", self.rudder, "beta:", self.beta, "vby:", self.v_body[1])
-        # print("alpha:", self.alpha*r2d, "v_body:", self.v_body)
+            self.vel_body[1] = airspeed_mps * sin(beta_rad)
+        # print("rudder:", self.rudder, "beta:", self.beta, "vby:", self.vel_body[1])
+        # print("alpha:", self.alpha*r2d, "v_body:", self.vel_body)
 
     def set_wind(self, wn, we):
         self.wn_filt = 0.95 * self.wn_filt + 0.05 * wn
@@ -164,10 +164,10 @@ class StateManager():
         self.wn_filt = 0.95 * self.wn_filt + 0.05 * wn
         self.we_filt = 0.95 * self.we_filt + 0.05 * we
         self.wd_filt = 0.95 * self.wd_filt + 0.05 * wd
-        self.v_ned = np.array( [vn + wn, ve + we, vd + wd] )
+        self.vel_ned = np.array( [vn + wn, ve + we, vd + wd] )
 
     def set_body_velocity(self, v_body):
-        self.v_body = v_body
+        self.vel_body = v_body
 
     # update attitude
     def update_attitude(self):
@@ -183,42 +183,42 @@ class StateManager():
 
     # accels = (ax, ay, az), g_body = (gx, gy, gz)
     def update_body_velocity(self):
-        self.v_body += (self.accels - self.g_body) * self.dt
-        print(self.g_ned, self.g_body, self.accels - self.g_body, self.v_body)
+        self.vel_body += (self.accels - self.g_body) * self.dt
+        print(self.g_ned, self.g_body, self.accels - self.g_body, self.vel_body)
 
     def update_airdata(self, alpha_rad, beta_rad):
         # self.accels[0] = ax_mps2
-        self.v_body[0] += (self.accels[0] - self.g_body[0])  * self.dt
-        self.airspeed_mps = self.v_body[0]
+        self.vel_body[0] += (self.accels[0] - self.g_body[0])  * self.dt
+        self.airspeed_mps = self.vel_body[0]
         self.qbar = 0.5 * self.airspeed_mps**2
         self.alpha_prev2 = self.alpha_prev1
         self.alpha_prev1 = self.alpha
         self.alpha = alpha_rad
-        self.v_body[2] = self.v_body[0] * sin(alpha_rad)
+        self.vel_body[2] = self.vel_body[0] * sin(alpha_rad)
         self.beta_prev2 = self.beta_prev1
         self.beta_prev1 = self.beta
         self.beta = beta_rad
-        self.v_body[1] = self.v_body[0] * sin(beta_rad)
+        self.vel_body[1] = self.vel_body[0] * sin(beta_rad)
 
         # hey, estimate ay, az accels! (and make the new vel official) and FIXME!
         # print("FIXME!")
-        # self.accels[1] = (vby - self.v_body[1]) / self.dt # + self.g_body[1]
-        # self.v_body[1] = vby
-        # self.accels[2] = (vbz - self.v_body[2]) / self.dt # + self.g_body[2]
-        # self.v_body[2] = vby
+        # self.accels[1] = (vby - self.vel_body[1]) / self.dt # + self.g_body[1]
+        # self.vel_body[1] = vby
+        # self.accels[2] = (vbz - self.vel_body[2]) / self.dt # + self.g_body[2]
+        # self.vel_body[2] = vby
 
     def update_airdata_from_accels(self):
         # todo: use observed min/max range from model
 
-        self.airspeed_mps = self.v_body[0]
+        self.airspeed_mps = self.vel_body[0]
         self.qbar = 0.5 * self.airspeed_mps**2
 
         # try to clamp side/vertical velocities from getting crazy
         cutoff = 0.3
-        if abs(self.v_body[1] / self.v_body[0]) > cutoff:
-            self.v_body[1] = np.sign(self.v_body[1]) * abs(self.v_body[0]) * cutoff
-        if abs(-self.v_body[2] / self.v_body[0]) > cutoff:
-            self.v_body[2] = np.sign(self.v_body[2]) * abs(self.v_body[0]) * cutoff
+        if abs(self.vel_body[1] / self.vel_body[0]) > cutoff:
+            self.vel_body[1] = np.sign(self.vel_body[1]) * abs(self.vel_body[0]) * cutoff
+        if abs(-self.vel_body[2] / self.vel_body[0]) > cutoff:
+            self.vel_body[2] = np.sign(self.vel_body[2]) * abs(self.vel_body[0]) * cutoff
 
         # alpha and beta from body frame velocity
         self.alpha_prev2 = self.alpha_prev1
@@ -226,10 +226,10 @@ class StateManager():
         self.beta_prev2 = self.beta_prev1
         self.beta_prev1 = self.beta
         # max = 20 * d2r
-        self.alpha = atan2( self.v_body[2], self.v_body[0] )
+        self.alpha = atan2( self.vel_body[2], self.vel_body[0] )
         # if abs(self.alpha) > max:
         #     self.alpha = np.sign(self.alpha) * max
-        self.beta = atan2( self.v_body[1], self.v_body[0] )
+        self.beta = atan2( self.vel_body[1], self.vel_body[0] )
         # if abs(self.beta) > max:
         #     self.beta = np.sign(self.beta) * max
 
@@ -243,7 +243,7 @@ class StateManager():
     def is_flying(self):
         if self.vehicle == "wing":
             # ground speed mps (ned)
-            gs_mps = sqrt( self.v_ned[0]**2 + self.v_ned[1]**2 )
+            gs_mps = sqrt( self.vel_ned[0]**2 + self.vel_ned[1]**2 )
 
             # test if we are flying?
             if not self.flying and gs_mps > self.airborne_thresh_mps*0.7 and self.airspeed_mps > self.airborne_thresh_mps:
@@ -272,13 +272,13 @@ class StateManager():
 
         if not have_alpha_beta:
             # rotate ned velocity vector into body frame
-            self.v_body = quaternion.transform(ned2body, self.v_ned)
-            #print("v_ned:", self.v_ned, np.linalg.norm(self.v_ned),
-            #      "v_body:", self.v_body, np.linalg.norm(self.v_body))
+            self.vel_body = quaternion.transform(ned2body, self.vel_ned)
+            #print("v_ned:", self.vel_ned, np.linalg.norm(self.vel_ned),
+            #      "v_body:", self.vel_body, np.linalg.norm(self.vel_body))
 
             # compute alpha and beta from body frame velocity
-            self.alpha = atan2( self.v_body[2], self.v_body[0] )
-            self.beta = atan2( -self.v_body[1], self.v_body[0] )
+            self.alpha = atan2( self.vel_body[2], self.vel_body[0] )
+            self.beta = atan2( -self.vel_body[1], self.vel_body[0] )
             #print("v(body):", v_body, "alpha = %.1f" % (self.alpha/d2r), "beta = %.1f" % (self.beta/d2r))
 
 
