@@ -24,6 +24,8 @@ class Joystick():
             "elevator_trim": [None] * 3,
             "rudder": [None] * 3,
             "throttle": [None] * 3,
+            "flaps": [None] * 3,
+            "gear": [None] * 3,
         }
 
         # logical values
@@ -33,6 +35,8 @@ class Joystick():
         self.elevator = 0.0
         self.elevator_trim = 0.0
         self.rudder = 0.0
+        self.flaps = 0.5
+        self.gear = 1.0
 
         if not have_pygame:
             return
@@ -77,6 +81,15 @@ class Joystick():
                 self.mapping["throttle"] = ["axis", i, 3]
                 self.mapping["elevator_trim_down"] = ["button", i, 4]
                 self.mapping["elevator_trim_up"] = ["button", i, 5]
+            elif name == "Logitech Extreme 3D pro":
+                self.mapping["aileron"] = ["axis", i, 0]
+                self.mapping["elevator"] = ["axis", i, 1]
+                self.mapping["rudder"] = ["axis", i, 2, {"expo": 2}]
+                self.mapping["throttle"] = ["axis", i, 3]
+                self.mapping["elevator_trim_down"] = ["button", i, 4]
+                self.mapping["elevator_trim_up"] = ["button", i, 2]
+                self.mapping["flaps_down"] = ["button", i, 3]
+                self.mapping["flaps_up"] = ["button", i, 5]
 
         print("Joystick structures:", self.joys)
         print("Joystick mapping:", self.mapping)
@@ -122,7 +135,7 @@ class Joystick():
                 joy["buttons"][i] = handle.get_button(i)
             for i in range(joy["num_hats"]):
                 joy["hats"][i] = handle.get_hat(i)
-            # print(joy)
+            print(joy)
 
         self.throttle = (1.0 - self.get_input_value("throttle")) * 0.5
         # if self.num_buttons >= 12:
@@ -144,3 +157,7 @@ class Joystick():
             print("elevator trim:", self.elevator_trim)
         self.elevator = -self.get_input_value("elevator") + self.elevator_trim
         self.rudder = self.get_input_value("rudder") + self.rudder_trim
+        if self.get_input_value("flaps_down"):
+            self.flaps = 0.5
+        if self.get_input_value("flaps_up"):
+            self.flaps = 0.0
