@@ -73,7 +73,9 @@ class Joystick():
                 self.mapping["elevator_trim"] = ["hat", i, 0, 1]
             elif name == "TWCS Throttle":
                 self.mapping["throttle"] = ["axis", i, 2]
-                self.mapping["rudder"] = ["axis", i, 7]
+                self.mapping["rudder"] = ["axis", i, 7, {"expo": 2}]
+                self.mapping["flaps_down"] = ["button", i, 4]
+                self.mapping["flaps_up"] = ["button", i, 3]
             elif name == "Thrustmaster T.16000M":
                 self.mapping["aileron"] = ["axis", i, 0]
                 self.mapping["elevator"] = ["axis", i, 1]
@@ -137,7 +139,7 @@ class Joystick():
                 joy["buttons"][i] = handle.get_button(i)
             for i in range(joy["num_hats"]):
                 joy["hats"][i] = handle.get_hat(i)
-            print(joy)
+            # print(joy)
 
         self.throttle = (1.0 - self.get_input_value("throttle")) * 0.5
         # if self.num_buttons >= 12:
