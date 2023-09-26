@@ -71,7 +71,7 @@ class XPlane():
             psi_deg = state.psi_rad * r2d
             # vtrue = state.airspeed_mps * mps2kt
             vc =state.airspeed_mps * mps2kt
-            vd = state.v_ned[2] *m2ft
+            vd = state.vel_ned[2] *m2ft
             # ail_norm = sim.fdm['fcs/right-aileron-pos-norm']
             # https://www.siminnovations.com/xplane/dataref/?name=sim%2Fcockpit&type=float&writable=y&units=&description=&submit=Search
             # self.send_data_ref("sim/aircraft/parts/acf_elev", sim.fdm['fcs/left-aileron-pos-norm'])
