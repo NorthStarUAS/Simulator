@@ -48,9 +48,9 @@ class XPlane():
         if self.xp_ip is not None:
             self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
-    def update(self, sim):
-        self.send(sim)
-        # self.receive(sim)
+    def update(self, state):
+        self.send(state)
+        # self.receive(state)
 
     def send_data_ref(self, name, value):
         msg = struct.pack('<4sxf500s', b'DREF',
@@ -58,20 +58,20 @@ class XPlane():
                           name.encode('utf-8'))
         self.sock.sendto(msg, (self.xp_ip, self.xp_port))
 
-    def send(self, sim):
+    def send(self, state):
         if self.sock is not None:
-            lla = navpy.ned2lla(sim.pos_ned, self.lat_deg, self.lon_deg, self.altitude_m)
+            lla = navpy.ned2lla(state.pos_ned, self.lat_deg, self.lon_deg, self.altitude_m)
             # Drive the external MSFS visual system
             lat_deg = lla[0]
             lon_deg = lla[1]
             alt_ft = lla[2] * m2ft
             alt_m = lla[2]
-            phi_deg = sim.state_mgr.phi_rad * r2d
-            the_deg = sim.state_mgr.the_rad * r2d
-            psi_deg = sim.state_mgr.psi_rad * r2d
-            # vtrue = sim.state_mgr.airspeed_mps * mps2kt
-            vc =sim.state_mgr.airspeed_mps * mps2kt
-            vd = sim.state_mgr.v_ned[2] *m2ft
+            phi_deg = state.phi_rad * r2d
+            the_deg = state.the_rad * r2d
+            psi_deg = state.psi_rad * r2d
+            # vtrue = state.airspeed_mps * mps2kt
+            vc =state.airspeed_mps * mps2kt
+            vd = state.v_ned[2] *m2ft
             # ail_norm = sim.fdm['fcs/right-aileron-pos-norm']
             # https://www.siminnovations.com/xplane/dataref/?name=sim%2Fcockpit&type=float&writable=y&units=&description=&submit=Search
             # self.send_data_ref("sim/aircraft/parts/acf_elev", sim.fdm['fcs/left-aileron-pos-norm'])
@@ -83,9 +83,9 @@ class XPlane():
             # ele_norm = sim.fdm['fcs/elevator-pos-norm']
             # rud_norm = sim.fdm['fcs/rudder-pos-norm']
             #print(lat_rad, lon_rad, alt_ft, phi, the, psi)
-            self.send_data_ref("sim/cockpit/gyros/phi_ind_ahars_pilot_deg", sim.state_mgr.phi_rad * r2d)
-            self.send_data_ref("sim/cockpit/gyros/the_ind_ahars_pilot_deg", sim.state_mgr.the_rad * r2d)
-            self.send_data_ref("sim/cockpit/gyros/psi_ind_ahars_pilot_degm", sim.state_mgr.psi_rad * r2d) # fixme: sending true, but calling it mag
+            self.send_data_ref("sim/cockpit/gyros/phi_ind_ahars_pilot_deg", state.phi_rad * r2d)
+            self.send_data_ref("sim/cockpit/gyros/the_ind_ahars_pilot_deg", state.the_rad * r2d)
+            self.send_data_ref("sim/cockpit/gyros/psi_ind_ahars_pilot_degm", state.psi_rad * r2d) # fixme: sending true, but calling it mag
             self.send_data_ref("sim/flightmodel/position/indicated_airspeed", vc)
             self.send_data_ref("sim/flightmodel/misc/h_ind", alt_ft)
             self.send_data_ref("sim/flightmodel/position/vh_ind_fpm", -vd*60)

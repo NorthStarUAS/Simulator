@@ -21,19 +21,19 @@ ip = "127.0.0.1"
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
-def send_to_fgfs(sim):
-    lla = navpy.ned2lla(sim.pos_ned, lat_deg, lon_deg, altitude_m)
+def send_to_fgfs(state):
+    lla = navpy.ned2lla(state.pos_ned, lat_deg, lon_deg, altitude_m)
     msg = struct.pack("!ddffffffffff",
                       lla[0], lla[1], lla[2]/0.3048,
-                      sim.state_mgr.phi_rad*r2d,
-                      sim.state_mgr.the_rad*r2d,
-                      sim.state_mgr.psi_rad*r2d,
-                      sim.state_mgr.airspeed_mps*mps2kt,
-                      -sim.state_mgr.aileron,
-                      sim.state_mgr.aileron,
-                      sim.state_mgr.elevator,
-                      sim.state_mgr.rudder,
-                      0         # (someday?) sim.state_mgr.flap
+                      state.phi_rad*r2d,
+                      state.the_rad*r2d,
+                      state.psi_rad*r2d,
+                      state.airspeed_mps*mps2kt,
+                      -state.aileron,
+                      state.aileron,
+                      state.elevator,
+                      state.rudder,
+                      0         # (someday?) state.flap
                     )
     sock.sendto(msg, (ip, port))
 
