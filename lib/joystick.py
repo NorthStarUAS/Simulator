@@ -81,6 +81,8 @@ class Joystick():
                 self.mapping["throttle"] = ["axis", i, 3]
                 self.mapping["elevator_trim_down"] = ["button", i, 4]
                 self.mapping["elevator_trim_up"] = ["button", i, 5]
+                self.mapping["flaps_down"] = ["button", i, 15]
+                self.mapping["flaps_up"] = ["button", i, 10]
             elif name == "Logitech Extreme 3D pro":
                 self.mapping["aileron"] = ["axis", i, 0]
                 self.mapping["elevator"] = ["axis", i, 1]
