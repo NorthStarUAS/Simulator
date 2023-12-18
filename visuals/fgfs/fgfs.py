@@ -12,9 +12,9 @@ lon_deg = -93.2101002
 altitude_m = 400.0
 
 #64S
-lat_deg = 42.744
-lon_deg = -122.487
-altitude_m = 900
+# lat_deg = 42.744
+# lon_deg = -122.487
+# altitude_m = 900
 
 port = 6504
 ip = "127.0.0.1"
