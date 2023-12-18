@@ -19,6 +19,7 @@ from lib.joystick import Joystick
 from lib.simulator import Simulator
 from lib.state_mgr import StateManager
 from visuals.fgfs import fgfs
+from visuals.pvi.pvi import PVI
 from visuals.xp.xp import XPlane
 
 # command line arguments
@@ -31,6 +32,7 @@ args = parser.parse_args()
 run_time = 600
 
 joystick = Joystick()
+pvi = PVI()
 xp = XPlane()
 
 # load in the beast!
@@ -65,6 +67,7 @@ def update():
             state_mgr.set_flight_surfaces(joystick.aileron, joystick.elevator, joystick.rudder)
             sim.update()
             fgfs.send_to_fgfs(state_mgr)
+            pvi.update(state_mgr, 0, 0, 0, 0)
             xp.update(state_mgr)
 
 if args.realtime:
