@@ -166,7 +166,7 @@ we_interp = None
 # backup wind estimator if needed
 windest = Wind()
 
-if True or flight_format != "cirrus_csv":
+if False or flight_format != "cirrus_csv":
     # note: wind estimates are only needed for estimating alpha/beta (or
     # bvz/bvy) which is not needed if the aircraft is instrumented with
     # alpha/beta vanes and these are measured directly.
@@ -273,7 +273,7 @@ for i in tqdm(range(iter.size())):
             we = cos(wind_psi) * wind_mps
             wn = sin(wind_psi) * wind_mps
             wd = 0
-        elif flight_format == "cirrus_csv" and state_mgr.is_flying():
+        elif False and flight_format == "cirrus_csv" and state_mgr.is_flying():
             windest.update(imupt["time"], airpt["airspeed"], navpt["psi"], navpt["vn"], navpt["ve"])
             wn = windest.filt_long_wn.value
             we = windest.filt_long_we.value
@@ -384,7 +384,7 @@ if True:
             plt.legend()
         plt.show()
 
-if True:
+if False:
     # a more adventurous test!
 
     # show a running estimate of output states.  Feed the output estimate
