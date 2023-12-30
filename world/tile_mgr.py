@@ -30,10 +30,10 @@ vis_range_m = 100000
 tex_dim = 256
 
 state_lock = threading.Lock()
-ownship_lla = None
-cam_hpr = None
-nedref = None
-cam_pos = None
+protect_ownship_lla = None
+protect_cam_hpr = None
+protect_nedref = None
+protect_cam_pos = None
 
 cache_lock = threading.Lock()
 
@@ -48,14 +48,14 @@ prune_queue = []
 # hpr = heading_deg, pitch_deg, roll_deg
 def update_state(lla_new, hpr_new, nedref_new, cam_pos_new):
     state_lock.acquire()
-    global ownship_lla
-    global cam_hpr
-    global nedref
-    global cam_pos
-    ownship_lla = lla_new.copy()
-    cam_hpr = LVector3f(hpr_new[0], hpr_new[1], hpr_new[2])
-    nedref = nedref_new.copy()
-    cam_pos = LVector3f(cam_pos_new[0], cam_pos_new[1], cam_pos_new[2])
+    global protect_ownship_lla
+    global protect_cam_hpr
+    global protect_nedref
+    global protect_cam_pos
+    protect_ownship_lla = lla_new.copy()
+    protect_cam_hpr = LVector3f(hpr_new[0], hpr_new[1], hpr_new[2])
+    protect_nedref = nedref_new.copy()
+    protect_cam_pos = LVector3f(cam_pos_new[0], cam_pos_new[1], cam_pos_new[2])
     state_lock.release()
 
 class tile_mgr(threading.Thread):
@@ -76,7 +76,7 @@ class tile_mgr(threading.Thread):
             print("no tiles_with_runways files found ...")
             self.tiles_with_runways = {}
 
-    def get_size_dist(self, lat_deg, lon_deg, alt_m, node, freeze_cam):
+    def get_size_dist(self, own_pos_ned, node, freeze_cam):
         if node.is_empty():
             return 0, 0
 
@@ -88,9 +88,7 @@ class tile_mgr(threading.Thread):
         # center = (bounds[0] + bounds[1]) / 2
         # print("tight:", bounds, center, (center - bounds[0]).length())
         tile_pos_ned = [ center[1], center[0], -center[2] ]
-        # fixme: use external value, don't need to recompute here
-        own_pos = navpy.lla2ned(lat_deg, lon_deg, alt_m, nedref[0], nedref[1], nedref[2])
-        dist = np.linalg.norm(np.array(own_pos) - np.array(tile_pos_ned)) - radius
+        dist = np.linalg.norm(np.array(own_pos_ned) - np.array(tile_pos_ned)) - radius
         # dist = np.linalg.norm(np.array(own_pos) - np.array(tile_pos_ned)) - 0.5*radius # this is fuzzy, so average 1/2 radius?
         if dist < 1:
             dist = 1
@@ -127,7 +125,7 @@ class tile_mgr(threading.Thread):
                     return True
         return False
 
-    def recurse_cache_expand(self, cache_node, lat_deg, lon_deg, alt_m, freeze_cam):
+    def recurse_cache_expand(self, cache_node, own_pos_ned, freeze_cam):
         max_size = 0
         max_name = ""
         max_node = None
@@ -140,7 +138,7 @@ class tile_mgr(threading.Thread):
             name = ""
             node = None
             if tile["children"]:
-                size, name, node = self.recurse_cache_expand(tile, lat_deg, lon_deg, alt_m, freeze_cam)
+                size, name, node = self.recurse_cache_expand(tile, own_pos_ned, freeze_cam)
             elif not tile["node"].is_empty():
                 lensBounds = base.camLens.makeBounds()
                 bounds = tile["node"].getBounds()
@@ -150,7 +148,7 @@ class tile_mgr(threading.Thread):
                 else:
                     visible = False
                 # visible = True # tmp fixme?
-                est_size, dist = self.get_size_dist(lat_deg, lon_deg, alt_m, tile["node"], freeze_cam)
+                est_size, dist = self.get_size_dist(own_pos_ned, tile["node"], freeze_cam)
                 #if dist < 100: visible = True  # seems like we can get a visibility fail if things are too close or too big and too close?
                 # print("bounds:", tile["node"].getBounds(), "pixels:", temp_size, "vis:", visible)
                 if "max_zoom" in self.config:
@@ -175,7 +173,7 @@ class tile_mgr(threading.Thread):
         time.sleep(0)
         return max_size, max_name, max_node
 
-    def recurse_cache_prune_orig(self, cache_node, lat_deg, lon_deg, alt_m, freeze_cam):
+    def recurse_cache_prune_old(self, cache_node, lat_deg, lon_deg, alt_m, freeze_cam):
         prune_level = True
         prune_list = []
         for key in cache_node["children"].keys():
@@ -184,7 +182,7 @@ class tile_mgr(threading.Thread):
             # print("tile cache entry:", key, tile)
             if tile["children"]:
                 prune_level = False
-                prune_children, sub_list = self.recurse_cache_prune_orig(tile, lat_deg, lon_deg, alt_m, freeze_cam)
+                prune_children, sub_list = self.recurse_cache_prune_old(tile, lat_deg, lon_deg, alt_m, freeze_cam)
                 prune_list.extend(sub_list)
                 if prune_children:
                     prune_list.append(tile)
@@ -210,7 +208,7 @@ class tile_mgr(threading.Thread):
 
         return prune_level, prune_list
 
-    def recurse_cache_prune_new(self, cache_node, lat_deg, lon_deg, alt_m, freeze_cam):
+    def recurse_cache_prune(self, cache_node, own_pos_ned, freeze_cam):
         cache_node["prune"] = False
         prune_list = []
         for key in cache_node["children"].keys():
@@ -219,10 +217,10 @@ class tile_mgr(threading.Thread):
             # print("tile cache entry:", key, tile)
             if tile["children"]:
                 tile["prune"] = False
-                _, sub_list = self.recurse_cache_prune_new(tile, lat_deg, lon_deg, alt_m, freeze_cam)
+                _, sub_list = self.recurse_cache_prune(tile, own_pos_ned, freeze_cam)
                 prune_list.extend(sub_list)
             else:
-                est_size, dist = self.get_size_dist(lat_deg, lon_deg, alt_m, tile["node"], freeze_cam)
+                est_size, dist = self.get_size_dist(own_pos_ned, tile["node"], freeze_cam)
                 bounds = tile["node"].getBounds()
                 lensBounds = base.camLens.makeBounds()
                 bounds.xform(tile["node"].getParent().getMat(freeze_cam))
@@ -254,15 +252,12 @@ class tile_mgr(threading.Thread):
         time.sleep(0)
         return False, prune_list
 
-    def cache_draw(self, lat_deg, lon_deg):
+    def cache_draw(self, lat_deg, lon_deg, freeze_cam):
         size = 1200
         min_lat = 90
         max_lat = -90
         min_lon = 180
         max_lon = -180
-        freeze_cam = copy.deepcopy(base.cam)
-        freeze_cam.setPos(LVector3f(cam_pos[0], cam_pos[1], cam_pos[2]))
-        freeze_cam.setHpr(LVector3f(cam_hpr[0], cam_hpr[1], cam_hpr[2]))
         print("freeze cam set hpr:", freeze_cam.getHpr())
         for key in self.tile_cache["children"]:
             top_tile = self.tile_cache["children"][key]
@@ -314,28 +309,30 @@ class tile_mgr(threading.Thread):
             except:
                 print("tile removed out from under us:", key)
 
-    def recursive_update_pos(self, cache_node=None):
+    # reach in from outside (the main render loop reaches down here) and update
+    # tile positions, this way all the tiles can be repositioned in sync with
+    # the upstream nedref change.
+    def recursive_update_pos(self, nedref, cache_node=None):
         count = 0
         if cache_node is None:
-            count = self.recursive_update_pos(self.tile_cache)
+            count = self.recursive_update_pos(nedref, self.tile_cache)
         else:
             for key in cache_node["children"].keys():
                 tile = cache_node["children"][key]
                 if not tile["node"].isHidden():
                     # fixme: use externally provided nedref? not the locally updated one incase out of sync?
-                    tile_pos = navpy.lla2ned(tile["center_lla"][0], tile["center_lla"][1], tile["center_lla"][2],
-                                             nedref[0], nedref[1], nedref[2])
+                    tile_pos = navpy.lla2ned(tile["center_lla"][0], tile["center_lla"][1], tile["center_lla"][2], nedref[0], nedref[1], nedref[2])
                     # print("tile:", tile)
                     # print("tile node:", tile["node"])
                     tile["node"].setPos(tile_pos[1], tile_pos[0], -tile_pos[2])
                     tile["node"].setHpr(0, nedref[0] - tile["center_lla"][0], tile["center_lla"][1] - nedref[1])
                     count += 1
                 if tile["children"]:
-                    count += self.recursive_update_pos(tile)
+                    count += self.recursive_update_pos(nedref, tile)
         return count
 
     def update_apt_mgr_pos(self):
-        self.apt_mgr.update_airport_cache_pos(nedref)
+        self.apt_mgr.update_airport_cache_pos(protect_nedref)
 
     def request_tile_build(self, zoom, x, y, style):
         print("request sub process tile build:")
@@ -348,7 +345,7 @@ class tile_mgr(threading.Thread):
             elif result == "error":
                 quit()
 
-    def load_tile(self, node, zoom, x, y):
+    def load_tile(self, node, zoom, x, y, nedref):
         name = "%d/%d/%d" % (zoom, x, y)
         if name not in node["children"]:
             path = self.bam_cache.ensure_path_in_cache(zoom, x)
@@ -372,8 +369,7 @@ class tile_mgr(threading.Thread):
                 "center_lla": center_lla,
                 "children": {},
             }
-            tile_pos = navpy.lla2ned(tile["center_lla"][0], tile["center_lla"][1], tile["center_lla"][2],
-                                     nedref[0], nedref[1], nedref[2])
+            tile_pos = navpy.lla2ned(tile["center_lla"][0], tile["center_lla"][1], tile["center_lla"][2], nedref[0], nedref[1], nedref[2])
             tile["node"].setPos(tile_pos[1], tile_pos[0], -tile_pos[2])
             tile["index"] = (zoom, x, y)
             cache_lock.acquire()
@@ -390,19 +386,22 @@ class tile_mgr(threading.Thread):
         lat_deg = None
         lon_deg = None
         alt_m = None
+        own_pos_ned = None
         while True:
             state_lock.acquire()
-            if ownship_lla is not None:
-                lat_deg = ownship_lla[0]
-                lon_deg = ownship_lla[1]
-                alt_m = ownship_lla[2]
-                yaw_deg = cam_hpr[0]
+            if protect_ownship_lla is not None:
+                lat_deg = protect_ownship_lla[0]
+                lon_deg = protect_ownship_lla[1]
+                alt_m = protect_ownship_lla[2]
+                nedref = protect_nedref.copy()
             state_lock.release()
 
             if lat_deg is None or lon_deg is None:
-                print("tile_mgr waiting for position...")
+                print("Waiting for position...")
                 time.sleep(1)
                 continue
+
+            own_pos_ned = navpy.lla2ned(lat_deg, lon_deg, alt_m, nedref[0], nedref[1], nedref[2])
 
             new_nodes = []
             hide_node = None
@@ -419,7 +418,7 @@ class tile_mgr(threading.Thread):
                 for (zoom, x, y) in top_tiles:
                     name = "%d/%d/%d" % (zoom, x, y)
                     if "name" not in self.tile_cache["children"]:
-                        tile = self.load_tile(self.tile_cache, zoom, x, y)
+                        tile = self.load_tile(self.tile_cache, zoom, x, y, nedref)
                         if tile is not None:
                             new_nodes.append(tile)
 
@@ -427,20 +426,20 @@ class tile_mgr(threading.Thread):
                 freeze_cam = copy.deepcopy(base.cam)
                 freeze_cam.setPos(camera.getPos())
                 freeze_cam.setHpr(camera.getHpr())
-                max_size, max_name, max_node = self.recurse_cache_expand(self.tile_cache, lat_deg, lon_deg, alt_m, freeze_cam)
+                max_size, max_name, max_node = self.recurse_cache_expand(self.tile_cache, own_pos_ned, freeze_cam)
                 print("result:", max_size, max_name, max_node)
                 if max_size == 0:
                     time.sleep(5)
                 if max_name != "":
                     (zoom, x, y) = max_node["index"]
                     max_node["children"] = {}
-                    tile = self.load_tile(max_node, zoom+1, 2*x, 2*y)
+                    tile = self.load_tile(max_node, zoom+1, 2*x, 2*y, nedref)
                     new_nodes.append(tile)
-                    tile = self.load_tile(max_node, zoom+1, 2*x, 2*y+1)
+                    tile = self.load_tile(max_node, zoom+1, 2*x, 2*y+1, nedref)
                     new_nodes.append(tile)
-                    tile = self.load_tile(max_node, zoom+1, 2*x+1, 2*y)
+                    tile = self.load_tile(max_node, zoom+1, 2*x+1, 2*y, nedref)
                     new_nodes.append(tile)
-                    tile = self.load_tile(max_node, zoom+1, 2*x+1, 2*y+1)
+                    tile = self.load_tile(max_node, zoom+1, 2*x+1, 2*y+1, nedref)
                     new_nodes.append(tile)
 
                     # remove_queue.append(max_node)
@@ -452,7 +451,7 @@ class tile_mgr(threading.Thread):
 
                 if True:
                     # check if any tiles need to be pruned
-                    prune_flag, prune_list = self.recurse_cache_prune_new(self.tile_cache, lat_deg, lon_deg, alt_m, freeze_cam)
+                    prune_flag, prune_list = self.recurse_cache_prune(self.tile_cache, own_pos_ned, freeze_cam)
                     print("prune_list:", prune_list)
 
             queue_lock.acquire()
@@ -462,7 +461,7 @@ class tile_mgr(threading.Thread):
             prune_queue.extend(prune_list)
             queue_lock.release()
 
-            #self.cache_draw(lat_deg, lon_deg)
+            self.cache_draw(lat_deg, lon_deg, freeze_cam)
             print("tile mgr pausing...")
             time.sleep(0.1)
 

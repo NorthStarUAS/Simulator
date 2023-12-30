@@ -81,7 +81,7 @@ class World():
 
             if do_reposition:
                 tile_mgr.cache_lock.acquire()
-                count = self.tile_mgr.recursive_update_pos()
+                count = self.tile_mgr.recursive_update_pos(comms_mgr.nedref)
                 self.tile_mgr.update_apt_mgr_pos()
                 tile_mgr.cache_lock.release()
                 print("Updated position for this many tiles ->", count)
