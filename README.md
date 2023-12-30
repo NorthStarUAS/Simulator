@@ -2,6 +2,8 @@
 
 ## FlightGear setup notes
 
+NOTE: This is totally wrong, needs to be updated!!!
+
 In the FlightGear main Launcher page -> Settings -> Additional
 Settings: copy these two lines (each option must be on separate lines)
 
