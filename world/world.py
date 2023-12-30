@@ -43,7 +43,7 @@ class World():
             self.skybox.setPos(mycam.cam_pos)
 
         if comms_mgr.nedref is not None:
-            tile_mgr.update_state(comms_mgr.lla, mycam.cam_hpr, comms_mgr.nedref, mycam.cam_pos)
+            tile_mgr.update_state(comms_mgr.lla, mycam.cam_hpr, comms_mgr.nedref, mycam.cam_pos, comms_mgr.dlat, comms_mgr.dlon, comms_mgr.dalt)
 
             do_reposition = False
             if self.saved_nedref_time < comms_mgr.nedref_time:
@@ -82,7 +82,7 @@ class World():
             if do_reposition:
                 tile_mgr.cache_lock.acquire()
                 count = self.tile_mgr.recursive_update_pos(comms_mgr.nedref)
-                self.tile_mgr.update_apt_mgr_pos()
+                self.tile_mgr.update_apt_mgr_pos(comms_mgr.nedref)
                 tile_mgr.cache_lock.release()
                 print("Updated position for this many tiles ->", count)
 

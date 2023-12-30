@@ -34,6 +34,7 @@ protect_ownship_lla = None
 protect_cam_hpr = None
 protect_nedref = None
 protect_cam_pos = None
+protect_lla_vel = None
 
 cache_lock = threading.Lock()
 
@@ -46,16 +47,18 @@ prune_queue = []
 # not structures to make extra clear we are doing copy, not pointers)
 # lla = lat_deg, lon_deg, alt_m
 # hpr = heading_deg, pitch_deg, roll_deg
-def update_state(lla_new, hpr_new, nedref_new, cam_pos_new):
+def update_state(lla_new, hpr_new, nedref_new, cam_pos_new, dlat, dlon, dalt):
     state_lock.acquire()
     global protect_ownship_lla
     global protect_cam_hpr
     global protect_nedref
     global protect_cam_pos
+    global protect_lla_vel
     protect_ownship_lla = lla_new.copy()
     protect_cam_hpr = LVector3f(hpr_new[0], hpr_new[1], hpr_new[2])
     protect_nedref = nedref_new.copy()
     protect_cam_pos = LVector3f(cam_pos_new[0], cam_pos_new[1], cam_pos_new[2])
+    protect_lla_vel = [dlat, dlon, dalt]
     state_lock.release()
 
 class tile_mgr(threading.Thread):
@@ -88,7 +91,9 @@ class tile_mgr(threading.Thread):
         # center = (bounds[0] + bounds[1]) / 2
         # print("tight:", bounds, center, (center - bounds[0]).length())
         tile_pos_ned = [ center[1], center[0], -center[2] ]
-        dist = np.linalg.norm(np.array(own_pos_ned) - np.array(tile_pos_ned)) - radius
+        # fixme: testing with and without radius
+        # dist = np.linalg.norm(np.array(own_pos_ned) - np.array(tile_pos_ned)) - radius
+        dist = np.linalg.norm(np.array(own_pos_ned) - np.array(tile_pos_ned))
         # dist = np.linalg.norm(np.array(own_pos) - np.array(tile_pos_ned)) - 0.5*radius # this is fuzzy, so average 1/2 radius?
         if dist < 1:
             dist = 1
@@ -102,9 +107,9 @@ class tile_mgr(threading.Thread):
         # screen position of center of tile
         converted3DPoint = freeze_cam.getRelativePoint(render, LVector3(center[0], center[1], center[2]))
         base.camLens.project(converted3DPoint, pt2d)
-        dist = sqrt(pt2d.x*pt2d.x + pt2d.y*pt2d.y)
-        if dist > 1: dist = 1
-        factor = (1-dist) * 0.25 + 1
+        center_dist = sqrt(pt2d.x*pt2d.x + pt2d.y*pt2d.y)
+        if center_dist > 1: center_dist = 1
+        factor = (1-center_dist) * 0.25 + 1
         pixel_size = pixel_size * factor
         # print("dist:", dist, pt2d.x, pt2d.y)
         # print(own_pos, tile_pos, dist, bearing)
@@ -331,8 +336,8 @@ class tile_mgr(threading.Thread):
                     count += self.recursive_update_pos(nedref, tile)
         return count
 
-    def update_apt_mgr_pos(self):
-        self.apt_mgr.update_airport_cache_pos(protect_nedref)
+    def update_apt_mgr_pos(self, nedref):
+        self.apt_mgr.update_airport_cache_pos(nedref)
 
     def request_tile_build(self, zoom, x, y, style):
         print("request sub process tile build:")
@@ -387,6 +392,9 @@ class tile_mgr(threading.Thread):
         lon_deg = None
         alt_m = None
         own_pos_ned = None
+        dlat = 0
+        dlon = 0
+        dalt = 0
         while True:
             state_lock.acquire()
             if protect_ownship_lla is not None:
@@ -394,6 +402,7 @@ class tile_mgr(threading.Thread):
                 lon_deg = protect_ownship_lla[1]
                 alt_m = protect_ownship_lla[2]
                 nedref = protect_nedref.copy()
+                [dlat, dlon, dalt] = protect_lla_vel
             state_lock.release()
 
             if lat_deg is None or lon_deg is None:
@@ -401,7 +410,8 @@ class tile_mgr(threading.Thread):
                 time.sleep(1)
                 continue
 
-            own_pos_ned = navpy.lla2ned(lat_deg, lon_deg, alt_m, nedref[0], nedref[1], nedref[2])
+            project_secs = 15
+            own_pos_ned = navpy.lla2ned(lat_deg + dlat*project_secs, lon_deg + dlon*project_secs, alt_m + dalt*project_secs, nedref[0], nedref[1], nedref[2])
 
             new_nodes = []
             hide_node = None

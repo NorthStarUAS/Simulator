@@ -49,8 +49,11 @@ class CommsManager():
         self.rud_cmd_norm = 0
         self.flap_cmd_norm = 0
         self.dt = None
-        self.dlat = None
+        self.dlat = 0
+        self.dlon = 0
+        self.dalt = 0
         self.values_prev = None
+        self.psiDot_dps_est = None
 
         self.comms_worker = CommsWorker()
         self.comms_worker.start()
@@ -72,7 +75,7 @@ class CommsManager():
         comms_lock.release()
 
         if data is None:
-            if self.dt is None or self.dlat is None:
+            if self.dt is None or self.psiDot_dps_est is None:
                 return
             else:
                 # project ahead
