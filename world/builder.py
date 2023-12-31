@@ -36,13 +36,13 @@ class Builder():
     def __init__(self, dot_root):
         # https://api.maptiler.com/tiles/satellite-v2/{z}/{x}/{y}.jpg?key=UN7fFi8RQaOjB7HlKzXc
         sat_dir = os.path.join(pathlib.Path.home(), dot_root, "cache", "satellite")
-        self.sat_cache = tile_cache.SlippyCache(sat_dir, "api.maptiler.com", "/tiles/satellite-v2", ext=".jpg", options="?key=UN7fFi8RQaOjB7HlKzXc")
+        self.sat_cache = tile_cache.SlippyCache(sat_dir, "https://api.maptiler.com", "/tiles/satellite-v2", ext=".jpg", options="?key=UN7fFi8RQaOjB7HlKzXc")
 
         bing_dir = os.path.join(pathlib.Path.home(), dot_root, "cache", "bing")
-        self.bing_cache = tile_cache.SlippyCache(bing_dir, "a0.ortho.tiles.virtualearth.net", "/tiles/a{}", ext=".jpeg", options="?g=2", index_scheme="quadkey")
+        self.bing_cache = tile_cache.SlippyCache(bing_dir, "http://a0.ortho.tiles.virtualearth.net", "/tiles/a{}", ext=".jpeg", options="?g=2", index_scheme="quadkey")
 
         google_dir = os.path.join(pathlib.Path.home(), dot_root, "cache", "google")
-        self.google_cache = tile_cache.SlippyCache(google_dir, "mt1.google.com", "/vt/lyrs=s&x={}&y={}&z={}", ext=".jpg", options="", index_scheme="google")
+        self.google_cache = tile_cache.SlippyCache(google_dir, "https://mt1.google.com", "/vt/lyrs=s&x={}&y={}&z={}", ext=".jpg", options="", index_scheme="google")
 
         self.srtm_dir = os.path.join(pathlib.Path.home(), dot_root, "cache", "srtm")
         pathlib.Path(self.srtm_dir).mkdir(parents=True, exist_ok=True)
