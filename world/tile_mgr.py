@@ -134,6 +134,16 @@ class tile_mgr(threading.Thread):
         max_size = 0
         max_name = ""
         max_node = None
+
+        if "max_zoom" in self.config:
+            max_zoom = self.config["max_zoom"]
+        else:
+            max_zoom = default_max_zoom_level
+        if "max_rwy_zoom" in self.config:
+            max_rwy_zoom = self.config["max_rwy_zoom"]
+        else:
+            max_rwy_zoom = max_zoom
+
         for key in cache_node["children"].keys():
             tile = cache_node["children"][key]
             (zoom, x, y) = tile["index"]
@@ -148,25 +158,15 @@ class tile_mgr(threading.Thread):
                 lensBounds = base.camLens.makeBounds()
                 bounds = tile["node"].getBounds()
                 bounds.xform(tile["node"].getParent().getMat(freeze_cam))
-                if lensBounds.contains(bounds):
-                    visible = True
-                else:
-                    visible = False
-                # visible = True # tmp fixme?
+                if not lensBounds.contains(bounds):
+                    continue
+
+                # visible tile
                 est_size, dist = self.get_size_dist(own_pos_ned, tile["node"], freeze_cam)
-                #if dist < 100: visible = True  # seems like we can get a visibility fail if things are too close or too big and too close?
                 # print("bounds:", tile["node"].getBounds(), "pixels:", temp_size, "vis:", visible)
-                if "max_zoom" in self.config:
-                    max_zoom = self.config["max_zoom"]
-                else:
-                    max_zoom = default_max_zoom_level
-                if "max_rwy_zoom" in self.config:
-                    max_rwy_zoom = self.config["max_rwy_zoom"]
-                else:
-                    max_rwy_zoom = max_zoom
                 if self.tile_has_runway(zoom, x, y):
                     max_zoom = max_rwy_zoom
-                if visible and zoom < max_zoom and est_size > tex_dim * 1.0:
+                if zoom < max_zoom and est_size > tex_dim * 1.0:
                     size = est_size
                     name = key
                     node = tile
@@ -410,7 +410,7 @@ class tile_mgr(threading.Thread):
                 time.sleep(1)
                 continue
 
-            project_secs = 15
+            project_secs = 10
             own_pos_ned = navpy.lla2ned(lat_deg + dlat*project_secs, lon_deg + dlon*project_secs, alt_m + dalt*project_secs, nedref[0], nedref[1], nedref[2])
 
             new_nodes = []
