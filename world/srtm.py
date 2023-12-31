@@ -230,7 +230,7 @@ class Cache():
             runways = []
         work_mask = np.zeros((1201, 1201))
         srtm_tile.level_pts = np.copy(srtm_tile.raw_pts)
-        print("here0:", srtm_tile.level_pts, srtm_tile.raw_pts )
+        # print("here0:", srtm_tile.level_pts, srtm_tile.raw_pts )
         dist_array = np.ones((1201, 1201)) * 10000
         for runway in runways:
             # 1. leverage lla -> ned coordinate transformation to get real world length in meters
@@ -286,7 +286,7 @@ class Cache():
             for lat in range(lat1, lat2+1):
                 for lon in range(lon1, lon2+1):
                     raw_tile = self.get_tile(lat, lon)
-                    print("raw_tile:", raw_tile)
+                    # print("raw_tile:", raw_tile)
                     if raw_tile is not None:
                         zs = raw_tile.raw_interpolate(np.array(fit_pts))
                         #print zs
@@ -318,7 +318,7 @@ class Cache():
                 elev_fit = fit_vals
 
             # update the work mask with cells that potentially need updating
-            print("here:", srtm_tile, srtm_tile.level_pts, srtm_tile.raw_pts)
+            # print("here:", srtm_tile, srtm_tile.level_pts, srtm_tile.raw_pts)
             for i in range(len(fit_pts)):
                 [lon, lat] = fit_pts[i]
                 elev = elev_fit[i]
