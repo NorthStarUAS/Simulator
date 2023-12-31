@@ -1,10 +1,9 @@
 # disk cache for tiles (fixme: rename to tile_cache.py)
 
-import asyncio
-import aiohttp
 import os
 from pathlib import Path
 from pygeotile.tile import Tile  # pip install pygeotile
+import http.client
 import time
 import traceback
 
@@ -12,13 +11,6 @@ from panda3d.core import *
 
 # Fetch and cache slippy tiles using http.client, returns the tile as either
 # a pnm image or tex.
-
-async def get(session: aiohttp.ClientSession, url, file):
-    async with session.get(url) as response:
-        data = await response.read()
-        print("read:", len(data))
-        with open(file, "wb") as f:
-            f.write(data)
 
 class SlippyCache():
     def __init__(self, rootpath, url=None, root=None, ext=".png", options="", index_scheme="slippy"):
@@ -31,12 +23,10 @@ class SlippyCache():
         self.connect()
 
     def connect(self):
-        if self.url == "":
-            return
-        if self.index_scheme == "slippy" or self.index_scheme == "quadkey":
-            self.session = aiohttp.ClientSession(base_url=self.url, timeout=aiohttp.ClientTimeout(total=10))
+        if self.index_scheme == "slippy":
+            self.conn = http.client.HTTPSConnection(self.url, timeout=10)
         elif self.index_scheme == "quadkey" or self.index_scheme == "google":
-            self.session = aiohttp.ClientSession(base_url=self.url, timeout=aiohttp.ClientTimeout(total=10), headers={"User-Agent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/119.0"})
+            self.conn = http.client.HTTPConnection(self.url, timeout=10)
 
     def ensure_path_in_cache(self, level, x):
         path = os.path.join(self.rootpath, "%d" % level, "%d" % x)
@@ -44,26 +34,22 @@ class SlippyCache():
             Path(path).mkdir(parents=True, exist_ok=True)
         return path
 
-    async def download_tile(self, path, files, requests):
-        print("fetching:", self.url, requests, "to", files)
+    def download_tile(self, path, file, request):
+        print("fetching:", self.url, path, "to", file)
         Path(path).mkdir(parents=True, exist_ok=True)
         success = False
         while not success:
             try:
-                # async with aiohttp.ClientSession() as session:
-                await asyncio.gather(
-                    *[get(self.session, request, file) for request, file in zip(requests, files)]
-                )
-                # if self.index_scheme == "google":
-                #     headers = {"User-Agent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/119.0"}
-                #     self.conn.request("GET", request, headers=headers)
-                # else:
-                #     self.conn.request("GET", request)
-                # response = self.conn.getresponse()
-                # print(response.status, response.reason)
-                # data = response.read()  # This will return entire content.
-                # with open(file, "wb") as f:
-                #     f.write(data)
+                if self.index_scheme == "google":
+                    headers = {"User-Agent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/119.0"}
+                    self.conn.request("GET", request, headers=headers)
+                else:
+                    self.conn.request("GET", request)
+                response = self.conn.getresponse()
+                print(response.status, response.reason)
+                data = response.read()  # This will return entire content.
+                with open(file, "wb") as f:
+                    f.write(data)
                 success = True
             except Exception:
                 print(traceback.format_exc())
@@ -99,21 +85,13 @@ class SlippyCache():
             x, y = tile.google
             request = self.root.format(x, y, level)
             print("request:", request)
-
-        # documented way (with errors)
-        # asyncio.run(self.download_tile(path, [file], [request]))
-
-        # stackoverflow way
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(self.download_tile(path, [file], [request]))
-
+        self.download_tile(path, file, request)
         return file
 
     def get_tile_as_pnm(self, level, x, y):
         file = self.ensure_tile_in_cache(level, x, y)
         with open(file, "rb") as f:
             data = f.read()
-            print("here0 length:", len(data), str(file))
             p = PNMImage()
             p.read(StringStream(data))
             return p
