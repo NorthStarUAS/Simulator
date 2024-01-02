@@ -8,15 +8,19 @@ import os
 import pathlib
 import pickle
 import scipy
+import sys
 import time
-import navpy
 
 from panda3d.core import *
 from direct.stdpy import threading
 
-from . import tile_cache
-from . import slippy_tiles
-from . import srtm
+import navpy
+
+from world import tile_cache
+from world import slippy_tiles
+from world import srtm
+
+loadPrcFileData("", "compressed-textures 1") # compress textures when we load/save them
 
 tile_steps_sat = 32
 tile_steps_wireframe = 4
@@ -30,7 +34,6 @@ poly_mat.setAmbient((0.3, 0.8, 0.3, 0.8))
 poly_mat.setDiffuse((0.3, 0.8, 0.3, 0.8))
 
 terra_format = GeomVertexFormat.get_v3n3t2()
-
 
 class Builder():
     def __init__(self, dot_root):
@@ -281,3 +284,18 @@ class Builder():
                 }
 
     # initialize([46.842, -92.194, 0], 160000, 100, do_plot=True)
+
+def main():
+    mybuilder = Builder(".scenery_viewer")
+
+    while True:
+        line = input()
+        # print("got:", line.split(","))
+        (zoom, x, y, style) = line.split(",")
+        tile = mybuilder.gen_terrain_node(int(zoom), int(x), int(y), style)
+        print("complete")
+        sys.stdout.flush()
+
+if __name__ == "__main__":
+    # tile = gen_tile.gen_terrain_node(7, 30, 40, "google")
+    main()

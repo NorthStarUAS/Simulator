@@ -13,7 +13,7 @@ import navpy
 
 import sys
 sys.path.append("..")
-from lib.constants import ft2m
+from .constants import ft2m
 
 # For runway leveling in the SRTM terrain
 segment_length = 25

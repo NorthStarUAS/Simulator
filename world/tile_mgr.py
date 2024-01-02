@@ -9,15 +9,13 @@ import os
 import pathlib
 import pickle
 import subprocess
-import sys
 import time
 
 from panda3d.core import *
 
 import navpy
 
-sys.path.append("..")
-from lib.constants import r2d
+from .constants import r2d
 
 from . import apt_mgr
 from . import slippy_tiles
@@ -385,7 +383,7 @@ class tile_mgr(threading.Thread):
             return None
 
     def run(self):
-        build_cmd = ["python", "./tile_builder.py"]
+        build_cmd = ["python", "-m", "world.tile_builder"]
         self.build_proc = subprocess.Popen(build_cmd, bufsize=1, text=True, stdout=subprocess.PIPE, stdin=subprocess.PIPE)
 
         lat_deg = None
