@@ -16,9 +16,9 @@ from direct.stdpy import threading
 
 import navpy
 
-from world import tile_cache
-from world import slippy_tiles
-from world import srtm
+from nsWorld import tile_cache
+from nsWorld import slippy_tiles
+from nsWorld import srtm
 
 loadPrcFileData("", "compressed-textures 1") # compress textures when we load/save them
 
@@ -286,7 +286,7 @@ class Builder():
     # initialize([46.842, -92.194, 0], 160000, 100, do_plot=True)
 
 def main():
-    mybuilder = Builder(".scenery_viewer")
+    mybuilder = Builder(".nsWorld")
 
     while True:
         line = input()

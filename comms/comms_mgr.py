@@ -8,7 +8,7 @@ from direct.stdpy import threading
 
 import navpy
 
-from world.constants import ft2m, r2d
+from nsWorld.constants import ft2m, r2d
 
 port_in = 6504
 
@@ -111,7 +111,7 @@ class CommsManager():
                 if self.dt > 0:
                     self.dlat = (values[1] - self.values_prev[1]) / self.dt
                     self.dlon = (values[2] - self.values_prev[2]) / self.dt
-                    self.dalt = (values[3] - self.values_prev[3]) / self.dt
+                    self.dalt = (values[3] - self.values_prev[3]) * ft2m / self.dt
                     self.psiDot_dps_est = self.angle_diff_deg(values[6], self.values_prev[6]) / self.dt
                     self.thetaDot_dps_est = self.angle_diff_deg(values[5], self.values_prev[5]) / self.dt
                     self.phiDot_dps_est = self.angle_diff_deg(values[4], self.values_prev[4]) / self.dt

@@ -11,8 +11,6 @@ import zipfile
 
 import navpy
 
-import sys
-sys.path.append("..")
 from .constants import ft2m
 
 # For runway leveling in the SRTM terrain
@@ -388,7 +386,7 @@ class Cache():
 
 if __name__ == "__main__":
     import pathlib
-    srtm_dir = os.path.join(pathlib.Path.home(), ".scenery_viewer", "cache", "srtm")
+    srtm_dir = os.path.join(pathlib.Path.home(), ".nsWorld", "cache", "srtm")
     pathlib.Path(srtm_dir).mkdir(parents=True, exist_ok=True)
 
     srtm_cache = Cache(srtm_dir)

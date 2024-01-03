@@ -9,21 +9,21 @@ import navpy
 from . import tile_mgr
 from . import srtm
 
-dot_root = ".scenery_viewer"
+dot_root = ".nsWorld"
 srtm_dir = os.path.join(pathlib.Path.home(), dot_root, "cache", "srtm")
 pathlib.Path(srtm_dir).mkdir(parents=True, exist_ok=True)
 
 class World():
-    def __init__(self, config, comms_mgr):
+    def __init__(self, config, nedref_time):
         self.tile_mgr = tile_mgr.tile_mgr(config, dot_root)
         self.tile_mgr.start()
-        self.saved_nedref_time = comms_mgr.nedref_time
+        self.saved_nedref_time = nedref_time
         self.srtm_cache = srtm.Cache(srtm_dir, download=False)
 
         self.skybox = None
         if "sky" in config and config["sky"] == "skybox":
             file_path = os.path.dirname(os.path.realpath(__file__))
-            base_path = os.path.join(file_path, "..", "data")
+            base_path = os.path.join(file_path, "data")
             # Load skybox shaders
             # https://github.com/CJT-Jackton/CJT-Panda3D-demo/tree/master/textures/skybox
             sha = Shader.load(Shader.SLGLSL, os.path.join(base_path, "shaders/skybox_vert.glsl"),
@@ -38,25 +38,25 @@ class World():
             #self.skybox.setDepthTest(False)
             self.skybox.setDepthWrite(False)
 
-    def update(self, mycam, comms_mgr):
+    def update(self, mycam, nedref, nedref_time, lla, dlat, dlon, dalt):
         if self.skybox is not None:
             self.skybox.setPos(mycam.cam_pos)
 
-        if comms_mgr.nedref is not None:
-            tile_mgr.update_state(comms_mgr.lla, mycam.cam_hpr, comms_mgr.nedref, mycam.cam_pos, comms_mgr.dlat, comms_mgr.dlon, comms_mgr.dalt)
+        if nedref is not None:
+            tile_mgr.update_state(lla, mycam.cam_hpr, nedref, mycam.cam_pos, dlat, dlon, dalt)
 
             do_reposition = False
-            if self.saved_nedref_time < comms_mgr.nedref_time:
-                self.saved_nedref_time = comms_mgr.nedref_time
+            if self.saved_nedref_time < nedref_time:
+                self.saved_nedref_time = nedref_time
                 do_reposition = True
 
             tile_mgr.queue_lock.acquire()
             for tile in tile_mgr.reparent_queue:
                 tile_pos = navpy.lla2ned(tile["center_lla"][0], tile["center_lla"][1], tile["center_lla"][2],
-                                         comms_mgr.nedref[0], comms_mgr.nedref[1], comms_mgr.nedref[2])
+                                         nedref[0], nedref[1], nedref[2])
                 print("Adding to scene graph:", tile, "pos:", tile_pos)
                 tile["node"].setPos(tile_pos[1], tile_pos[0], -tile_pos[2])
-                tile["node"].setHpr(0, comms_mgr.nedref[0] - tile["center_lla"][0], tile["center_lla"][1] - comms_mgr.nedref[1])
+                tile["node"].setHpr(0, nedref[0] - tile["center_lla"][0], tile["center_lla"][1] - nedref[1])
                 tile["node"].reparentTo(render)
             for node in tile_mgr.hide_queue:
                 print("Hide from scene graph:", node)
@@ -71,7 +71,7 @@ class World():
                 tile["children"] = {}
                 if "center_lla" in tile:
                     tile_pos = navpy.lla2ned(tile["center_lla"][0], tile["center_lla"][1], tile["center_lla"][2],
-                                            comms_mgr.nedref[0], comms_mgr.nedref[1], comms_mgr.nedref[2])
+                                            nedref[0], nedref[1], nedref[2])
                     tile["node"].setPos(tile_pos[1], tile_pos[0], -tile_pos[2])
                     tile["node"].show()
             tile_mgr.reparent_queue = []
@@ -81,8 +81,8 @@ class World():
 
             if do_reposition:
                 tile_mgr.cache_lock.acquire()
-                count = self.tile_mgr.recursive_update_pos(comms_mgr.nedref)
-                self.tile_mgr.update_apt_mgr_pos(comms_mgr.nedref)
+                count = self.tile_mgr.recursive_update_pos(nedref)
+                self.tile_mgr.update_apt_mgr_pos(nedref)
                 tile_mgr.cache_lock.release()
                 print("Updated position for this many tiles ->", count)
 

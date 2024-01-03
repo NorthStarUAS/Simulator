@@ -20,7 +20,7 @@ from ..world import slippy_tiles
 # https://github.com/tilezen/joerd/tree/master/docs
 # https://s3.amazonaws.com/elevation-tiles-prod/{terrarium,normal}/8/62/90.png
 
-dot_root = ".scenery_viewer"
+dot_root = ".nsWorld"
 url = "s3.amazonaws.com"
 root = "/elevation-tiles-prod/terrarium"
 terrain_dir = os.path.join(pathlib.Path.home(), dot_root, "cache", "terrain")

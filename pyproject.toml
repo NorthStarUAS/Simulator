@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "world"
+name = "nsWorld"
 version = "1.0"
 authors = [
   { name="Curtis L. Olson", email="curtolson@flightgear.org" },
@@ -20,7 +20,8 @@ classifiers = [
 "Homepage" = "https://github.com/NorthStarUAS/"
 
 [project.scripts]
-"tile_builder" = "world.tile_builder:main"
+"tile_builder" = "nsWorld.tile_builder:main"
 
 [tool.hatch.build.targets.wheel]
-packages = [ "world" ]
+packages = [ "nsWorld" ]
+artifacts = [ "nsWorld/data/*" ]

@@ -10,7 +10,7 @@ from panda3d.core import *
 
 from comms import comms_mgr
 from lib import cam, fog, light
-from world import world
+from nsWorld import world
 
 # these are supposedly the options needed for deferred texture loading...
 # loadPrcFileData("", "preload-textures 0")
@@ -108,7 +108,7 @@ class SceneryViewer(ShowBase):
 
         self.world = None
         if "world" in config:
-            self.world = world.World(config["world"], self.comms_mgr)
+            self.world = world.World(config["world"], self.comms_mgr.nedref_time)
 
         self.taskMgr.add(self.updateTask, "updateTask")
 
@@ -125,7 +125,8 @@ class SceneryViewer(ShowBase):
         self.fog.update(-self.comms_mgr.nedpos[2])
 
         if self.world:
-            self.world.update(self.mycam, self.comms_mgr)
+            self.world.update(self.mycam, self.comms_mgr.nedref, self.comms_mgr.nedref_time, self.comms_mgr.lla,
+                              self.comms_mgr.dlat, self.comms_mgr.dlon, self.comms_mgr.dalt)
 
         return Task.cont
 
