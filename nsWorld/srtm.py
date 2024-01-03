@@ -150,7 +150,8 @@ class Cache():
         self.do_plot = False
         self.do_download = download
 
-        filename = "data/airports/srtm_runways.pkl"
+        basepath = os.path.dirname(os.path.realpath(__file__))
+        filename = os.path.join(basepath, "data/airports/srtm_runways.pkl")
         print("Loading list of runways sorted by tile:", filename)
         self.by_tiles = {}
         if os.path.exists(filename):
