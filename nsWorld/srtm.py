@@ -15,7 +15,7 @@ from .constants import ft2m
 
 # For runway leveling in the SRTM terrain
 segment_length = 25
-cutoff_freq = segment_length * 0.003  # bigger values == tighter fit
+cutoff_freq = segment_length * 0.002  # bigger values == tighter fit
 b, a = signal.butter(2, cutoff_freq, 'lowpass')
 
 # return the lower left corner of the 1x1 degree tile containing
