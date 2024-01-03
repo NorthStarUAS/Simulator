@@ -26,11 +26,11 @@ class World():
             base_path = os.path.join(file_path, "data")
             # Load skybox shaders
             # https://github.com/CJT-Jackton/CJT-Panda3D-demo/tree/master/textures/skybox
-            sha = Shader.load(Shader.SLGLSL, os.path.join(base_path, "shaders/skybox_vert.glsl"),
-                              os.path.join(base_path, "shaders/skybox_frag.glsl"))
+            sha = Shader.load(Shader.SLGLSL, Filename.fromOsSpecific(os.path.join(base_path, "shaders/skybox_vert.glsl")),
+                              Filename.fromOsSpecific(os.path.join(base_path, "shaders/skybox_frag.glsl")))
             # self.skyTex = loader.loadCubeMap("data/skybox/Twilight_#.jpg")
-            self.skyTex = loader.loadCubeMap(os.path.join(base_path, "skybox/Highnoon_#.jpg"))
-            self.skybox = loader.loadModel(os.path.join(base_path, "models/skybox"))
+            self.skyTex = loader.loadCubeMap(Filename.fromOsSpecific(os.path.join(base_path, "skybox/Highnoon_#.jpg")))
+            self.skybox = loader.loadModel(Filename.fromOsSpecific(os.path.join(base_path, "models/skybox")))
             self.skybox.reparentTo(render)
             self.skybox.setShader(sha)
             self.skybox.setShaderInput("TexSkybox", self.skyTex)

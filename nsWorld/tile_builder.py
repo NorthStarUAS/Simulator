@@ -274,7 +274,7 @@ class Builder():
             tile_node.setRenderModeFilledWireframe(wireframe_color=(1, 1, 1, 1))
             # tile_node.setTransparency(TransparencyAttrib.MAlpha)
 
-        tile_node.writeBamFile(bam_file)
+        tile_node.writeBamFile(Filename.fromOsSpecific(bam_file))
 
         return { "name": "%d/%d/%d" % (zoom_level, x, y),
                 "index": (zoom_level, x, y),

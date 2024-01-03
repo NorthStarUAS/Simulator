@@ -364,7 +364,7 @@ class tile_mgr(threading.Thread):
                 data = pickle.load(f)
                 center_lla = data["center_lla"]
             tile_node = NodePath( path )
-            tile_node = loader.loadModel(bam_file)
+            tile_node = loader.loadModel(Filename.fromOsSpecific(bam_file))
             tile = {
                 "name": "%d/%d/%d" % (zoom, x, y),
                 "index": (zoom, x, y),
