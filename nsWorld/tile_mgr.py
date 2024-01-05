@@ -409,7 +409,7 @@ class tile_mgr(threading.Thread):
                 time.sleep(1)
                 continue
 
-            project_secs = 10
+            project_secs = 5
             own_pos_ned = navpy.lla2ned(lat_deg + dlat*project_secs, lon_deg + dlon*project_secs, alt_m + dalt*project_secs, nedref[0], nedref[1], nedref[2])
 
             new_nodes = []
