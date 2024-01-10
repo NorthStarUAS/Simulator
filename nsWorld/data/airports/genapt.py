@@ -1,15 +1,12 @@
 from math import atan2, cos, pi, radians, sin
 import numpy as np
 from Polygon import *
-import sys
 
 from panda3d.core import *
 
 import navpy
-sys.path.append("../..")
-from lib.constants import ft2m, r2d
-from comms import comms_mgr
-from world import slippy_tiles
+from nsWorld.constants import ft2m, r2d
+from nsWorld import slippy_tiles
 
 # test/debug
 # import matplotlib.pyplot as plt
@@ -141,6 +138,18 @@ def genapt(apt, do_boundaries):
                     boundaries_lla.append(boundary)
                 in_taxi = False
                 in_boundary = False
+            elif tokens[0] == "114":
+                # last point in a contour
+                if in_taxi:
+                    taxi.append( [float(tokens[1]), float(tokens[2])] )
+                    taxi.append( [float(tokens[3]), float(tokens[4])] )
+                    taxiways_lla.append(taxi)
+                elif in_boundary:
+                    boundary.append( [float(tokens[1]), float(tokens[2])] )
+                    boundary.append( [float(tokens[3]), float(tokens[4])] )
+                    boundaries_lla.append(boundary)
+                in_taxi = False
+                in_boundary = False
             elif tokens[0] == "130":
                 # start of airport boundary definition
                 boundary = []
@@ -234,14 +243,22 @@ def genapt(apt, do_boundaries):
         runway_node.attachNewNode(node)
 
     taxiways_poly = Polygon()
-    for taxi_lla in taxiways_lla:
+    # print("taxi sections:", len(taxiways_lla))
+    # print("taxi lla:", taxiways_lla)
+    count = len(taxiways_lla)
+    for i, taxi_lla in enumerate(taxiways_lla):
+        if count > 250:
+            print("taxi:", i, "of", count)
         # convert to ned
         taxiway = []
         for pt in taxi_lla:
             ned = navpy.lla2ned(pt[0], pt[1], alt_m, local_nedref[0], local_nedref[1], local_nedref[2])
             taxiway.append( [ned[1], ned[0]] )
+        # print("taxi (ned):", taxiway)
         taxi_poly = Polygon(taxiway)
         taxiways_poly = taxiways_poly + taxi_poly
+    # print("taxiways (ned):", taxiway)
+    # print("taxiways_poly:", taxiways_poly)
 
     for taxiway in taxiways_old:
         lat = float(taxiway[1])
