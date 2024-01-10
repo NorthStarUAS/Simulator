@@ -1,5 +1,8 @@
 from math import atan2, cos, pi, radians, sin
+from matplotlib import pyplot as plt
 import numpy as np
+import os
+import pathlib
 from Polygon import *
 
 from panda3d.core import *
@@ -81,6 +84,118 @@ def flag_overlapping_tiles(runway):
                     top[x][y] = 1
         # plt.show()
 
+from scipy import signal
+step_size = 25
+cutoff_freq = step_size * 0.002  # bigger values == tighter fit
+b, a = signal.butter(2, cutoff_freq, 'lowpass')
+
+from nsWorld import srtm
+dot_root = ".nsWorld"
+srtm_dir = os.path.join(pathlib.Path.home(), dot_root, "cache", "srtm")
+pathlib.Path(srtm_dir).mkdir(parents=True, exist_ok=True)
+srtm_cache = srtm.Cache(srtm_dir)
+
+def make_smooth_surface(lat_min, lat_max, lon_min, lon_max, nedref):
+    nedmin = navpy.lla2ned(lat_min, lon_min, nedref[2], nedref[0], nedref[1], nedref[2])
+    nedmax = navpy.lla2ned(lat_max, lon_max, nedref[2], nedref[0], nedref[1], nedref[2])
+    print("nedmin:", nedmin)
+    print("nedmax:", nedmax)
+    ndivs = int((nedmax[0] - nedmin[0]) / step_size) + 1
+    edivs = int((nedmax[1] - nedmin[1]) / step_size) + 1
+    print("divs n/e:", ndivs, edivs)
+    heights = np.array( (ndivs+1, edivs+1) )
+
+    # sample the airport coverate area at high density
+    fit_pts = []
+    for lat in np.linspace(lat_min, lat_max, ndivs+1):
+        for lon in np.linspace(lon_min, lon_max, edivs+1):
+            fit_pts.append( (lon, lat) )
+    vals = [ nedref[2] ] * len(fit_pts)
+    lat1, lon1, lat2, lon2 = srtm.gen_tile_range(lat_min, lon_max, lat_max, lon_min)
+    for lat in range(lat1, lat2+1):
+        for lon in range(lon1, lon2+1):
+            srtm_tile = srtm_cache.get_tile(lat, lon)
+            tilename = srtm.make_tile_name(lat, lon)
+            # srtm_cache.level_runways(tilename) # if needed
+            if srtm_tile is not None:
+                zs = srtm_tile.raw_interpolate(np.array(fit_pts))
+                #print zs
+                # copy the good altitudes back to the corresponding ned points
+                if len(zs) == len(fit_pts):
+                    for i in range(len(fit_pts)):
+                        if zs[i] > -10000:
+                            # llas[i][2] = zs[i]
+                            vals[i] = zs[i]
+    # print("raw vals:", vals)
+    raw_vals = np.array(vals).reshape( (ndivs+1, edivs+1))
+    print("raw_vals reshape:", raw_vals)
+
+    # smooth data by row
+    by_row = raw_vals.copy()
+    for r in range(ndivs+1):
+        by_row[r,:] = signal.filtfilt(b, a, raw_vals[r,:])
+    # smooth data by col
+    by_col = raw_vals.copy()
+    for c in range(edivs+1):
+        by_col[:,c] = signal.filtfilt(b, a, raw_vals[:,c])
+        # plt.figure()
+        # plt.plot(raw_vals[:,c], ".")
+        # plt.plot(by_col[:,c])
+        # # plt.axis("equal")
+        # plt.xlabel("pos")
+        # plt.ylabel("elev (m)")
+        # plt.title(id)
+        # plt.show()
+    # average the two (making this up as I go along!)
+    smooth = (by_row + by_col) * 0.5
+    plt.figure()
+    plt.imshow(raw_vals, origin="lower")
+    plt.title("raw")
+    plt.figure()
+    plt.imshow(by_row, origin="lower")
+    plt.title("by_row")
+    plt.figure()
+    plt.imshow(by_col, origin="lower")
+    plt.title("by_col")
+    plt.figure()
+    plt.imshow(smooth, origin="lower")
+    plt.title("smooth")
+    plt.show()
+
+
+def interpolate_terrain(vts, nedref):
+    # inefficient, but we have to convert ned vts's back to lla before doing our interpolation work
+    llas = []
+    lat_min = 360
+    lat_max = -360
+    lon_min = 360
+    lon_max = -360
+    for ned in vts:
+        lla = navpy.ned2lla(ned, nedref[0], nedref[1], nedref[2])
+        if lla[0] < lat_min: lat_min = lla[0]
+        if lla[0] > lat_max: lat_max = lla[0]
+        if lla[1] < lon_min: lon_min = lla[1]
+        if lla[1] > lon_max: lon_max = lla[1]
+        llas.append([lla[1], lla[0]]) # this has to be lon,lat (not lat,lon) here
+    lat1, lon1, lat2, lon2 = srtm.gen_tile_range(lat_min, lon_max, lat_max, lon_min)
+    print("vts range:", lat1, lon1, lat2, lon2)
+    for lat in range(lat1, lat2+1):
+        for lon in range(lon1, lon2+1):
+            print("vts working on:", lat, lon)
+            srtm_tile = srtm_cache.get_tile(lat, lon)
+            tilename = srtm.make_tile_name(lat, lon)
+            srtm_cache.level_runways(tilename) # if needed
+            if srtm_tile is not None:
+                zs = srtm_tile.interpolate(np.array(llas))
+                #print zs
+                # copy the good altitudes back to the corresponding ned points
+                if len(zs) == len(llas):
+                    for i in range(len(llas)):
+                        if zs[i] > -10000:
+                            # llas[i][2] = zs[i]
+                            vts[i][2] = zs[i]
+    print("vts inside:", vts)
+
 def genapt(apt, do_boundaries):
     # expects a single airport per file
     info = {}
@@ -93,6 +208,8 @@ def genapt(apt, do_boundaries):
     id = None
     in_taxi = False
     in_boundary = False
+    lats = []
+    lons = []
     for line in apt:
         #print(line)
         tokens = line.split()
@@ -164,8 +281,8 @@ def genapt(apt, do_boundaries):
     if not len(runways):
         return None
 
-    # create a central-ish reference point for the airport by averaging the
-    # runway center points.
+    # estimate max/min lla coverage and a central-ish reference point for the
+    # airport.
     lats = []
     lons = []
     for runway in runways:
@@ -173,9 +290,22 @@ def genapt(apt, do_boundaries):
         lats.append(float(runway[18]))
         lons.append(float(runway[10]))
         lons.append(float(runway[19]))
-    local_nedref = [ np.mean(lats), np.mean(lons), alt_m ]
+    for taxiway in taxiways_lla:
+        for p in taxiway:
+            lats.append(p[0])
+            lons.append(p[1])
+    for taxiway in taxiways_old:
+        lats.append(float(taxiway[1]))
+        lons.append(float(taxiway[2]))
+    lat_min = np.min(lats)
+    lat_max = np.max(lats)
+    lon_min = np.min(lons)
+    lon_max = np.max(lons)
+    local_nedref = [ (lat_min + lat_max)*0.5, (lon_min + lon_max) * 0.5, alt_m ]
+    print("coverage:", lat_min, lat_max, lon_min, lon_max)
     print("nedref:", local_nedref)
     info["nedref"] = local_nedref
+    make_smooth_surface(lat_min, lat_max, lon_min, lon_max, local_nedref)
 
     #airport_node = render.attachNewNode(id)
     airport_node = NodePath(id)
@@ -237,14 +367,17 @@ def genapt(apt, do_boundaries):
                 print("  contour:", contour, segment.isHole(i))
                 vts = []
                 for p in contour:
-                    vts.append( [p[0], p[1], alt_ft])
+                    vts.append( [p[0], p[1], alt_m])
+                print("vts before:", vts)
+                interpolate_terrain(vts, local_nedref)
+                print("vts after srtm:", vts)
                 p3 = Polygon3d(vts)
                 runway_node.attachNewNode(p3.makeNode())
         # convert actual runway corners back to lla
-        c1_lla = navpy.ned2lla([c1[1], c1[0], alt_m], local_nedref[0], local_nedref[1], 0)
-        c2_lla = navpy.ned2lla([c2[1], c2[0], alt_m], local_nedref[0], local_nedref[1], 0)
-        c3_lla = navpy.ned2lla([c3[1], c3[0], alt_m], local_nedref[0], local_nedref[1], 0)
-        c4_lla = navpy.ned2lla([c4[1], c4[0], alt_m], local_nedref[0], local_nedref[1], 0)
+        c1_lla = navpy.ned2lla([c1[1], c1[0], -alt_m], local_nedref[0], local_nedref[1], 0)
+        c2_lla = navpy.ned2lla([c2[1], c2[0], -alt_m], local_nedref[0], local_nedref[1], 0)
+        c3_lla = navpy.ned2lla([c3[1], c3[0], -alt_m], local_nedref[0], local_nedref[1], 0)
+        c4_lla = navpy.ned2lla([c4[1], c4[0], -alt_m], local_nedref[0], local_nedref[1], 0)
         info["runways_lla"].append([c1_lla, c2_lla, c3_lla, c4_lla])
         flag_overlapping_tiles([c1_lla, c2_lla, c3_lla, c4_lla])
     print("clip poly (after runways):", clip_poly)
@@ -268,7 +401,8 @@ def genapt(apt, do_boundaries):
             print("  taxi contour:", contour, segment.isHole(i))
             vts = []
             for p in contour:
-                vts.append( [p[0], p[1], alt_ft])
+                vts.append( [p[0], p[1], alt_m])
+            interpolate_terrain(vts, local_nedref)
             p3 = Polygon3d(vts)
             taxiway_node.attachNewNode(p3.makeNode())
     print("clip poly (after new taxiway polygons):", clip_poly)
@@ -320,7 +454,8 @@ def genapt(apt, do_boundaries):
                 print("  contour:", contour, segment.isHole(i))
                 vts = []
                 for p in contour:
-                    vts.append( [p[0], p[1], alt_ft])
+                    vts.append( [p[0], p[1], alt_m])
+                interpolate_terrain(vts, local_nedref)
                 p3 = Polygon3d(vts)
                 taxiway_node.attachNewNode(p3.makeNode())
     print("clip poly (after old taxiways):", clip_poly)
