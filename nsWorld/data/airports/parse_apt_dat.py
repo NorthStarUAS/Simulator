@@ -1,27 +1,31 @@
 #!/usr/bin/env python3
 
+import argparse
 import gzip
 import json
 import os
 import pathlib
 import pickle
 
-import sys
-sys.path.append("../..")
-import world.slippy_tiles as tiles
+from nsWorld import slippy_tiles
 
-import srtm_apt
+import rwys_by_srtm_tile
 import genapt
+
+parser = argparse.ArgumentParser(description="Parse apt.dat file and do stuff.")
+parser.add_argument("--aptdat", required=True, help="path to apt.data.gz (or apt.dat.ws3.gz) file")
+parser.add_argument("--task", required=True, choices=["apt-models", "tiles-with-runways", "srtm-runways"], help="select the task to perform")
+parser.add_argument("--start-id", help="begin processing at specified apt id")
+parser.add_argument("--end-id", help="end processing at specified apt id")
+args = parser.parse_args()
 
 # slippy map zoom level
 zoom_level = 9
 
 do_gen_apt_models = False
-do_tiles_with_runways = False
-do_srtm_runways = True
 
 def save_airport(node, info):
-    x, y = tiles.deg2num(info["nedref"][0], info["nedref"][1], zoom_level)
+    x, y = slippy_tiles.deg2num(info["nedref"][0], info["nedref"][1], zoom_level)
     base_dir = os.path.join(pathlib.Path.home(), ".scenery_viewer", "cache", "airports")
     dir = os.path.join(base_dir, "%d" % zoom_level, "%d" % x, "%d" % y)
     #dir = tiles.get_path(lat, lon, zoom_level)
@@ -35,9 +39,11 @@ def save_airport(node, info):
             f.write(line + "\n")
     node.writeBamFile(path + ".bam")
 
-with gzip.open("apt.dat.gz", "r") as f:
-    skipping = False
-    start_at_id = "...."
+with gzip.open(args.aptdat, "r") as f:
+    if args.start_id is not None:
+        skipping = True
+    else:
+        skipping = False
     in_apt = False
     apt = []
     id = None
@@ -70,8 +76,9 @@ with gzip.open("apt.dat.gz", "r") as f:
         elif not len(tokens):
             if in_apt:
                 # end of aiport definition
-                if skipping and id == start_at_id:
+                if skipping and id == args.start_id:
                     skipping = False
+                    print("Begin processing at:", args.start_id)
                 if has_runways and not skipping:
                     boundaries = False
                     if id == "WX46" or id == "KRAS" or id == "KTOA":
@@ -82,35 +89,33 @@ with gzip.open("apt.dat.gz", "r") as f:
                         # just skip (overlaps /so/ many tiles!)
                         continue
 
-                    if do_gen_apt_models:
+                    if args.task == "apt-models":
                         node, info = genapt.genapt(apt, boundaries)
                         save_airport(node, info)
-                    if do_tiles_with_runways:
-                        srtm_apt.fitapt(apt)
-                    if do_srtm_runways:
-                        srtm_apt.sortapt(apt)
+                    if args.task == "tiles-with-runways":
+                        genapt.genapt(apt, boundaries)
+                    if args.task == "srtm-runways":
+                        rwys_by_srtm_tile.sortapt(apt)
+                if id == args.end_id:
+                    skipping = True
+                    print("End processing at:", args.start_id)
                 if False and id == "KDLH":
                     tiles.get_paths_in_radius(lat, lon, zoom_level, 100000)
                     x, y = tiles.deg2num(lat, lon, zoom_level)
                     dx_deg, dy_deg, dx_m, dy_m = tiles.get_tile_size(x, y, zoom_level)
                     print("tile size:", dx_m, dy_m)
                     quit()
-                if False and id == "LECO":
-                    break
-
                 in_apt = False
 
-if do_tiles_with_runways:
+if args.task == "tiles-with-runways":
     path = "tiles_with_runways.pkl"
     print("saving tiles with runways:", path)
     with open(path, "w") as f:
         pickle.dump(genapt.tiles_with_rwys, f)
-if do_srtm_runways:
+if args.task == "srtm-runways":
     path = "srtm_runways.pkl"
     print("saving srtm tiles vs runways:", path)
-    print(srtm_apt.by_tile)
-    print(type(srtm_apt.by_tile))
-    with open(path, "wb") as f:
-        pickle.dump(srtm_apt.by_tile, f)
-    for key in srtm_apt.by_tile:
-        print(len(srtm_apt.by_tile[key]), key, "srtm_count:")
+    print(rwys_by_srtm_tile.by_tile)
+    print(type(rwys_by_srtm_tile.by_tile))
+    with open(path, "w") as f:
+        pickle.dump(rwys_by_srtm_tile.by_tile, f)

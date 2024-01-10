@@ -8,6 +8,8 @@ import navpy
 from nsWorld.constants import ft2m, r2d
 from nsWorld import slippy_tiles
 
+from polygon3d import Polygon3d
+
 # test/debug
 # import matplotlib.pyplot as plt
 
@@ -172,7 +174,7 @@ def genapt(apt, do_boundaries):
         lons.append(float(runway[10]))
         lons.append(float(runway[19]))
     local_nedref = [ np.mean(lats), np.mean(lons), alt_m ]
-    print(local_nedref)
+    print("nedref:", local_nedref)
     info["nedref"] = local_nedref
 
     #airport_node = render.attachNewNode(id)
@@ -198,21 +200,46 @@ def genapt(apt, do_boundaries):
     #apt_pos = navpy.lla2ned(local_nedref[0], local_nedref[1], local_nedref[2], comms_mgr.nedref[0], comms_mgr.nedref[1], comms_mgr.nedref[2])
     #airport_node.setPos(apt_pos[1], apt_pos[0], -apt_pos[2])
 
-    runways_poly = Polygon()
+    clip_poly = Polygon()
     info["runways_lla"] = []
     for runway in runways:
         w2 = float(runway[1]) * 0.5
         ned1 = navpy.lla2ned(float(runway[9]), float(runway[10]), alt_m, local_nedref[0], local_nedref[1], local_nedref[2])
         ned2 = navpy.lla2ned(float(runway[18]), float(runway[19]), alt_m, local_nedref[0], local_nedref[1], local_nedref[2])
         angle = 0.5*pi - atan2(ned2[0]-ned1[0], ned2[1]-ned1[1])
-        print(ned1, ned2, angle*r2d)
-        corners_xyz = []
-        c1 = [ ned1[1] + sin(angle-0.5*pi)*w2, ned1[0] + cos(angle-0.5*pi)*w2 ]
-        c2 = [ ned1[1] - sin(angle-0.5*pi)*w2, ned1[0] - cos(angle-0.5*pi)*w2 ]
-        c3 = [ ned2[1] + sin(angle-0.5*pi)*w2, ned2[0] + cos(angle-0.5*pi)*w2 ]
-        c4 = [ ned2[1] - sin(angle-0.5*pi)*w2, ned2[0] - cos(angle-0.5*pi)*w2 ]
-        print(c1, c2, c4, c3)
-        runways_poly = runways_poly + Polygon([c1, c2, c4, c3])
+        length = np.linalg.norm(ned1-ned2)
+        divs = int(round(length / 200)) + 1
+        if divs < 1:
+            divs = 1
+        print(ned1, ned2, angle*r2d, length)
+
+        # generate runway in segments (for surface/terrain fitting and to work
+        # around elstupido triangulator algorithms that generates super long
+        # skinny triangles)
+        edge1 = []
+        edge2 = []
+        for p in zip(np.linspace(ned1[1], ned2[1], divs+1), np.linspace(ned1[0], ned2[0], divs+1)):
+            e1 = [ p[0] + sin(angle-0.5*pi)*w2, p[1] + cos(angle-0.5*pi)*w2 ]
+            e2 = [ p[0] - sin(angle-0.5*pi)*w2, p[1] - cos(angle-0.5*pi)*w2 ]
+            edge1.append(e1)
+            edge2.append(e2)
+        for i in range(len(edge1)-1):
+            c1 = edge1[i]
+            c2 = edge2[i]
+            c3 = edge1[i+1]
+            c4 = edge2[i+1]
+            print(c1, c2, c4, c3)
+            raw_segment = Polygon([c1, c2, c4, c3])
+            segment = raw_segment - clip_poly
+            clip_poly = clip_poly + raw_segment
+            for i, contour in enumerate(segment):
+                # contour = rwy_poly.contour(i)
+                print("  contour:", contour, segment.isHole(i))
+                vts = []
+                for p in contour:
+                    vts.append( [p[0], p[1], alt_ft])
+                p3 = Polygon3d(vts)
+                runway_node.attachNewNode(p3.makeNode())
         # convert actual runway corners back to lla
         c1_lla = navpy.ned2lla([c1[1], c1[0], alt_m], local_nedref[0], local_nedref[1], 0)
         c2_lla = navpy.ned2lla([c2[1], c2[0], alt_m], local_nedref[0], local_nedref[1], 0)
@@ -220,29 +247,8 @@ def genapt(apt, do_boundaries):
         c4_lla = navpy.ned2lla([c4[1], c4[0], alt_m], local_nedref[0], local_nedref[1], 0)
         info["runways_lla"].append([c1_lla, c2_lla, c3_lla, c4_lla])
         flag_overlapping_tiles([c1_lla, c2_lla, c3_lla, c4_lla])
-    print("runways poly:", runways_poly)
+    print("clip poly (after runways):", clip_poly)
 
-    for tri in runways_poly.triStrip():
-        print("tristrip:", tri)
-        vdata = GeomVertexData("runway", rwy_format, Geom.UHStatic)
-        vdata.setNumRows(len(tri))
-
-        vertex = GeomVertexWriter(vdata, "vertex")
-        for t in tri:
-            vertex.addData3(t[0], t[1], 0)
-
-        prim = GeomTristrips(Geom.UHStatic) # don't expect geometry to change
-        prim.add_consecutive_vertices(0, len(tri))
-        prim.closePrimitive()
-
-        geom = Geom(vdata)
-        geom.addPrimitive(prim)
-
-        node = GeomNode("geom")
-        node.addGeom(geom)
-        runway_node.attachNewNode(node)
-
-    taxiways_poly = Polygon()
     # print("taxi sections:", len(taxiways_lla))
     # print("taxi lla:", taxiways_lla)
     count = len(taxiways_lla)
@@ -255,10 +261,17 @@ def genapt(apt, do_boundaries):
             ned = navpy.lla2ned(pt[0], pt[1], alt_m, local_nedref[0], local_nedref[1], local_nedref[2])
             taxiway.append( [ned[1], ned[0]] )
         # print("taxi (ned):", taxiway)
-        taxi_poly = Polygon(taxiway)
-        taxiways_poly = taxiways_poly + taxi_poly
-    # print("taxiways (ned):", taxiway)
-    # print("taxiways_poly:", taxiways_poly)
+        raw_segment = Polygon(taxiway)
+        segment = raw_segment - clip_poly
+        clip_poly = clip_poly + raw_segment
+        for i, contour in enumerate(segment):
+            print("  taxi contour:", contour, segment.isHole(i))
+            vts = []
+            for p in contour:
+                vts.append( [p[0], p[1], alt_ft])
+            p3 = Polygon3d(vts)
+            taxiway_node.attachNewNode(p3.makeNode())
+    print("clip poly (after new taxiway polygons):", clip_poly)
 
     for taxiway in taxiways_old:
         lat = float(taxiway[1])
@@ -270,66 +283,56 @@ def genapt(apt, do_boundaries):
         w2 = width * 0.5
         l2 = length * 0.5
         angle = radians(90 - hdg)
-        print("taxi:", nedc, l2, w2, angle*r2d)
-        corners_ned = []
+        divs = int(round(length / 200)) + 1
+        if divs < 1:
+            divs = 1
+        print("taxi:", nedc, l2, w2, angle*r2d, divs)
         def rotate(x, y, angle, cx, cy):
             x_r = cos(angle) * x - sin(angle) * y
             y_r = sin(angle) * x + cos(angle) * y
             return [x_r + cx, y_r + cy]
         c1 = rotate(-l2, -w2, angle, nedc[1], nedc[0])
         c2 = rotate( l2, -w2, angle, nedc[1], nedc[0])
-        c3 = rotate( l2,  w2, angle, nedc[1], nedc[0])
-        c4 = rotate(-l2,  w2, angle, nedc[1], nedc[0])
+        c3 = rotate(-l2,  w2, angle, nedc[1], nedc[0])
+        c4 = rotate( l2,  w2, angle, nedc[1], nedc[0])
         print(c1, c2, c3, c4)
-        taxiways_poly = taxiways_poly + Polygon([c1, c2, c3, c4])
 
-    # don't overlap runways
-    taxiways_poly = taxiways_poly - runways_poly
+        # generate taxiway in segments (for surface/terrain fitting and to work
+        # around elstupido triangulator algorithms that generates super long
+        # skinny triangles)
+        edge1 = []
+        edge2 = []
+        for e1 in zip(np.linspace(c1[0], c2[0], divs+1), np.linspace(c1[1], c2[1], divs+1)):
+            edge1.append(e1)
+        for e2 in zip(np.linspace(c3[0], c4[0], divs+1), np.linspace(c3[1], c4[1], divs+1)):
+            edge2.append(e2)
+        for i in range(len(edge1)-1):
+            c1 = edge1[i]
+            c2 = edge2[i]
+            c3 = edge1[i+1]
+            c4 = edge2[i+1]
+            print(c1, c2, c4, c3)
+            raw_segment = Polygon([c1, c2, c4, c3])
+            segment = raw_segment - clip_poly
+            clip_poly = clip_poly + raw_segment
+            for i, contour in enumerate(segment):
+                # contour = rwy_poly.contour(i)
+                print("  contour:", contour, segment.isHole(i))
+                vts = []
+                for p in contour:
+                    vts.append( [p[0], p[1], alt_ft])
+                p3 = Polygon3d(vts)
+                taxiway_node.attachNewNode(p3.makeNode())
+    print("clip poly (after old taxiways):", clip_poly)
 
-    print("taxiways poly:", taxiways_poly)
-    for tri in taxiways_poly.triStrip():
-        print("tristrip:", tri)
-        vdata = GeomVertexData("taxiway", rwy_format, Geom.UHStatic)
-        vdata.setNumRows(len(tri))
+    if False:
+        # don't overlap runways
+        taxiways_poly = taxiways_poly - runways_poly
 
-        vertex = GeomVertexWriter(vdata, "vertex")
-        for t in tri:
-            vertex.addData3(t[0], t[1], 0)
-
-        prim = GeomTristrips(Geom.UHStatic) # don't expect geometry to change
-        prim.add_consecutive_vertices(0, len(tri))
-        prim.closePrimitive()
-
-        geom = Geom(vdata)
-        geom.addPrimitive(prim)
-
-        node = GeomNode("geom")
-        node.addGeom(geom)
-        taxiway_node.attachNewNode(node)
-
-    if do_boundaries:
-        print("boundaries:")
-        boundaries_poly = Polygon()
-        for boundary_lla in boundaries_lla:
-            # convert to ned
-            boundary = []
-            for pt in boundary_lla:
-                ned = navpy.lla2ned(pt[0], pt[1], alt_m, local_nedref[0], local_nedref[1], local_nedref[2])
-                boundary.append( [ned[1], ned[0]] )
-            boundary_poly = Polygon(boundary)
-            boundaries_poly = boundaries_poly + boundary_poly
-        print("boundaries 1:", boundaries_poly)
-
-        # don't overlap runways or taxiways
-        boundaries_poly = boundaries_poly - runways_poly
-        print("boundaries 2:", boundaries_poly)
-        boundaries_poly = boundaries_poly - taxiways_poly
-        print("boundaries 3:", boundaries_poly)
-
-        print("boundaries poly:", boundaries_poly)
-        for tri in boundaries_poly.triStrip():
+        print("taxiways poly:", taxiways_poly)
+        for tri in taxiways_poly.triStrip():
             print("tristrip:", tri)
-            vdata = GeomVertexData("boundary", rwy_format, Geom.UHStatic)
+            vdata = GeomVertexData("taxiway", rwy_format, Geom.UHStatic)
             vdata.setNumRows(len(tri))
 
             vertex = GeomVertexWriter(vdata, "vertex")
@@ -345,6 +348,46 @@ def genapt(apt, do_boundaries):
 
             node = GeomNode("geom")
             node.addGeom(geom)
-            boundary_node.attachNewNode(node)
+            taxiway_node.attachNewNode(node)
+
+        if do_boundaries:
+            print("boundaries:")
+            boundaries_poly = Polygon()
+            for boundary_lla in boundaries_lla:
+                # convert to ned
+                boundary = []
+                for pt in boundary_lla:
+                    ned = navpy.lla2ned(pt[0], pt[1], alt_m, local_nedref[0], local_nedref[1], local_nedref[2])
+                    boundary.append( [ned[1], ned[0]] )
+                boundary_poly = Polygon(boundary)
+                boundaries_poly = boundaries_poly + boundary_poly
+            print("boundaries 1:", boundaries_poly)
+
+            # don't overlap runways or taxiways
+            boundaries_poly = boundaries_poly - runways_poly
+            print("boundaries 2:", boundaries_poly)
+            boundaries_poly = boundaries_poly - taxiways_poly
+            print("boundaries 3:", boundaries_poly)
+
+            print("boundaries poly:", boundaries_poly)
+            for tri in boundaries_poly.triStrip():
+                print("tristrip:", tri)
+                vdata = GeomVertexData("boundary", rwy_format, Geom.UHStatic)
+                vdata.setNumRows(len(tri))
+
+                vertex = GeomVertexWriter(vdata, "vertex")
+                for t in tri:
+                    vertex.addData3(t[0], t[1], 0)
+
+                prim = GeomTristrips(Geom.UHStatic) # don't expect geometry to change
+                prim.add_consecutive_vertices(0, len(tri))
+                prim.closePrimitive()
+
+                geom = Geom(vdata)
+                geom.addPrimitive(prim)
+
+                node = GeomNode("geom")
+                node.addGeom(geom)
+                boundary_node.attachNewNode(node)
 
     return airport_node, info
