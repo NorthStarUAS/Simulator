@@ -13,6 +13,8 @@ for level in range(9,19+1):
     tiles_with_rwys[level] = {}
 
 def flag_overlapping_tiles(runway):
+    do_plot = False
+
     # make polygons in lla space just to test intersection
     ll0 = runway[0][:2]
     ll1 = runway[1][:2]
@@ -30,20 +32,23 @@ def flag_overlapping_tiles(runway):
 
     for level in range(9,19+1):
         # test/debug
-        # fig, ax1 = plt.subplots(1, 1)
-        # ax1.grid(True)
-        # ax1.axis("equal")
+        if do_plot:
+            fig, ax1 = plt.subplots(1, 1)
+            ax1.grid(True)
+            ax1.axis("equal")
 
         ll0 = runway[0][:2]
         ll1 = runway[1][:2]
         ll2 = runway[2][:2]
         ll3 = runway[3][:2]
-        # ax1.plot([ll0[1], ll1[1], ll3[1], ll2[1], ll0[1]], [ll0[0], ll1[0], ll3[0], ll2[0], ll0[0]], "-")
+        if do_plot:
+            ax1.plot([ll0[1], ll1[1], ll3[1], ll2[1], ll0[1]], [ll0[0], ll1[0], ll3[0], ll2[0], ll0[0]], "-")
 
         minx, maxy = slippy_tiles.deg2num(min_lat, min_lon, level)
         maxx, miny = slippy_tiles.deg2num(max_lat, max_lon, level)
         print("  level:", level, minx, miny, maxx, maxy)
-        # ax1.plot([min_lon, max_lon, max_lon, min_lon, min_lon], [max_lat, max_lat, min_lat, min_lat, max_lat], "-")
+        if do_plot:
+            ax1.plot([min_lon, max_lon, max_lon, min_lon, min_lon], [max_lat, max_lat, min_lat, min_lat, max_lat], "-")
         top = tiles_with_rwys[level]
         for x in range(minx,maxx+1):
             for y in range(miny,maxy+1):
@@ -51,12 +56,14 @@ def flag_overlapping_tiles(runway):
                 se_lat, se_lon = slippy_tiles.num2deg(x+1, y+1, level)
                 tile_poly = Polygon([[nw_lat, nw_lon], [nw_lat, se_lon], [se_lat, se_lon], [se_lat, nw_lon]])
                 if len(tile_poly & runway_poly):
-                    # ax1.plot([nw_lon, se_lon, se_lon, nw_lon, nw_lon], [nw_lat, nw_lat, se_lat, se_lat, nw_lat], "-")
+                    if do_plot:
+                        ax1.plot([nw_lon, se_lon, se_lon, nw_lon, nw_lon], [nw_lat, nw_lat, se_lat, se_lat, nw_lat], "-")
                     print("    overlap!", x, y)
                     if x not in top:
                         top[x] = {}
                     top[x][y] = 1
-        # plt.show()
+        if do_plot:
+            plt.show()
 
 def flag_aiport(apt):
     # expects a single airport per file
@@ -164,11 +171,13 @@ def flag_aiport(apt):
     print("nedref:", local_nedref)
 
     for runway in runways:
-        w2 = float(runway[1]) * 0.5
+        w_scale = 1.5
+        l_scale = 1.1
+        w2 = w_scale * float(runway[1]) * 0.5
         ned1 = navpy.lla2ned(float(runway[9]), float(runway[10]), alt_m, local_nedref[0], local_nedref[1], local_nedref[2])
         ned2 = navpy.lla2ned(float(runway[18]), float(runway[19]), alt_m, local_nedref[0], local_nedref[1], local_nedref[2])
         angle = 0.5*pi - atan2(ned2[0]-ned1[0], ned2[1]-ned1[1])
-        length = np.linalg.norm(ned1-ned2)
+        length = l_scale * np.linalg.norm(ned1-ned2)
         print(ned1, ned2, angle*r2d, length)
 
         # generate runway corners (in ned space)
