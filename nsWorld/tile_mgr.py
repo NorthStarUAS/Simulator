@@ -117,15 +117,12 @@ class tile_mgr(threading.Thread):
 
     def tile_has_runway(self, zoom, x, y):
         # print("tiles_with_runways:", zoom, x, y)
-        zoom = str(zoom)
-        x = str(x)
-        y = str(y)
         if zoom in self.tiles_with_runways:
             # print("  has:", zoom)
             if x in self.tiles_with_runways[zoom]:
                 # print("    has:", zoom, x)
                 if y in self.tiles_with_runways[zoom][x]:
-                    # print("    has:", zoom, x, y)
+                    # print("    has:", zoeom, x, y)
                     return True
         return False
 
