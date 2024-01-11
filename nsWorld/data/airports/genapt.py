@@ -37,99 +37,11 @@ rwy_format = GeomVertexFormat.getV3()
 # cutoff_freq = step_size * 0.002  # bigger values == tighter fit
 # b, a = signal.butter(2, cutoff_freq, 'lowpass')
 
-from scipy import interpolate
-from scipy.ndimage import gaussian_filter
-
 from nsWorld import srtm
 dot_root = ".nsWorld"
 srtm_dir = os.path.join(pathlib.Path.home(), dot_root, "cache", "srtm")
 pathlib.Path(srtm_dir).mkdir(parents=True, exist_ok=True)
 srtm_cache = srtm.Cache(srtm_dir)
-
-class SmoothPatch:
-    def __init__(self, lat_min, lat_max, lon_min, lon_max, nedref, step_size=25):
-        nedmin = navpy.lla2ned(lat_min, lon_min, nedref[2], nedref[0], nedref[1], nedref[2])
-        nedmax = navpy.lla2ned(lat_max, lon_max, nedref[2], nedref[0], nedref[1], nedref[2])
-        print("nedmin:", nedmin)
-        print("nedmax:", nedmax)
-        ndivs = int((nedmax[0] - nedmin[0]) / step_size) + 1
-        edivs = int((nedmax[1] - nedmin[1]) / step_size) + 1
-        print("divs n/e:", ndivs, edivs)
-
-        # sample the airport coverate area at high density
-        fit_pts = []
-        for lat in np.linspace(lat_min, lat_max, ndivs+1):
-            for lon in np.linspace(lon_min, lon_max, edivs+1):
-                fit_pts.append( (lon, lat) )
-        vals = [ nedref[2] ] * len(fit_pts)
-        lat1, lon1, lat2, lon2 = srtm.gen_tile_range(lat_min, lon_max, lat_max, lon_min)
-        for lat in range(lat1, lat2+1):
-            for lon in range(lon1, lon2+1):
-                srtm_tile = srtm_cache.get_tile(lat, lon)
-                # tilename = srtm.make_tile_name(lat, lon)
-                # srtm_cache.level_runways(tilename) # if needed
-                if srtm_tile is not None:
-                    zs = srtm_tile.delaunay_interpolate(np.array(fit_pts))
-                    #print zs
-                    # copy the good altitudes back to the corresponding ned points
-                    if len(zs) == len(fit_pts):
-                        for i in range(len(fit_pts)):
-                            if zs[i] > -10000:
-                                # llas[i][2] = zs[i]
-                                vals[i] = zs[i]
-        # print("raw vals:", vals)
-        raw_vals = np.array(vals).reshape( (ndivs+1, edivs+1))
-        print("raw_vals reshape:", raw_vals)
-
-        # if False:
-        #     # this is stupid and doesn't work well or correctly or at all
-        #     # smooth data by row
-        #     by_row = raw_vals.copy()
-        #     for r in range(ndivs+1):
-        #         by_row[r,:] = signal.filtfilt(b, a, raw_vals[r,:])
-        #     # smooth data by col
-        #     by_col = raw_vals.copy()
-        #     for c in range(edivs+1):
-        #         by_col[:,c] = signal.filtfilt(b, a, raw_vals[:,c])
-        #         # plt.figure()
-        #         # plt.plot(raw_vals[:,c], ".")
-        #         # plt.plot(by_col[:,c])
-        #         # # plt.axis("equal")
-        #         # plt.xlabel("pos")
-        #         # plt.ylabel("elev (m)")
-        #         # plt.title(id)
-        #         # plt.show()
-        #     # average the two (making this up as I go along!)
-        #     self.smooth = (by_row + by_col) * 0.5
-        #     plt.figure()
-        #     plt.imshow(by_row, origin="lower")
-        #     plt.title("by_row")
-        #     plt.figure()
-        #     plt.imshow(by_col, origin="lower")
-        #     plt.title("by_col")
-
-        self.smooth = gaussian_filter(raw_vals, sigma=3, mode="nearest")
-        plt.figure()
-        plt.imshow(raw_vals, origin="lower")
-        plt.title("raw")
-        plt.colorbar()
-        plt.figure()
-        plt.imshow(self.smooth, origin="lower")
-        plt.title("smooth")
-        plt.colorbar()
-        plt.show()
-
-        x = np.linspace(nedmin[1], nedmax[1], edivs+1)
-        y = np.linspace(nedmin[0], nedmax[0], ndivs+1)
-        self.interp = interpolate.RegularGridInterpolator((x, y), self.smooth.T, bounds_error=False, fill_value=None)
-
-    def interpolate(self, neds):
-        pts = []
-        for ned in neds:
-            pts.append( [ned[0], ned[1]] )
-        vals = self.interp(pts)
-        for i in range(len(neds)):
-            neds[i][2] = vals[i]
 
 def old_interpolate_terrain(vts, nedref):
     # inefficient, but we have to convert ned vts's back to lla before doing our interpolation work
@@ -278,7 +190,7 @@ def genapt(apt, just_do_overlap=False):
     if just_do_overlap:
         patch = None
     else:
-        patch = SmoothPatch(lat_min, lat_max, lon_min, lon_max, local_nedref)
+        patch = srtm.SmoothPatch(srtm_cache, lat_min, lat_max, lon_min, lon_max, local_nedref)
 
     #airport_node = render.attachNewNode(id)
     airport_node = NodePath(id)
@@ -337,7 +249,7 @@ def genapt(apt, just_do_overlap=False):
             clip_poly = clip_poly + raw_segment
             for i, contour in enumerate(segment):
                 # contour = rwy_poly.contour(i)
-                print("  contour:", contour, segment.isHole(i))
+                print("  contour:", i, contour, segment.isHole(i))
                 vts = []
                 for p in contour:
                     vts.append( [p[0], p[1], alt_m])
@@ -374,14 +286,15 @@ def genapt(apt, just_do_overlap=False):
         segment = raw_segment - clip_poly
         clip_poly = clip_poly + raw_segment
         for i, contour in enumerate(segment):
-            print("  taxi contour:", contour, segment.isHole(i))
-            vts = []
-            for p in contour:
-                vts.append( [p[0], p[1], alt_m])
-            # interpolate_terrain(vts, local_nedref)
-            patch.interpolate(vts)
-            p3 = Polygon3d(vts)
-            taxiway_node.attachNewNode(p3.makeNode())
+            print("  taxi contour:", i, len(contour), segment.isHole(i))
+            if not segment.isHole(i):
+                vts = []
+                for p in contour:
+                    vts.append( [p[0], p[1], alt_m])
+                # interpolate_terrain(vts, local_nedref)
+                patch.interpolate(vts)
+                p3 = Polygon3d(vts)
+                taxiway_node.attachNewNode(p3.makeNode())
     print("clip poly (after new taxiway polygons):", clip_poly)
 
     for taxiway in taxiways_old:
