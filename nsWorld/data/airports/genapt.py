@@ -216,7 +216,8 @@ def old_interpolate_terrain(vts, nedref):
     print("vts inside:", vts)
 
 div_len = 50
-def genapt(apt, do_boundaries):
+def genapt(apt, just_do_overlap=False):
+    do_boundaries = False
     # expects a single airport per file
     info = {}
     runways = []
@@ -325,7 +326,10 @@ def genapt(apt, do_boundaries):
     print("coverage:", lat_min, lat_max, lon_min, lon_max)
     print("nedref:", local_nedref)
     info["nedref"] = local_nedref
-    patch = SmoothPatch(lat_min, lat_max, lon_min, lon_max, local_nedref)
+    if just_do_overlap:
+        patch = None
+    else:
+        patch = SmoothPatch(lat_min, lat_max, lon_min, lon_max, local_nedref)
 
     #airport_node = render.attachNewNode(id)
     airport_node = NodePath(id)
@@ -389,8 +393,8 @@ def genapt(apt, do_boundaries):
                 for p in contour:
                     vts.append( [p[0], p[1], alt_m])
                 print("vts before:", vts)
-                # interpolate_terrain(vts, local_nedref)
-                patch.interpolate(vts)
+                if patch is not None:
+                    patch.interpolate(vts)
                 print("vts after srtm:", vts)
                 p3 = Polygon3d(vts)
                 runway_node.attachNewNode(p3.makeNode())
@@ -402,6 +406,9 @@ def genapt(apt, do_boundaries):
         info["runways_lla"].append([c1_lla, c2_lla, c3_lla, c4_lla])
         flag_overlapping_tiles([c1_lla, c2_lla, c3_lla, c4_lla])
     print("clip poly (after runways):", clip_poly)
+
+    if just_do_overlap:
+        return
 
     # print("taxi sections:", len(taxiways_lla))
     # print("taxi lla:", taxiways_lla)

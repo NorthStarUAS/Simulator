@@ -99,10 +99,10 @@ with gzip.open(args.aptdat, "r") as f:
                         continue
 
                     if args.task == "apt-models":
-                        node, info = genapt.genapt(apt, boundaries)
+                        node, info = genapt.genapt(apt)
                         save_airport(node, info)
                     if args.task == "tiles-with-runways":
-                        genapt.genapt(apt, boundaries)
+                        genapt.genapt(apt, just_do_overlap=True)
                     if args.task == "srtm-runways":
                         rwys_by_srtm_tile.sortapt(apt)
                 if id == args.end_id:
@@ -119,12 +119,10 @@ with gzip.open(args.aptdat, "r") as f:
 if args.task == "tiles-with-runways":
     path = "tiles_with_runways.pkl"
     print("saving tiles with runways:", path)
-    with open(path, "w") as f:
+    with open(path, "wb") as f:
         pickle.dump(genapt.tiles_with_rwys, f)
 if args.task == "srtm-runways":
     path = "srtm_runways.pkl"
     print("saving srtm tiles vs runways:", path)
-    print(rwys_by_srtm_tile.by_tile)
-    print(type(rwys_by_srtm_tile.by_tile))
-    with open(path, "w") as f:
+    with open(path, "wb") as f:
         pickle.dump(rwys_by_srtm_tile.by_tile, f)
