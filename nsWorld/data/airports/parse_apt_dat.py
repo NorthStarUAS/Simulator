@@ -10,8 +10,9 @@ import pickle
 
 from nsWorld import slippy_tiles, srtm
 
-import rwys_by_srtm_tile
 import genapt
+import overlapping_tiles
+import rwys_by_srtm_tile
 
 parser = argparse.ArgumentParser(description="Parse apt.dat file and do stuff.")
 parser.add_argument("aptdat", help="path to apt.data.gz (or apt.dat.ws3.gz) file")
@@ -102,7 +103,7 @@ with gzip.open(args.aptdat, "r") as f:
                         node, info = genapt.genapt(apt)
                         save_airport(node, info)
                     if args.task == "tiles-with-runways":
-                        genapt.genapt(apt, just_do_overlap=True)
+                        overlapping_tiles.flag_aiport(apt)
                     if args.task == "srtm-runways":
                         rwys_by_srtm_tile.sortapt(apt)
                 if id == args.end_id:
@@ -120,7 +121,7 @@ if args.task == "tiles-with-runways":
     path = "tiles_with_runways.pkl"
     print("saving tiles with runways:", path)
     with open(path, "wb") as f:
-        pickle.dump(genapt.tiles_with_rwys, f)
+        pickle.dump(overlapping_tiles.tiles_with_rwys, f)
 if args.task == "srtm-runways":
     path = "srtm_runways.pkl"
     print("saving srtm tiles vs runways:", path)

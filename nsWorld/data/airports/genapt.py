@@ -33,57 +33,6 @@ bound_mat.setDiffuse((0.5, 0.7, 0.5, 0.5))
 
 rwy_format = GeomVertexFormat.getV3()
 
-# ginormous tree of tiles that have runway overlap
-tiles_with_rwys = {}
-for level in range(9,19+1):
-    tiles_with_rwys[level] = {}
-
-def flag_overlapping_tiles(runway):
-    # make polygons in lla space just to test intersection
-    ll0 = runway[0][:2]
-    ll1 = runway[1][:2]
-    ll2 = runway[2][:2]
-    ll3 = runway[3][:2]
-    runway_poly = Polygon([ll0, ll1, ll3, ll2])
-
-    min_lat, min_lon, max_lat, max_lon = 360, 360, -360, -360
-    for c in runway:
-        if c[0] < min_lat: min_lat = c[0]
-        if c[0] > max_lat: max_lat = c[0]
-        if c[1] < min_lon: min_lon = c[1]
-        if c[1] > max_lon: max_lon = c[1]
-    print("min/max:", min_lat, min_lon, max_lat, max_lon)
-
-    for level in range(9,19+1):
-        # test/debug
-        # fig, ax1 = plt.subplots(1, 1)
-        # ax1.grid(True)
-        # ax1.axis("equal")
-
-        ll0 = runway[0][:2]
-        ll1 = runway[1][:2]
-        ll2 = runway[2][:2]
-        ll3 = runway[3][:2]
-        # ax1.plot([ll0[1], ll1[1], ll3[1], ll2[1], ll0[1]], [ll0[0], ll1[0], ll3[0], ll2[0], ll0[0]], "-")
-
-        minx, maxy = slippy_tiles.deg2num(min_lat, min_lon, level)
-        maxx, miny = slippy_tiles.deg2num(max_lat, max_lon, level)
-        print("  level:", level, minx, miny, maxx, maxy)
-        # ax1.plot([min_lon, max_lon, max_lon, min_lon, min_lon], [max_lat, max_lat, min_lat, min_lat, max_lat], "-")
-        top = tiles_with_rwys[level]
-        for x in range(minx,maxx+1):
-            for y in range(miny,maxy+1):
-                nw_lat, nw_lon = slippy_tiles.num2deg(x, y, level)
-                se_lat, se_lon = slippy_tiles.num2deg(x+1, y+1, level)
-                tile_poly = Polygon([[nw_lat, nw_lon], [nw_lat, se_lon], [se_lat, se_lon], [se_lat, nw_lon]])
-                if len(tile_poly & runway_poly):
-                    # ax1.plot([nw_lon, se_lon, se_lon, nw_lon, nw_lon], [nw_lat, nw_lat, se_lat, se_lat, nw_lat], "-")
-                    print("    overlap!", x, y)
-                    if x not in top:
-                        top[x] = {}
-                    top[x][y] = 1
-        # plt.show()
-
 # from scipy import signal
 # cutoff_freq = step_size * 0.002  # bigger values == tighter fit
 # b, a = signal.butter(2, cutoff_freq, 'lowpass')
@@ -120,7 +69,7 @@ class SmoothPatch:
                 # tilename = srtm.make_tile_name(lat, lon)
                 # srtm_cache.level_runways(tilename) # if needed
                 if srtm_tile is not None:
-                    zs = srtm_tile.raw_interpolate(np.array(fit_pts))
+                    zs = srtm_tile.delaunay_interpolate(np.array(fit_pts))
                     #print zs
                     # copy the good altitudes back to the corresponding ned points
                     if len(zs) == len(fit_pts):
@@ -404,7 +353,6 @@ def genapt(apt, just_do_overlap=False):
         c3_lla = navpy.ned2lla([c3[1], c3[0], -alt_m], local_nedref[0], local_nedref[1], 0)
         c4_lla = navpy.ned2lla([c4[1], c4[0], -alt_m], local_nedref[0], local_nedref[1], 0)
         info["runways_lla"].append([c1_lla, c2_lla, c3_lla, c4_lla])
-        flag_overlapping_tiles([c1_lla, c2_lla, c3_lla, c4_lla])
     print("clip poly (after runways):", clip_poly)
 
     if just_do_overlap:
