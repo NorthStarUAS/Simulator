@@ -15,7 +15,7 @@ from .constants import ft2m
 
 # For runway leveling in the SRTM terrain
 segment_length = 25
-cutoff_freq = segment_length * 0.002  # bigger values == tighter fit
+cutoff_freq = segment_length * 0.001  # bigger values == tighter fit
 b, a = signal.butter(2, cutoff_freq, 'lowpass')
 
 # return the lower left corner of the 1x1 degree tile containing
@@ -46,6 +46,7 @@ class SRTM():
         self.lat, self.lon = lla_ll_corner(lat, lon)
         self.tilename = make_tile_name(lat, lon)
         self.raw_interp = None
+        self.delaunay_interp = None
         self.level_pts = None
 
     def load(self, filename):
@@ -87,11 +88,34 @@ class SRTM():
                     z = va
                     self.raw_pts[c,1200-r] = z
 
+    # works but is really slow to build :-(
+    def make_delaunay_interpolator(self):
+        print("SRTM: constructing DELAUNAY interpolator")
+        x = np.linspace(self.lon, self.lon+1, 1201)
+        y = np.linspace(self.lat, self.lat+1, 1201)
+        print("x:", x)
+        print("y:", y)
+        xs, ys = np.meshgrid(x, y)
+        print("xs:", xs.shape, xs)
+        print("ys:", ys.shape, ys)
+        xys = np.dstack((xs, ys))
+        # xys = np.array(list(zip(np.meshgrid(x, y)))).reshape((-1,2))
+        # print("xys (list):", list(zip(np.meshgrid(x, y))))
+        print(type(xys), type(self.raw_pts))
+        print(xys.shape, self.raw_pts.reshape(-1).shape)
+        print("xys:", xys.reshape(-1,2))
+        self.delaunay_interp = scipy.interpolate.LinearNDInterpolator(xys.reshape(-1,2), self.raw_pts.reshape(-1))
+
+    def delaunay_interpolate(self, point_list):
+        if self.delaunay_interp is None:
+            self.make_delaunay_interpolator()
+        return self.delaunay_interp(point_list)
+
     def make_raw_interpolator(self):
         print("SRTM: constructing RAW interpolator")
-        self.x = np.linspace(self.lon, self.lon+1, 1201)
-        self.y = np.linspace(self.lat, self.lat+1, 1201)
-        self.raw_interp = scipy.interpolate.RegularGridInterpolator((self.x, self.y), self.raw_pts, bounds_error=False, fill_value=-32768)
+        x = np.linspace(self.lon, self.lon+1, 1201)
+        y = np.linspace(self.lat, self.lat+1, 1201)
+        self.raw_interp = scipy.interpolate.RegularGridInterpolator((x, y), self.raw_pts, bounds_error=False, fill_value=-32768)
         #print self.raw_interp([-93.14530573529404, 45.220697421008396])
         #for i in range(20):
         #    x = -94.0 + random.random()
@@ -110,9 +134,9 @@ class SRTM():
 
     def make_interpolator(self):
         print("SRTM: constructing LEVEL interpolator")
-        self.x = np.linspace(self.lon, self.lon+1, 1201)
-        self.y = np.linspace(self.lat, self.lat+1, 1201)
-        self.interp = scipy.interpolate.RegularGridInterpolator((self.x, self.y), self.level_pts, bounds_error=False, fill_value=-32768)
+        x = np.linspace(self.lon, self.lon+1, 1201)
+        y = np.linspace(self.lat, self.lat+1, 1201)
+        self.interp = scipy.interpolate.RegularGridInterpolator((x, y), self.level_pts, bounds_error=False, fill_value=-32768)
         #print self.raw_interp([-93.14530573529404, 45.220697421008396])
         #for i in range(20):
         #    x = -94.0 + random.random()
@@ -395,7 +419,7 @@ if __name__ == "__main__":
     lat = 46.5
     lon = -92.2
     tile = srtm_cache.get_tile(lat, lon)
-
+    print(tile.delaunay_interpolate( [-92.25, 46.45 ] ))
     # filename = "../data/airports/srtm_runways.pkl"
     # print("Loading list of runways sorted by tile:", filename)
     # by_tiles = {}
