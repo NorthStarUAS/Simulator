@@ -3,20 +3,22 @@
 import argparse
 import gzip
 import json
+import numpy as np
 import os
 import pathlib
 import pickle
 
-from nsWorld import slippy_tiles
+from nsWorld import slippy_tiles, srtm
 
 import rwys_by_srtm_tile
 import genapt
 
 parser = argparse.ArgumentParser(description="Parse apt.dat file and do stuff.")
-parser.add_argument("--aptdat", required=True, help="path to apt.data.gz (or apt.dat.ws3.gz) file")
+parser.add_argument("aptdat", help="path to apt.data.gz (or apt.dat.ws3.gz) file")
 parser.add_argument("--task", required=True, choices=["apt-models", "tiles-with-runways", "srtm-runways"], help="select the task to perform")
 parser.add_argument("--start-id", help="begin processing at specified apt id")
 parser.add_argument("--end-id", help="end processing at specified apt id")
+parser.add_argument("--tile", help="process airports for this srtm tile, ex: N24W081")
 args = parser.parse_args()
 
 # slippy map zoom level
@@ -63,15 +65,15 @@ with gzip.open(args.aptdat, "r") as f:
                 print("Start of airport:", id, alt_ft, name)
                 in_apt = True
                 apt = []
-                # lats = []
-                # lons = []
+                lats = []
+                lons = []
             elif tokens[0] == "100":
                 has_runways = True
                 # # runway definition
-                # lats.append(float(tokens[9]))
-                # lats.append(float(tokens[18]))
-                # lons.append(float(tokens[10]))
-                # lons.append(float(tokens[19]))
+                lats.append(float(tokens[9]))
+                lats.append(float(tokens[18]))
+                lons.append(float(tokens[10]))
+                lons.append(float(tokens[19]))
             apt.append(" ".join(tokens))
         elif not len(tokens):
             if in_apt:
@@ -81,6 +83,13 @@ with gzip.open(args.aptdat, "r") as f:
                     print("Begin processing at:", args.start_id)
                 if has_runways and not skipping:
                     boundaries = False
+                    if args.tile:
+                        if not len(lats):
+                            continue
+                        lat = np.mean(lats)
+                        lon = np.mean(lons)
+                        if args.tile != srtm.make_tile_name(lat, lon):
+                            continue
                     if id == "WX46" or id == "KRAS" or id == "KTOA":
                         # hack to avoid segfault in polygon clipping library
                         # with specific airports (mysteries of floating point?)
