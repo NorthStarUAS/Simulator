@@ -54,7 +54,6 @@ class Builder():
         bam_dir = os.path.join(pathlib.Path.home(), dot_root, "cache", "bam")
         self.bam_cache = tile_cache.SlippyCache(bam_dir, "", "", ext=".bam")
 
-
     def make_tin(self, zoom_level, x, y, steps, do_skirt):
         nw_lat, nw_lon = slippy_tiles.num2deg(x, y, zoom_level)
         se_lat, se_lon = slippy_tiles.num2deg(x+1, y+1, zoom_level)
@@ -113,7 +112,7 @@ class Builder():
             for lon in range(lon1, lon2+1):
                 srtm_tile = self.srtm_cache.get_tile(lat, lon)
                 tilename = srtm.make_tile_name(lat, lon)
-                self.srtm_cache.level_runways(tilename) # if needed
+                self.srtm_cache.level_airports(tilename) # if needed
                 if srtm_tile is not None:
                     zs = srtm_tile.interpolate(np.array(fit_pts))
                     #print zs
@@ -289,7 +288,11 @@ def main():
     mybuilder = Builder(".nsWorld")
 
     while True:
-        line = input()
+        try:
+            line = input()
+        except EOFError:
+            print("tile_mgr has closed the connection, tile_builder is shutting down...")
+            quit()
         # print("got:", line.split(","))
         (zoom, x, y, style) = line.split(",")
         tile = mybuilder.gen_terrain_node(int(zoom), int(x), int(y), style)
