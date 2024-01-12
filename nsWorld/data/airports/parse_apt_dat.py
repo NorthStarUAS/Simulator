@@ -12,11 +12,11 @@ from nsWorld import slippy_tiles, srtm
 
 import genapt
 import overlapping_tiles
-import rwys_by_srtm_tile
+import srtm_smooth_patches
 
 parser = argparse.ArgumentParser(description="Parse apt.dat file and do stuff.")
 parser.add_argument("aptdat", help="path to apt.data.gz (or apt.dat.ws3.gz) file")
-parser.add_argument("--task", required=True, choices=["apt-models", "tiles-with-runways", "srtm-runways"], help="select the task to perform")
+parser.add_argument("--task", required=True, choices=["apt-models", "tiles-with-runways", "srtm-smooth-patches"], help="select the task to perform")
 parser.add_argument("--start-id", help="begin processing at specified apt id")
 parser.add_argument("--end-id", help="end processing at specified apt id")
 parser.add_argument("--tile", help="process airports for this srtm tile, ex: N24W081")
@@ -104,8 +104,8 @@ with gzip.open(args.aptdat, "r") as f:
                         save_airport(node, info)
                     if args.task == "tiles-with-runways":
                         overlapping_tiles.flag_aiport(apt)
-                    if args.task == "srtm-runways":
-                        rwys_by_srtm_tile.sortapt(apt)
+                    if args.task == "srtm-smooth-patches":
+                        srtm_smooth_patches.sortapt(apt)
                 if id == args.end_id:
                     skipping = True
                     print("End processing at:", args.start_id)
@@ -122,8 +122,8 @@ if args.task == "tiles-with-runways":
     print("saving tiles with runways:", path)
     with open(path, "wb") as f:
         pickle.dump(overlapping_tiles.tiles_with_rwys, f)
-if args.task == "srtm-runways":
-    path = "srtm_runways.pkl"
-    print("saving srtm tiles vs runways:", path)
+if args.task == "srtm-smooth-patches":
+    path = "smooth_patches.pkl"
+    print("saving srtm smooth patches:", path)
     with open(path, "wb") as f:
-        pickle.dump(rwys_by_srtm_tile.by_tile, f)
+        pickle.dump(srtm_smooth_patches.by_tile, f)
