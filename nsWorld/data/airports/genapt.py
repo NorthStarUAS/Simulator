@@ -9,7 +9,6 @@ from panda3d.core import *
 
 import navpy
 from nsWorld.constants import ft2m, r2d
-from nsWorld import slippy_tiles
 
 from polygon3d import Polygon3d
 
@@ -255,7 +254,7 @@ def genapt(apt, just_do_overlap=False):
                     vts.append( [p[0], p[1], alt_m])
                 print("vts before:", vts)
                 if patch is not None:
-                    patch.interpolate(vts)
+                    patch.ned_interpolate(vts)
                 print("vts after srtm:", vts)
                 p3 = Polygon3d(vts)
                 runway_node.attachNewNode(p3.makeNode())
@@ -292,7 +291,7 @@ def genapt(apt, just_do_overlap=False):
                 for p in contour:
                     vts.append( [p[0], p[1], alt_m])
                 # interpolate_terrain(vts, local_nedref)
-                patch.interpolate(vts)
+                patch.ned_interpolate(vts)
                 p3 = Polygon3d(vts)
                 taxiway_node.attachNewNode(p3.makeNode())
     print("clip poly (after new taxiway polygons):", clip_poly)
@@ -346,7 +345,7 @@ def genapt(apt, just_do_overlap=False):
                 for p in contour:
                     vts.append( [p[0], p[1], alt_m])
                 # interpolate_terrain(vts, local_nedref)
-                patch.interpolate(vts)
+                patch.ned_interpolate(vts)
                 p3 = Polygon3d(vts)
                 taxiway_node.attachNewNode(p3.makeNode())
     print("clip poly (after old taxiways):", clip_poly)
