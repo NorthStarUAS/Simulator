@@ -66,6 +66,86 @@ class Builder():
         lon_min = nw_lon - dlon
         print("make_tin:", zoom_level, x, y, nw_lat, nw_lon, se_lat, se_lon)
 
+        llas = []
+        is_skirt = []
+
+        # over cover range by one step on each side for generating a skirt to hide
+        # LOD and floating point rounding gaps between tiles
+
+        if do_skirt:
+            start = -1
+            end = steps + 2
+        else:
+            start = 0
+            end = steps + 1
+
+        for c in range(start, end):
+            for r in range(start, end):
+                lon = nw_lon + dlon * c
+                lat = se_lat + dlat * r
+                llas.append( [lat, lon, 0] )
+
+                # flag skirt points so later we can adjust their elevation artificially lower
+                if r < 0 or r > steps or c < 0 or c > steps:
+                    is_skirt.append(True)
+                else:
+                    is_skirt.append(False)
+            time.sleep(0)
+        llas = np.array(llas)
+
+        # compute texture coordinates
+        texcoords = []
+        for p in llas:
+            u = (p[1] - nw_lon) / lon_size
+            v = (p[0] - se_lat) / lat_size
+            texcoords.append([u,v])
+            time.sleep(0)
+
+        lat1, lon1, lat2, lon2 = srtm.gen_tile_range(lat_min, lon_max, lat_max, lon_min)
+
+        # for each srtm tile this region spans, interpolate as many elevation values
+        # as we can, then copy the good values into zs.  When we finish all the
+        # loaded tiles, we should have found elevations for the entire range of
+        # points.
+        for lat in range(lat1, lat2+1):
+            for lon in range(lon1, lon2+1):
+                srtm_tile = self.srtm_cache.get_tile(lat, lon)
+                tilename = srtm.make_tile_name(lat, lon)
+                self.srtm_cache.make_smooth_patches(tilename) # if needed
+                if srtm_tile is not None:
+                    srtm_tile.full_interpolate(llas)
+                time.sleep(0)
+        for i in range(len(llas)):
+            if is_skirt[i] and llas[i][2] > -9998:
+                # artifically lower skirt elevations
+                llas[i][2] -= xsize_m / 10
+
+        # (not needed now): default val zero vs. /down/ elevation quick sanity check
+        # for i in range(len(llas)):
+        #     if llas[i][2] < -9998:
+        #         print("Problem interpolating elevation for:", llas[i])
+        #         llas[i][2] = 0.0 # ocean?
+
+        fv = np.array(llas)[:,2]
+        sk = np.array(is_skirt)
+        avg_elev_m = np.mean(fv[sk==False])
+        # print(is_skirt, fv[sk==False])
+        print("Tile average elev (m):", avg_elev_m)
+
+        return llas, [center_lat, center_lon, avg_elev_m], texcoords, is_skirt
+
+    def old_make_tin(self, zoom_level, x, y, steps, do_skirt):
+        nw_lat, nw_lon = slippy_tiles.num2deg(x, y, zoom_level)
+        se_lat, se_lon = slippy_tiles.num2deg(x+1, y+1, zoom_level)
+        lon_size, lat_size, xsize_m, ysize_m, center_lat, center_lon = slippy_tiles.get_tile_size(x, y, zoom_level)
+        dlon = lon_size / steps
+        dlat = lat_size / steps
+        lat_min = se_lat - dlat
+        lon_max = se_lon + dlon
+        lat_max = nw_lat + dlat
+        lon_min = nw_lon - dlon
+        print("make_tin:", zoom_level, x, y, nw_lat, nw_lon, se_lat, se_lon)
+
         fit_pts = []
         fit_vals = []
         is_skirt = []
@@ -114,7 +194,7 @@ class Builder():
                 tilename = srtm.make_tile_name(lat, lon)
                 self.srtm_cache.level_airports(tilename) # if needed
                 if srtm_tile is not None:
-                    zs = srtm_tile.interpolate(np.array(fit_pts))
+                    zs = srtm_tile.raw_interpolate(np.array(fit_pts))
                     #print zs
                     # copy the good altitudes back to the corresponding ned points
                     if len(zs) == len(fit_pts):
@@ -147,10 +227,10 @@ class Builder():
         #     do_skirt = False
         #     steps = tile_steps_wireframe
 
-        fit_pts, fit_vals, center_lla, texcoords, is_skirt = self.make_tin(zoom_level, x, y, steps, do_skirt)
+        llas, center_lla, texcoords, is_skirt = self.make_tin(zoom_level, x, y, steps, do_skirt)
 
         # compute Delaunay triangulation in lon/lat space
-        tris = scipy.spatial.Delaunay(fit_pts)
+        tris = scipy.spatial.Delaunay(llas[:,:2])
         print("tris:", len(tris.simplices))
         if False:
             import matplotlib.pyplot as plt
@@ -161,8 +241,8 @@ class Builder():
         # convert to xyz (via ned)
         points_xyz = []
         vals_xyz = []
-        for i in range(len(fit_pts)):
-            ned = navpy.lla2ned(fit_pts[i][1], fit_pts[i][0], fit_vals[i], center_lla[0], center_lla[1], center_lla[2])
+        for i in range(len(llas)):
+            ned = navpy.lla2ned(llas[i][0], llas[i][1], llas[i][2], center_lla[0], center_lla[1], center_lla[2])
             points_xyz.append( [ned[1], ned[0]] )
             vals_xyz.append(-ned[2])
             time.sleep(0)
@@ -246,7 +326,7 @@ class Builder():
 
         prim = GeomTriangles(Geom.UHStatic) # don't expect geometry to change
         for t in tris.simplices:
-            prim.addVertices(t[0], t[1], t[2])
+            prim.addVertices(t[0], t[2], t[1])
             time.sleep(0)
         prim.closePrimitive()
 

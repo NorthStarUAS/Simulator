@@ -91,8 +91,9 @@ class World():
         srtm_tile = self.srtm_cache.get_tile(lat_deg, lon_deg)
         if srtm_tile is not None:
             tilename = srtm.make_tile_name(lat_deg, lon_deg)
-            self.srtm_cache.level_airports(tilename)
-            zs = srtm_tile.interpolate(np.array([lon_deg, lat_deg]))
-            return zs[0]
+            self.srtm_cache.make_smooth_patches(tilename)
+            lla = [lat_deg, lon_deg, 0]
+            srtm_tile.full_interpolate([lla])
+            return lla[2]
         else:
             return 0.0
