@@ -45,9 +45,9 @@ class SRTM():
     def __init__(self, lat, lon):
         self.lat, self.lon = lla_ll_corner(lat, lon)
         self.tilename = make_tile_name(lat, lon)
-        self.base_interp = None
+        self.raw_interp = None
         self.delaunay_interp = None
-        self.smooth_patches = None
+        self.level_pts = None
 
     def load(self, filename):
         print("SRTM: loading .hgt file:", filename)
@@ -111,11 +111,11 @@ class SRTM():
             self.make_delaunay_interpolator()
         return self.delaunay_interp(point_list)
 
-    def make_base_interpolator(self):
-        print("SRTM: constructing interpolator")
+    def make_raw_interpolator(self):
+        print("SRTM: constructing RAW interpolator")
         x = np.linspace(self.lon, self.lon+1, 1201)
         y = np.linspace(self.lat, self.lat+1, 1201)
-        self.base_interp = scipy.interpolate.RegularGridInterpolator((x, y), self.raw_pts, bounds_error=False, fill_value=-32768)
+        self.raw_interp = scipy.interpolate.RegularGridInterpolator((x, y), self.raw_pts, bounds_error=False, fill_value=-32768)
         #print self.raw_interp([-93.14530573529404, 45.220697421008396])
         #for i in range(20):
         #    x = -94.0 + random.random()
@@ -127,28 +127,31 @@ class SRTM():
         # print("t1:", raw_pts)
         # print("raw_pts:", raw_pts)
 
-    def old_interpolate(self, point_list):
-        if self.new_interp is None:
-            self.make_new_interpolator()
-        vals = self.new_interp(point_list)
+    def raw_interpolate(self, point_list):
+        if self.raw_interp is None:
+            self.make_raw_interpolator()
+        return self.raw_interp(point_list)
 
-    def base_interpolate(self, llas):
-        if self.base_interp is None:
-            self.make_base_interpolator()
-        pts = []
-        for lat, lon, alt in llas:
-            pts.append([lon, lat])
-        vals = self.base_interp(np.array(pts))
-        # copy the good altitudes back to the corresponding ned points
-        if len(vals) == len(pts):
-            for i in range(len(pts)):
-                if vals[i] > -10000:
-                    llas[i][2] = vals[i]
+    def make_interpolator(self):
+        print("SRTM: constructing LEVEL interpolator")
+        x = np.linspace(self.lon, self.lon+1, 1201)
+        y = np.linspace(self.lat, self.lat+1, 1201)
+        self.interp = scipy.interpolate.RegularGridInterpolator((x, y), self.level_pts, bounds_error=False, fill_value=-32768)
+        #print self.raw_interp([-93.14530573529404, 45.220697421008396])
+        #for i in range(20):
+        #    x = -94.0 + random.random()
+        #    y = 45 + random.random()
+        #    z = self.raw_interp([x,y])
+        #    print [x, y, z[0]]
 
-    def full_interpolate(self, llas):
-        self.base_interpolate(llas)
-        for patch in self.smooth_patches:
-            patch.lla_interpolate(llas)
+        # print("is close:", np.isclose(raw_pts, raw_pts))
+        # print("t1:", raw_pts)
+        # print("raw_pts:", raw_pts)
+
+    def interpolate(self, point_list):
+        if self.interp is None:
+            self.make_interpolator()
+        return self.interp(point_list)
 
     def plot_raw(self):
         zzz = np.zeros((1201,1201))
@@ -235,31 +238,7 @@ class Cache():
 
     # Airport area Leveling (semi higher level (may need to look outside current tile),
     # semi lower level function adjusting tile elevations)
-    def make_smooth_patches(self, tilename):
-        if tilename not in self.cache:
-            return
-
-        srtm_tile = self.cache[tilename]
-        if srtm_tile.smooth_patches is not None:
-            # already complete
-            return
-
-        if tilename in self.by_tiles:
-            airports = self.by_tiles[tilename]
-        else:
-            airports = []
-
-        srtm_tile.smooth_patches = []
-
-        for lat_min, lat_max, lon_min, lon_max in airports:
-            print("smooth patch:", lat_min, lat_max, lon_min, lon_max)
-            nedref = [0.5*(lat_min+lat_max), 0.5*(lon_min+lon_max), 0]
-            patch = SmoothPatch(self, lat_min, lat_max, lon_min, lon_max, nedref)
-            srtm_tile.smooth_patches.append( patch )
-
-    # Airport area Leveling (semi higher level (may need to look outside current tile),
-    # semi lower level function adjusting tile elevations)
-    def old_level_airports(self, tilename):
+    def level_airports(self, tilename):
         if tilename not in self.cache:
             return
 
@@ -311,6 +290,180 @@ class Cache():
         # plt.colorbar()
         # plt.show()
 
+
+    # Runway Leveling (semi higher level (may need to look outside current tile),
+    # semi lower level function adjusting tile elevations)
+    def old_level_runways(self, tilename):
+        if tilename not in self.cache:
+            return
+
+        srtm_tile = self.cache[tilename]
+        if srtm_tile.level_pts is not None:
+            # already complete
+            return
+
+        if tilename in self.by_tiles:
+            runways = self.by_tiles[tilename]
+        else:
+            runways = []
+        work_mask = np.zeros((1201, 1201))
+        srtm_tile.level_pts = np.copy(srtm_tile.raw_pts)
+        # print("here0:", srtm_tile.level_pts, srtm_tile.raw_pts )
+        dist_array = np.ones((1201, 1201)) * 10000
+        for runway in runways:
+            # 1. leverage lla -> ned coordinate transformation to get real world length in meters
+            alt_ft = float(runway[1])
+            alt_m = alt_ft * ft2m
+            w = float(runway[1])
+            w2 = w * 0.5
+            lla1 = [float(runway[9]), float(runway[10]), alt_m]
+            lla2 = [float(runway[18]), float(runway[19]), alt_m]
+            ned1 = navpy.lla2ned(lla1[0], lla1[1], lla1[2], lla1[0], lla1[1], lla1[2])
+            ned2 = navpy.lla2ned(lla2[0], lla2[1], lla2[2], lla1[0], lla1[1], lla1[2])
+            print("neds:", ned1, ned2)
+            l = sqrt( (ned2[1] - ned1[1])**2 + (ned2[0] - ned1[0])**2 )
+            print("runway:", ned1, ned2, l)
+
+            # 2. divide up the runway length in some reasonable # of segments
+            divs = int(l / segment_length) + 1
+            print("divs:", divs)
+            lat_step = (lla2[0] - lla1[0]) / divs
+            lon_step = (lla2[1] - lla1[1]) / divs
+            print(lat_step, lon_step)
+            fit_pts = []
+            fit_vals = []
+            xm = []
+            print(lla1[0], lla2[0] + lat_step, lat_step)
+            print(lla1[1], lla2[1] + lon_step, lon_step)
+            lat = lla1[0]
+            lon = lla1[1]
+            for i in range(divs+1):
+                # print("ll:", lat, lon)
+                fit_pts.append([lon, lat])
+                fit_vals.append(None)
+                xm.append(i*segment_length)
+                lat += lat_step
+                lon += lon_step
+
+            # 3. raw interpolate the elevation along the centerline at each of these
+            #    subdivided points (from original srtm data)
+            fit_pts = np.array(fit_pts)
+            # print(fit_pts)
+            lat_min = np.min(fit_pts[:,1])
+            lat_max = np.max(fit_pts[:,1])
+            lon_min = np.min(fit_pts[:,0])
+            lon_max = np.max(fit_pts[:,0])
+            lat1, lon1, lat2, lon2 = gen_tile_range(lat_min, lon_max, lat_max, lon_min)
+            print("lla range:", lat_min, lon_max, lat_max, lon_min)
+            print("srtm tile range:", lat1, lon1, lat2, lon2)
+
+            # for each srtm tile this region spans, interpolate as many elevation
+            # values as we can, then copy the good values into zs.  When we finish
+            # all the listed tiles, we should have found elevations for the entire
+            # set of points.
+            for lat in range(lat1, lat2+1):
+                for lon in range(lon1, lon2+1):
+                    raw_tile = self.get_tile(lat, lon)
+                    # print("raw_tile:", raw_tile)
+                    if raw_tile is not None:
+                        zs = raw_tile.raw_interpolate(np.array(fit_pts))
+                        #print zs
+                        # copy the good altitudes back to the corresponding ned points
+                        if len(zs) == len(fit_pts):
+                            for i in range(len(fit_pts)):
+                                if zs[i] > -10000:
+                                    fit_vals[i] = zs[i]
+
+            for i in range(len(fit_vals)):
+                if fit_vals[i] is None:
+                    print("Problem interpolating elevation for:", fit_pts[i], "(ocean?)")
+                    fit_vals[i] = 0.0
+
+            # 4. scipy.filtfilt() with suitable bandwidth values to get a reasonable smoothed surface.
+            if len(fit_vals) > 10:
+                # print("fit_vals:", len(fit_vals), fit_vals)
+                elev_fit = signal.filtfilt(b, a, fit_vals)
+
+                # plt.figure()
+                # plt.plot(xm, fit_vals, ".")
+                # plt.plot(xm, elev_fit)
+                # # plt.axis("equal")
+                # plt.xlabel("length (m)")
+                # plt.ylabel("elev (m)")
+                # plt.title(id)
+                # plt.show()
+            else:
+                elev_fit = fit_vals
+
+            # update the work mask with cells that potentially need updating
+            # print("here:", srtm_tile, srtm_tile.level_pts, srtm_tile.raw_pts)
+            for i in range(len(fit_pts)):
+                [lon, lat] = fit_pts[i]
+                elev = elev_fit[i]
+                xidx = int(round((lon - srtm_tile.lon) * 1200))
+                yidx = int(round((lat - srtm_tile.lat) * 1200))
+                # print(lon, lat, xidx, yidx)
+                ned1 = np.array([0, 0, 0])
+                # ned1 = navpy.lla2ned(lla1[0], lla1[1], lla1[2], lla1[0], lla1[1], lla1[2])
+                for r in range(yidx-2, yidx+3):
+                    if r < 0 or r > 1200:
+                        continue
+                    for c in range(xidx-2, xidx+3):
+                        if c < 0 or c > 1200:
+                            continue
+                        work_mask[r,c] = 1
+                        grid_lat = srtm_tile.lat + r / 1200
+                        grid_lon = srtm_tile.lon + c / 1200
+                        ned2 = navpy.lla2ned(grid_lat, grid_lon, 0.0, lat, lon, 0.0)
+                        dist = np.linalg.norm(ned2 - ned1)
+                        # print("dist:", dist)
+                        if dist < dist_array[r,c]:
+                            dist_array[r,c] = dist
+                            diff = elev - srtm_tile.raw_pts[c,r]
+                            # print("rwy fit:", elev, "raw:", srtm_tile.raw_pts[c,r], "diff:", diff)
+                            min = 100
+                            blend = 100
+                            if dist < min:
+                                val = elev
+                                # print("  using rwy elev:", val)
+                            elif dist < min + blend:
+                                val = diff * (dist - min) / blend + srtm_tile.raw_pts[c,r]
+                                # print("  using blended elev:", diff, val)
+                            else:
+                                val = srtm_tile.raw_pts[c,r]
+                                # print("  using raw elev:", val)
+                            srtm_tile.level_pts[c,r] = val
+
+        # 5. ...profit! somehow aka traverse nearby srtm posts and adjust
+        #               elevation based on nearness to the fit line ...
+
+        # I could do an n x m brute force comparison of all the points ... but I don't want to.
+        # can I use an opencv style mask somehow?
+
+        # 5.1 for each runway, make a list of SRTM points that are in range (above)
+        # 5.2 for each of these SRTM points, find closest rwy point
+        # 5.3 new SRTM elevation is func(nearest_apt_pt_elev, distance, original elevation)
+
+        if False:
+            work_idx = (dist_array<10000).nonzero()
+            print("work idx:", work_idx)
+            for i in range(len(work_idx[0])):
+                r = work_idx[0][i]
+                c = work_idx[1][i]
+                # yes raw_pts is c,r but other stuff is r,c
+                srtm_tile.raw_pts[c,r] = srtm_tile.level_pts[c,r]
+                # lat = srtm_tile.lat + r / 1200
+                # lon = srtm_tile.lon + c / 1200
+                # print("work:", lat, lon)
+
+        # remake the interpolator with leveled elevation points
+        srtm_tile.make_interpolator()
+        # plt.figure()
+        # plt.imshow(srtm_tile.level_pts.T, origin="lower")
+        # plt.figure()
+        # plt.imshow(work_mask, origin="lower")
+        # plt.show()
+
 class SmoothPatch:
     def __init__(self, srtm_cache, lat_min, lat_max, lon_min, lon_max, nedref, step_size=25):
         do_plot = False
@@ -355,12 +508,12 @@ class SmoothPatch:
         edivs = int((nedmax[1] - nedmin[1]) / step_size) + 1
         print("divs n/e:", ndivs, edivs)
 
-        # sample the airport coverage area at high density
-        llas = []
+        # sample the airport coverate area at high density
+        fit_pts = []
         for lat in np.linspace(lat_min, lat_max, ndivs+1):
             for lon in np.linspace(lon_min, lon_max, edivs+1):
-                llas.append( (lat, lon, nedref[2]) )
-        llas = np.array(llas)
+                fit_pts.append( (lon, lat) )
+        vals = [ nedref[2] ] * len(fit_pts)
         lat1, lon1, lat2, lon2 = gen_tile_range(lat_min, lon_max, lat_max, lon_min)
         for lat in range(lat1, lat2+1):
             for lon in range(lon1, lon2+1):
@@ -368,9 +521,16 @@ class SmoothPatch:
                 # tilename = srtm.make_tile_name(lat, lon)
                 # srtm_cache.level_runways(tilename) # if needed
                 if srtm_tile is not None:
-                    srtm_tile.base_interpolate(llas)
+                    zs = srtm_tile.raw_interpolate(np.array(fit_pts))
+                    #print zs
+                    # copy the good altitudes back to the corresponding ned points
+                    if len(zs) == len(fit_pts):
+                        for i in range(len(fit_pts)):
+                            if zs[i] > -10000:
+                                # llas[i][2] = zs[i]
+                                vals[i] = zs[i]
         # print("raw vals:", vals)
-        raw_vals = np.array(llas[:,2]).reshape( (ndivs+1, edivs+1))
+        raw_vals = np.array(vals).reshape( (ndivs+1, edivs+1))
         # print("raw_vals reshape:", raw_vals)
 
         self.smooth = scipy.ndimage.gaussian_filter(raw_vals, sigma=3, mode="nearest")
@@ -407,13 +567,10 @@ class SmoothPatch:
     def lla_interpolate(self, llas):
         pts = []
         for lla in llas:
-            # pts.append( lla[:2] )
-            pts.append( [ lla[1], lla[0] ] )
+            pts.append( lla[:2] )
         vals = self.lla_interp(pts)
-        # print("vals:", vals)
         for i in range(len(llas)):
-            if vals[i] > -9998:
-                llas[i][2] = vals[i]
+            llas[i][2] = vals[i]
 
 if __name__ == "__main__":
     import pathlib
@@ -437,13 +594,4 @@ if __name__ == "__main__":
 
     tilename = make_tile_name(lat, lon)
     print(tilename)
-
-    llas = [ [46.45, -92.25, 0 ], [46.84, -92.20, 0] ]
-    tile.base_interpolate( llas )
-    print("llas:", llas)
-
-    srtm_cache.make_smooth_patches(tilename)
-
-    llas = [ [46.45, -92.25, 0 ], [46.84, -92.20, 0] ]
-    tile.full_interpolate( llas )
-    print("llas:", llas)
+    srtm_cache.level_airports(tilename)
