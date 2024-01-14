@@ -127,11 +127,6 @@ class SRTM():
         # print("t1:", raw_pts)
         # print("raw_pts:", raw_pts)
 
-    def old_interpolate(self, point_list):
-        if self.new_interp is None:
-            self.make_new_interpolator()
-        vals = self.new_interp(point_list)
-
     def base_interpolate(self, llas):
         if self.base_interp is None:
             self.make_base_interpolator()
@@ -256,60 +251,6 @@ class Cache():
             nedref = [0.5*(lat_min+lat_max), 0.5*(lon_min+lon_max), 0]
             patch = SmoothPatch(self, lat_min, lat_max, lon_min, lon_max, nedref)
             srtm_tile.smooth_patches.append( patch )
-
-    # Airport area Leveling (semi higher level (may need to look outside current tile),
-    # semi lower level function adjusting tile elevations)
-    def old_level_airports(self, tilename):
-        if tilename not in self.cache:
-            return
-
-        srtm_tile = self.cache[tilename]
-        if srtm_tile.level_pts is not None:
-            # already complete
-            return
-
-        if tilename in self.by_tiles:
-            airports = self.by_tiles[tilename]
-        else:
-            airports = []
-
-        srtm_tile.level_pts = np.copy(srtm_tile.raw_pts)
-        # print("here0:", srtm_tile.level_pts, srtm_tile.raw_pts )
-        dist_array = np.ones((1201, 1201)) * 10000
-
-        for lat_min, lat_max, lon_min, lon_max in airports:
-            print("smooth patch:", lat_min, lat_max, lon_min, lon_max)
-            nedref = [0.5*(lat_min+lat_max), 0.5*(lon_min+lon_max), 0]
-            patch = SmoothPatch(self, lat_min, lat_max, lon_min, lon_max, nedref)
-
-            xmin = int((lon_min - srtm_tile.lon) * 1200)
-            xmax = int((lon_max - srtm_tile.lon) * 1200) + 1
-            ymin = int((lat_min - srtm_tile.lat) * 1200)
-            ymax = int((lat_max - srtm_tile.lat) * 1200) + 1
-            if xmin < 0: xmin = 0
-            if xmax > 1200: xmax = 1200
-            if ymin < 0: ymin = 0
-            if ymax > 1200: ymax = 1200
-            for r in range(ymin, ymax+1):
-                for c in range(xmin, xmax+1):
-                    lla = [ srtm_tile.lon + c/1200, srtm_tile.lat + r/1200, 0 ]
-                    result = patch.lla_interpolate([lla])
-                    if lla[2] > -998:
-                        # print("patch update:", r, c, lla, srtm_tile.raw_pts[c,r], "->", lla[2])
-                        srtm_tile.level_pts[c,r] = lla[2]
-                    # else:
-                    #     print("patch no-update:", r, c, lla, srtm_tile.raw_pts[c,r], "->", lla[2])
-
-        # remake the interpolator with leveled elevation points
-        srtm_tile.make_interpolator()
-
-        # plt.figure()
-        # plt.imshow(srtm_tile.raw_pts.T, origin="lower")
-        # plt.colorbar()
-        # plt.figure()
-        # plt.imshow(srtm_tile.level_pts.T, origin="lower")
-        # plt.colorbar()
-        # plt.show()
 
 class SmoothPatch:
     def __init__(self, srtm_cache, lat_min, lat_max, lon_min, lon_max, nedref, step_size=25):
