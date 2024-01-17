@@ -65,7 +65,7 @@ def flag_overlapping_tiles(runway):
         if do_plot:
             plt.show()
 
-def flag_aiport(apt):
+def flag_airport(apt):
     # expects a single airport per file
     runways = []
     taxiways_lla = []
@@ -166,30 +166,71 @@ def flag_aiport(apt):
     lat_max = np.max(lats)
     lon_min = np.min(lons)
     lon_max = np.max(lons)
-    local_nedref = [ (lat_min + lat_max)*0.5, (lon_min + lon_max) * 0.5, alt_m ]
+
+    # 10% expansion (5% on each margin)
+    lat_extend = (lat_max - lat_min) * 0.05
+    lon_extend = (lon_max - lon_min) * 0.05
+    lat_min -= lat_extend
+    lat_max += lat_extend
+    lon_min -= lon_extend
+    lon_max += lon_extend
+
     print("coverage:", lat_min, lat_max, lon_min, lon_max)
-    print("nedref:", local_nedref)
+
+    # rotate a e, n vector (x, y) by the angle
+    def ned_rotate(ned, angle_rad, n, e):
+        x = e * cos(angle_rad) - n * sin(angle_rad)
+        y = e * sin(angle_rad) + n * cos(angle_rad)
+        return [ned[0] + y, ned[1] + x, ned[2]]
 
     for runway in runways:
-        w_scale = 1.5
-        l_scale = 1.1
-        w2 = w_scale * float(runway[1]) * 0.5
-        ned1 = navpy.lla2ned(float(runway[9]), float(runway[10]), alt_m, local_nedref[0], local_nedref[1], local_nedref[2])
-        ned2 = navpy.lla2ned(float(runway[18]), float(runway[19]), alt_m, local_nedref[0], local_nedref[1], local_nedref[2])
-        angle = 0.5*pi - atan2(ned2[0]-ned1[0], ned2[1]-ned1[1])
-        length = l_scale * np.linalg.norm(ned1-ned2)
-        print(ned1, ned2, angle*r2d, length)
+        # grab values from runway record
+        width = float(runway[1])
+        lla1 = [float(runway[9]), float(runway[10]), alt_m]
+        over1 = float(runway[12])
+        lla2 = [float(runway[18]), float(runway[19]), alt_m]
+        over2 = float(runway[21])
+        nedref = 0.5 * (np.array(lla1) + np.array(lla2))
+        print("  nedref:", nedref, "over1:", over1, "over2:", over2)
 
-        # generate runway corners (in ned space)
-        c1 = [ ned1[1] + sin(angle-0.5*pi)*w2, ned1[0] + cos(angle-0.5*pi)*w2 ]
-        c2 = [ ned1[1] - sin(angle-0.5*pi)*w2, ned1[0] - cos(angle-0.5*pi)*w2 ]
-        c3 = [ ned2[1] + sin(angle-0.5*pi)*w2, ned2[0] + cos(angle-0.5*pi)*w2 ]
-        c4 = [ ned2[1] - sin(angle-0.5*pi)*w2, ned2[0] - cos(angle-0.5*pi)*w2 ]
+        # ned location of two end points (includes displaced threshold, but not overrun/blastpad)
+        ned1 = navpy.lla2ned(lla1[0], lla1[1], lla1[2], nedref[0], nedref[1], nedref[2])
+        ned2 = navpy.lla2ned(lla2[0], lla2[1], lla2[2], nedref[0], nedref[1], nedref[2])
+        angle2 = atan2(ned2[0]-ned1[0], ned2[1]-ned1[1])
+        length = np.linalg.norm(ned1-ned2)
+        print("  angle:", angle2, "len:", length)
+
+        # ned corners including overrun/blastpad and extra margin
+        l_margin = length * 0.05  # 5% added to each end (10% total)
+        w_margin = width * 0.25   # 25% added to each edge (50% total)
+        c1 = ned_rotate(ned1, angle2, (0.5*width + w_margin), -(over1 + l_margin))
+        c2 = ned_rotate(ned1, angle2, -(0.5*width + w_margin), -(over1 + l_margin))
+        c3 = ned_rotate(ned2, angle2, (0.5*width + w_margin), (over2 + l_margin))
+        c4 = ned_rotate(ned2, angle2, -(0.5*width + w_margin), (over2 + l_margin))
+        print("  corner1:", list(ned1), c1)
+        print("  corner2:", list(ned1), c2)
+        print("  corner3:", list(ned2), c3)
+        print("  corner4:", list(ned2), c4)
+
+        if False:
+            w_scale = 1.5
+            l_scale = 1.2
+            w2 = w_scale * float(runway[1]) * 0.5
+            # angle = 0.5*pi - atan2(ned2[0]-ned1[0], ned2[1]-ned1[1])
+            print("angle:", angle, "angle2:", angle2)
+            length = l_scale * np.linalg.norm(ned1-ned2)
+            print(ned1, ned2, angle*r2d, length)
+
+            # generate runway corners (in ned space)
+            c1 = [ ned1[1] + sin(angle-0.5*pi)*w2, ned1[0] + cos(angle-0.5*pi)*w2 ]
+            c2 = [ ned1[1] - sin(angle-0.5*pi)*w2, ned1[0] - cos(angle-0.5*pi)*w2 ]
+            c3 = [ ned2[1] + sin(angle-0.5*pi)*w2, ned2[0] + cos(angle-0.5*pi)*w2 ]
+            c4 = [ ned2[1] - sin(angle-0.5*pi)*w2, ned2[0] - cos(angle-0.5*pi)*w2 ]
 
         # convert actual runway corners back to lla
-        c1_lla = navpy.ned2lla([c1[1], c1[0], -alt_m], local_nedref[0], local_nedref[1], 0)
-        c2_lla = navpy.ned2lla([c2[1], c2[0], -alt_m], local_nedref[0], local_nedref[1], 0)
-        c3_lla = navpy.ned2lla([c3[1], c3[0], -alt_m], local_nedref[0], local_nedref[1], 0)
-        c4_lla = navpy.ned2lla([c4[1], c4[0], -alt_m], local_nedref[0], local_nedref[1], 0)
+        c1_lla = navpy.ned2lla([c1[0], c1[1], c1[2]], nedref[0], nedref[1], nedref[2])
+        c2_lla = navpy.ned2lla([c2[0], c2[1], c2[2]], nedref[0], nedref[1], nedref[2])
+        c3_lla = navpy.ned2lla([c3[0], c3[1], c3[2]], nedref[0], nedref[1], nedref[2])
+        c4_lla = navpy.ned2lla([c4[0], c4[1], c4[2]], nedref[0], nedref[1], nedref[2])
 
         flag_overlapping_tiles([c1_lla, c2_lla, c3_lla, c4_lla])

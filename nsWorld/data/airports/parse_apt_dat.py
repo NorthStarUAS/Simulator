@@ -15,7 +15,7 @@ import overlapping_tiles
 import srtm_smooth_patches
 
 parser = argparse.ArgumentParser(description="Parse apt.dat file and do stuff.")
-parser.add_argument("aptdat", help="path to apt.data.gz (or apt.dat.ws3.gz) file")
+parser.add_argument("aptdat", help="path to apt.dat.gz (or apt.dat.ws3.gz) file")
 parser.add_argument("--task", required=True, choices=["apt-models", "tiles-with-runways", "srtm-smooth-patches"], help="select the task to perform")
 parser.add_argument("--start-id", help="begin processing at specified apt id")
 parser.add_argument("--end-id", help="end processing at specified apt id")
@@ -103,7 +103,7 @@ with gzip.open(args.aptdat, "r") as f:
                         node, info = genapt.genapt(apt)
                         save_airport(node, info)
                     if args.task == "tiles-with-runways":
-                        overlapping_tiles.flag_aiport(apt)
+                        overlapping_tiles.flag_airport(apt)
                     if args.task == "srtm-smooth-patches":
                         srtm_smooth_patches.sortapt(apt)
                 if id == args.end_id:
