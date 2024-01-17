@@ -16,7 +16,6 @@ from nsWorld import srtm
 by_tile = {}
 def sortapt(apt):
     # expects a single airport
-    info = {}
     runways = []
     taxiways_lla = []
     taxiways_old = []
@@ -40,9 +39,6 @@ def sortapt(apt):
                 alt_m = alt_ft * ft2m
                 name = " ".join(tokens[5:])
                 print("Start of airport:", id, alt_ft, name)
-                info["id"]= id
-                info["name"] = name
-                info["alt_ft"] = alt_ft
                 apt = []
             elif tokens[0] == "100":
                 # runway definition
@@ -120,10 +116,18 @@ def sortapt(apt):
     lat_max = np.max(lats)
     lon_min = np.min(lons)
     lon_max = np.max(lons)
+
+    # 25% expansion (12.5% on each margin)
+    lat_extend = (lat_max - lat_min) * 0.125
+    lon_extend = (lon_max - lon_min) * 0.125
+    lat_min -= lat_extend
+    lat_max += lat_extend
+    lon_min -= lon_extend
+    lon_max += lon_extend
+
     local_nedref = [ (lat_min + lat_max)*0.5, (lon_min + lon_max) * 0.5, alt_m ]
     print("coverage:", lat_min, lat_max, lon_min, lon_max)
     print("nedref:", local_nedref)
-    info["nedref"] = local_nedref
 
     # patch = srtm.SmoothPatch(srtm_cache, lat_min, lat_max, lon_min, lon_max, local_nedref)
 
