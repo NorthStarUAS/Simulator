@@ -64,7 +64,7 @@ class tile_mgr(threading.Thread):
         threading.Thread.__init__(self)
         bam_dir = os.path.join(pathlib.Path.home(), dot_root, "cache", "bam")
         self.bam_cache = tile_cache.SlippyCache(bam_dir, "", "", ext=".bam")
-        self.tile_cache = { "children": {} }
+        self.tile_cache = { "children": {}, "protect_from_unload": False }
         self.apts_inited = False
         self.apt_mgr = apt_mgr.apt_mgr(dot_root)
         self.config = config.copy()
