@@ -58,9 +58,11 @@ class World():
                 tile["node"].setPos(tile_pos[1], tile_pos[0], -tile_pos[2])
                 tile["node"].setHpr(0, nedref[0] - tile["center_lla"][0], tile["center_lla"][1] - nedref[1])
                 tile["node"].reparentTo(render)
-            for node in tile_mgr.hide_queue:
-                print("Hide from scene graph:", node)
-                node.hide()
+                tile["protect_from_unload"] = False  # after properly positioning we are clear to unload if needed
+            for tile in tile_mgr.hide_queue:
+                print("Hide from scene graph:", tile["node"])
+                tile["node"].hide()
+                tile["protect_from_unload"] = False
             for tile in tile_mgr.prune_queue:
                 print("Prune children and show() parent:")
                 print("tile:", tile)

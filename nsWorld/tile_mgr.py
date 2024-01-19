@@ -210,36 +210,39 @@ class tile_mgr(threading.Thread):
         return prune_level, prune_list
 
     def recurse_cache_prune(self, cache_node, own_pos_ned, freeze_cam):
-        cache_node["prune"] = False
         prune_list = []
-        for key in cache_node["children"].keys():
-            tile = cache_node["children"][key]
-            # print("tile cache entry name:", tile["name"], tile["index"])
-            # print("tile cache entry:", key, tile)
-            if tile["children"]:
-                tile["prune"] = False
-                _, sub_list = self.recurse_cache_prune(tile, own_pos_ned, freeze_cam)
-                prune_list.extend(sub_list)
-            else:
-                est_size, dist = self.get_size_dist(own_pos_ned, tile["node"], freeze_cam)
-                bounds = tile["node"].getBounds()
-                lensBounds = base.camLens.makeBounds()
-                bounds.xform(tile["node"].getParent().getMat(freeze_cam))
-                if lensBounds.contains(bounds):
-                    visible = True
-                else:
-                    visible = False
-                if False and not visible:
-                    # artificially lower est_size when not visible to bias the
-                    # removal algorithm and reduce the in-memory footprint and
-                    # workload.
-                    est_size /= 1.25
-                # print("bounds:", tile["node"].getBounds(), "pixels:", est_size)
-                if est_size < tex_dim * 0.6: # size of child
-                    tile["prune"] = True
-                else:
+        if not cache_node["protect_from_unload"]:
+            cache_node["prune"] = False
+            for key in cache_node["children"].keys():
+                tile = cache_node["children"][key]
+                # print("tile cache entry name:", tile["name"], tile["index"])
+                # print("tile cache entry:", key, tile)
+                if tile["protect_from_unload"]:
                     tile["prune"] = False
-                #     print("prune bounds:", tile["node"].getBounds(), "pixels:", est_size)
+                elif tile["children"]:
+                    tile["prune"] = False
+                    _, sub_list = self.recurse_cache_prune(tile, own_pos_ned, freeze_cam)
+                    prune_list.extend(sub_list)
+                else:
+                    est_size, dist = self.get_size_dist(own_pos_ned, tile["node"], freeze_cam)
+                    bounds = tile["node"].getBounds()
+                    lensBounds = base.camLens.makeBounds()
+                    bounds.xform(tile["node"].getParent().getMat(freeze_cam))
+                    if lensBounds.contains(bounds):
+                        visible = True
+                    else:
+                        visible = False
+                    if False and not visible:
+                        # artificially lower est_size when not visible to bias the
+                        # removal algorithm and reduce the in-memory footprint and
+                        # workload.
+                        est_size /= 1.25
+                    # print("bounds:", tile["node"].getBounds(), "pixels:", est_size)
+                    if est_size < tex_dim * 0.6: # size of child
+                        tile["prune"] = True
+                    else:
+                        tile["prune"] = False
+                    #     print("prune bounds:", tile["node"].getBounds(), "pixels:", est_size)
 
         # see if all 4 children exist and need to be pruned
         prune_count = 0
@@ -369,6 +372,7 @@ class tile_mgr(threading.Thread):
                 "node": tile_node,
                 "center_lla": center_lla,
                 "children": {},
+                "protect_from_unload": True
             }
             tile_pos = navpy.lla2ned(tile["center_lla"][0], tile["center_lla"][1], tile["center_lla"][2], nedref[0], nedref[1], nedref[2])
             tile["node"].setPos(tile_pos[1], tile_pos[0], -tile_pos[2])
@@ -410,7 +414,7 @@ class tile_mgr(threading.Thread):
             own_pos_ned = navpy.lla2ned(lat_deg + dlat*project_secs, lon_deg + dlon*project_secs, alt_m + dalt*project_secs, nedref[0], nedref[1], nedref[2])
 
             new_nodes = []
-            hide_node = None
+            hide_tile = None
             prune_list = []
 
             if not self.apts_inited:
@@ -439,6 +443,7 @@ class tile_mgr(threading.Thread):
                 if max_name != "":
                     (zoom, x, y) = max_node["index"]
                     max_node["children"] = {}
+                    max_node["protect_from_unload"] = True
                     tile = self.load_tile(max_node, zoom+1, 2*x, 2*y, nedref)
                     new_nodes.append(tile)
                     tile = self.load_tile(max_node, zoom+1, 2*x, 2*y+1, nedref)
@@ -449,7 +454,7 @@ class tile_mgr(threading.Thread):
                     new_nodes.append(tile)
 
                     # remove_queue.append(max_node)
-                    hide_node = max_node["node"]
+                    hide_tile = max_node
 
                 # todo/fixme: make sure no expansion nodes end up in the prune
                 # list ... there is an edge case lurking somewhere where
@@ -462,8 +467,8 @@ class tile_mgr(threading.Thread):
 
             queue_lock.acquire()
             reparent_queue.extend(new_nodes)
-            if hide_node is not None:
-                hide_queue.append(hide_node)
+            if hide_tile is not None:
+                hide_queue.append(hide_tile)
             prune_queue.extend(prune_list)
             queue_lock.release()
 
