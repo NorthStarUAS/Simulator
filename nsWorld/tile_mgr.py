@@ -174,41 +174,6 @@ class tile_mgr(threading.Thread):
         time.sleep(0)
         return max_size, max_name, max_node
 
-    def recurse_cache_prune_old(self, cache_node, lat_deg, lon_deg, alt_m, freeze_cam):
-        prune_level = True
-        prune_list = []
-        for key in cache_node["children"].keys():
-            tile = cache_node["children"][key]
-            # print("tile cache entry name:", tile["name"], tile["index"])
-            # print("tile cache entry:", key, tile)
-            if tile["children"]:
-                prune_level = False
-                prune_children, sub_list = self.recurse_cache_prune_old(tile, lat_deg, lon_deg, alt_m, freeze_cam)
-                prune_list.extend(sub_list)
-                if prune_children:
-                    prune_list.append(tile)
-            else:
-                est_size, dist = self.get_size_dist(lat_deg, lon_deg, alt_m, tile["node"], freeze_cam)
-                bounds = tile["node"].getBounds()
-                lensBounds = base.camLens.makeBounds()
-                bounds.xform(tile["node"].getParent().getMat(freeze_cam))
-                if lensBounds.contains(bounds):
-                    visible = True
-                else:
-                    visible = False
-                if not visible:
-                    # artificially lower est_size when not visible to bias the
-                    # removal algorithm and reduce the in-memory footprint and
-                    # workload.
-                    est_size /= 4.0
-                print("bounds:", tile["node"].getBounds(), "pixels:", est_size)
-                if est_size > tex_dim * 0.4:
-                    prune_level = False
-                # else:
-                #     print("prune bounds:", tile["node"].getBounds(), "pixels:", est_size)
-
-        return prune_level, prune_list
-
     def recurse_cache_prune(self, cache_node, own_pos_ned, freeze_cam):
         prune_list = []
         if not cache_node["protect_from_unload"]:
