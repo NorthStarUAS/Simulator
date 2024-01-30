@@ -188,7 +188,7 @@ class tile_mgr(threading.Thread):
                     tile["prune"] = False
                     _, sub_list = self.recurse_cache_prune(tile, own_pos_ned, freeze_cam)
                     prune_list.extend(sub_list)
-                else:
+                elif not tile["node"].is_empty():
                     est_size, dist = self.get_size_dist(own_pos_ned, tile["node"], freeze_cam)
                     bounds = tile["node"].getBounds()
                     lensBounds = base.camLens.makeBounds()
