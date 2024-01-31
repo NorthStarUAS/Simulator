@@ -53,9 +53,9 @@ def update_state(lla_new, hpr_new, nedref_new, cam_pos_new, dlat, dlon, dalt):
     global protect_cam_pos
     global protect_lla_vel
     protect_ownship_lla = lla_new.copy()
-    protect_cam_hpr = LVector3f(hpr_new[0], hpr_new[1], hpr_new[2])
+    protect_cam_hpr = LVector3f(hpr_new)
     protect_nedref = nedref_new.copy()
-    protect_cam_pos = LVector3f(cam_pos_new[0], cam_pos_new[1], cam_pos_new[2])
+    protect_cam_pos = LVector3f(cam_pos_new)
     protect_lla_vel = [dlat, dlon, dalt]
     state_lock.release()
 
@@ -356,6 +356,8 @@ class tile_mgr(threading.Thread):
         lat_deg = None
         lon_deg = None
         alt_m = None
+        cam_pos = None
+        cam_hpr = None
         own_pos_ned = None
         dlat = 0
         dlon = 0
@@ -368,6 +370,8 @@ class tile_mgr(threading.Thread):
                 alt_m = protect_ownship_lla[2]
                 nedref = protect_nedref.copy()
                 [dlat, dlon, dalt] = protect_lla_vel
+                cam_pos = LVector3f(protect_cam_pos)
+                cam_hpr = LVector3f(protect_cam_hpr)
             state_lock.release()
 
             if lat_deg is None or lon_deg is None:
@@ -399,8 +403,8 @@ class tile_mgr(threading.Thread):
 
                 # check if any tiles are getting too big on screen and need to be subdivided
                 freeze_cam = copy.deepcopy(base.cam)
-                freeze_cam.setPos(camera.getPos())
-                freeze_cam.setHpr(camera.getHpr())
+                freeze_cam.setPos(cam_pos)
+                freeze_cam.setHpr(cam_hpr)
                 max_size, max_name, max_node = self.recurse_cache_expand(self.tile_cache, own_pos_ned, freeze_cam)
                 print("result:", max_size, max_name, max_node)
                 if max_size == 0:
