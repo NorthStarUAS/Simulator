@@ -108,7 +108,7 @@ class tile_mgr(threading.Thread):
         base.camLens.project(converted3DPoint, pt2d)
         center_dist = sqrt(pt2d.x*pt2d.x + pt2d.y*pt2d.y)
         if center_dist > 1: center_dist = 1
-        factor = (1-center_dist) * 0.25 + 1
+        factor = (1-center_dist) * 0.1 + 1
         pixel_size = pixel_size * factor
         # print("dist:", dist, pt2d.x, pt2d.y)
         # print(own_pos, tile_pos, dist, bearing)
@@ -203,7 +203,7 @@ class tile_mgr(threading.Thread):
                         # workload.
                         est_size /= 1.25
                     # print("bounds:", tile["node"].getBounds(), "pixels:", est_size)
-                    if est_size < tex_dim * 0.6: # size of child
+                    if est_size < tex_dim * 0.4: # size of child
                         tile["prune"] = True
                     else:
                         tile["prune"] = False
