@@ -73,12 +73,12 @@ class SlippyCache():
                 time.sleep(1)
                 self.connect()
 
-    def ensure_tile_in_cache(self, level, x, y):
+    def ensure_tile_in_cache(self, level, x, y, force_download=False):
         path = self.ensure_path_in_cache(level, x)
         file = os.path.join(path, "%d" % y + self.ext)
 
         # check if file exists and has non-zero length
-        if os.path.exists(file):
+        if os.path.exists(file) and not force_download:
             file_stats = os.stat(file)
             if file_stats.st_size > 0:
                 return file
@@ -110,13 +110,19 @@ class SlippyCache():
         return file
 
     def get_tile_as_pnm(self, level, x, y):
-        file = self.ensure_tile_in_cache(level, x, y)
-        with open(file, "rb") as f:
-            data = f.read()
-            print("here0 length:", len(data), str(file))
-            p = PNMImage()
-            p.read(StringStream(data))
-            return p
+        for i in range(3):
+            # 3 tries then barf ... we escape with a return p on first success
+            file = self.ensure_tile_in_cache(level, x, y)
+            with open(file, "rb") as f:
+                data = f.read()
+                print("here0 image file length:", len(data), str(file))
+                p = PNMImage()
+                p.read(StringStream(data))
+            if p.getXSize() and p.getYSize():
+                return p
+            else:
+                print("Image load failed ... bad file, forcing a refetch...")
+                file = self.ensure_tile_in_cache(level, x, y, force_download=True)
 
     def get_tile_as_tex(self, level, x, y):
         p = self.get_tile_as_pnm(level, x, y)
