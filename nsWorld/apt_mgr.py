@@ -45,6 +45,7 @@ class apt_mgr:
                             apt_node = NodePath( path )
                             # apt = genapt.genapt(os.path.join(path, bam_name))
                             apt_node = loader.loadModel(bam_name)
+                            apt_node.set_attrib(DepthOffsetAttrib.make(1))
                             new = { "name": root,
                                 "index": None,
                                 "node": apt_node,
