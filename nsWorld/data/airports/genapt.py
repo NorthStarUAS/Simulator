@@ -182,7 +182,7 @@ def genapt(apt, just_do_overlap=False):
     lat_max = np.max(lats)
     lon_min = np.min(lons)
     lon_max = np.max(lons)
-    local_nedref = [ (lat_min + lat_max)*0.5, (lon_min + lon_max) * 0.5, alt_m ]
+    local_nedref = [ (lat_min + lat_max)*0.5, (lon_min + lon_max) * 0.5, 0.0 ]
     print("coverage:", lat_min, lat_max, lon_min, lon_max)
     print("nedref:", local_nedref)
     info["nedref"] = local_nedref
