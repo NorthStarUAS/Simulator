@@ -311,7 +311,7 @@ class tile_mgr(threading.Thread):
             print("  builder:", result.strip())
             if result == "complete":
                 break
-            elif result == "error":
+            elif result == "error" or not len(result):
                 quit()
 
     def load_tile(self, node, zoom, x, y, nedref):
