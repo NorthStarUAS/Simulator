@@ -2,15 +2,21 @@
 
 import argparse
 import cv2
+import importlib.metadata
 import numpy as np
 
 from direct.showbase.ShowBase import ShowBase # pip install panda3d
 from direct.task import Task
 from panda3d.core import *
 
+from nsWorld import world
+if float(importlib.metadata.version("nsWorld")) < 1.1:
+    print("Please upgrade the nsWorld package to v1.1 or higher.")
+    print("Cannot continue.")
+    quit()
+
 from comms import comms_mgr
 from lib import cam, fog, light
-from nsWorld import world
 
 # these are supposedly the options needed for deferred texture loading...
 # loadPrcFileData("", "preload-textures 0")
@@ -125,8 +131,8 @@ class SceneryViewer(ShowBase):
         self.fog.update(-self.comms_mgr.nedpos[2])
 
         if self.world:
-            self.world.update(self.mycam, self.comms_mgr.nedref, self.comms_mgr.nedref_time, self.comms_mgr.lla,
-                              self.comms_mgr.dlat, self.comms_mgr.dlon, self.comms_mgr.dalt)
+            self.world.update(self.mycam.cam_pos, self.mycam.cam_hpr, self.comms_mgr.nedref, self.comms_mgr.nedref_time,
+                              self.comms_mgr.lla, self.comms_mgr.dlat, self.comms_mgr.dlon, self.comms_mgr.dalt)
 
         return Task.cont
 

@@ -38,12 +38,12 @@ class World():
             #self.skybox.setDepthTest(False)
             self.skybox.setDepthWrite(False)
 
-    def update(self, mycam, nedref, nedref_time, lla, dlat, dlon, dalt):
+    def update(self, cam_pos, cam_hpr, nedref, nedref_time, lla, dlat, dlon, dalt):
         if self.skybox is not None:
-            self.skybox.setPos(mycam.cam_pos)
+            self.skybox.setPos(cam_pos)
 
         if nedref is not None:
-            tile_mgr.update_state(lla, mycam.cam_hpr, nedref, mycam.cam_pos, dlat, dlon, dalt)
+            tile_mgr.update_state(lla, cam_hpr, nedref, cam_pos, dlat, dlon, dalt)
 
             do_reposition = False
             if self.saved_nedref_time < nedref_time:
