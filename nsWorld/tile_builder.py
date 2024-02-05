@@ -36,16 +36,28 @@ poly_mat.setDiffuse((0.3, 0.8, 0.3, 0.8))
 terra_format = GeomVertexFormat.get_v3n3t2()
 
 class Builder():
-    def __init__(self, dot_root):
-        # https://api.maptiler.com/tiles/satellite-v2/{z}/{x}/{y}.jpg?key=UN7fFi8RQaOjB7HlKzXc
-        sat_dir = os.path.join(pathlib.Path.home(), dot_root, "cache", "satellite")
-        self.sat_cache = tile_cache.SlippyCache(sat_dir, "https://api.maptiler.com", "/tiles/satellite-v2", ext=".jpg", options="?key=UN7fFi8RQaOjB7HlKzXc")
-
-        bing_dir = os.path.join(pathlib.Path.home(), dot_root, "cache", "bing")
-        self.bing_cache = tile_cache.SlippyCache(bing_dir, "http://a0.ortho.tiles.virtualearth.net", "/tiles/a{}", ext=".jpeg", options="?g=2", index_scheme="quadkey")
-
-        google_dir = os.path.join(pathlib.Path.home(), dot_root, "cache", "google")
-        self.google_cache = tile_cache.SlippyCache(google_dir, "https://mt1.google.com", "/vt/lyrs=s&x={}&y={}&z={}", ext=".jpg", options="", index_scheme="google")
+    def __init__(self, dot_root, style):
+        if style.startswith("maptiler"):
+            maptiler_keyfile = os.path.join(pathlib.Path.home(), dot_root, "maptiler.txt")
+            if os.path.exists(maptiler_keyfile):
+                with open(maptiler_keyfile, "r") as f:
+                    line = f.readline()
+                    if line.startswith("key="):
+                        self.maptiler_option = line.strip()
+                    else:
+                        self.maptiler_option = "key=" + line.strip()
+                print("found maptiler key:", self.maptiler_option)
+                # https://api.maptiler.com/tiles/satellite-v2/{z}/{x}/{y}.jpg?key=abcdefghijklmnopqrst
+                maptiler_dir = os.path.join(pathlib.Path.home(), dot_root, "cache", "maptiler")
+                self.cache = tile_cache.SlippyCache(maptiler_dir, "https://api.maptiler.com", "/tiles/satellite-v2", ext=".jpg", options=self.maptiler_option)
+            else:
+                print("no maptiler key found:", maptiler_keyfile)
+        elif style.startswith("bing"):
+            bing_dir = os.path.join(pathlib.Path.home(), dot_root, "cache", "bing")
+            self.cache = tile_cache.SlippyCache(bing_dir, "http://a0.ortho.tiles.virtualearth.net", "/tiles/a{}", ext=".jpeg", options="?g=2", index_scheme="quadkey")
+        elif style.startswith("google"):
+            google_dir = os.path.join(pathlib.Path.home(), dot_root, "cache", "google")
+            self.cache = tile_cache.SlippyCache(google_dir, "https://mt1.google.com", "/vt/lyrs=s&x={}&y={}&z={}", ext=".jpg", options="", index_scheme="google")
 
         self.srtm_dir = os.path.join(pathlib.Path.home(), dot_root, "cache", "srtm")
         pathlib.Path(self.srtm_dir).mkdir(parents=True, exist_ok=True)
@@ -134,7 +146,7 @@ class Builder():
 
         return llas, [center_lat, center_lon, avg_elev_m], texcoords, is_skirt
 
-    def gen_terrain_node(self, zoom_level, x, y, style):
+    def gen_terrain_node(self, zoom_level, x, y):
         do_skirt = True
         steps = tile_steps_sat
         # if style == "wireframe":
@@ -207,18 +219,22 @@ class Builder():
             }
             pickle.dump( data, f)
 
-        if style.startswith("maptiler") or style.startswith("bing") or style.startswith("google"):
-            if style.startswith("maptiler"):
-                surface_tex = self.sat_cache.get_tile_as_tex(zoom_level, x, y)
-            elif style.startswith("bing"):
-                surface_tex = self.bing_cache.get_tile_as_tex(zoom_level, x, y)
-            elif style.startswith("google"):
-                surface_tex = self.google_cache.get_tile_as_tex(zoom_level, x, y)
-            surface_tex.setWrapU(Texture.WM_clamp)
-            surface_tex.setWrapV(Texture.WM_clamp)
-            surface_tex.setMinfilter(SamplerState.FT_linear_mipmap_linear)
-            surface_tex.setAnisotropicDegree(16)
-            surface_tex.generateRamMipmapImages()
+        # get the 4 one-level-down 256x256 textures to make a larger 512x512 texture
+        xys = [ [2*x, 2*y], [2*x, 2*y+1], [2*x+1, 2*y], [2*x+1, 2*y+1] ]
+        pnms = self.cache.get_tiles_as_pnm(zoom_level+1, xys)
+        pnm = PNMImage(512, 512, 3)
+        pnm.copySubImage(pnms[0], 0, 0, 0, 0, 256, 256)
+        pnm.copySubImage(pnms[1], 0, 256, 0, 0, 256, 256)
+        pnm.copySubImage(pnms[2], 256, 0, 0, 0, 256, 256)
+        pnm.copySubImage(pnms[3], 256, 256, 0, 0, 256, 256)
+        surface_tex = Texture()
+        surface_tex.load(pnm)
+        # surface_tex = self.cache.get_tile_as_tex(zoom_level, x, y)
+        surface_tex.setWrapU(Texture.WM_clamp)
+        surface_tex.setWrapV(Texture.WM_clamp)
+        surface_tex.setMinfilter(SamplerState.FT_linear_mipmap_linear)
+        surface_tex.setAnisotropicDegree(16)
+        surface_tex.generateRamMipmapImages()
 
         vdata = GeomVertexData("terrain", terra_format, Geom.UHStatic)
         vdata.setNumRows(len(points_xyz))
@@ -258,14 +274,13 @@ class Builder():
 
         # didn't seem to do anything? tile_node.setAttrib(LightRampAttrib.makeHdr2())
 
-        if style.startswith("maptiler") or style.startswith("bing") or style.startswith("google"):
-            tile_node.setMaterial(sat_mat)
-            tile_node.setTexture(surface_tex)
-        elif style.startswith("polygon"):
-            tile_node.setMaterial(poly_mat)
-        if style.find("wireframe") >= 0:
-            tile_node.setRenderModeFilledWireframe(wireframe_color=(1, 1, 1, 1))
-            # tile_node.setTransparency(TransparencyAttrib.MAlpha)
+        tile_node.setMaterial(sat_mat)
+        tile_node.setTexture(surface_tex)
+        # elif style.startswith("polygon"):
+        #     tile_node.setMaterial(poly_mat)
+        # if style.find("wireframe") >= 0:
+        #     tile_node.setRenderModeFilledWireframe(wireframe_color=(1, 1, 1, 1))
+        #     # tile_node.setTransparency(TransparencyAttrib.MAlpha)
 
         tile_node.writeBamFile(Filename.fromOsSpecific(bam_file))
 
@@ -279,7 +294,7 @@ class Builder():
     # initialize([46.842, -92.194, 0], 160000, 100, do_plot=True)
 
 def main():
-    mybuilder = Builder(".nsWorld")
+    mybuilder = None
 
     while True:
         try:
@@ -289,7 +304,9 @@ def main():
             quit()
         # print("got:", line.split(","))
         (zoom, x, y, style) = line.split(",")
-        tile = mybuilder.gen_terrain_node(int(zoom), int(x), int(y), style)
+        if mybuilder is None:
+            mybuilder = Builder(".nsWorld", style)
+        tile = mybuilder.gen_terrain_node(int(zoom), int(x), int(y))
         print("complete")
         sys.stdout.flush()
 

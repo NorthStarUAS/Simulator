@@ -14,6 +14,7 @@ from panda3d.core import *
 # a pnm image or tex.
 
 async def get(session: aiohttp.ClientSession, url, file):
+    print("url:", type(url), url)
     async with session.get(url) as response:
         data = await response.read()
         print("read:", len(data))
@@ -44,7 +45,7 @@ class SlippyCache():
             Path(path).mkdir(parents=True, exist_ok=True)
         return path
 
-    async def download_tile(self, path, files, requests):
+    async def download_tiles(self, path, files, requests):
         print("fetching:", self.url, requests, "to", files)
         Path(path).mkdir(parents=True, exist_ok=True)
         success = False
@@ -101,34 +102,103 @@ class SlippyCache():
             print("request:", request)
 
         # documented way (with errors)
-        # asyncio.run(self.download_tile(path, [file], [request]))
+        # asyncio.run(self.download_tiles(path, [file], [request]))
 
         # stackoverflow way
         loop = asyncio.get_event_loop()
-        loop.run_until_complete(self.download_tile(path, [file], [request]))
+        loop.run_until_complete(self.download_tiles(path, [file], [request]))
 
         return file
 
-    def get_tile_as_pnm(self, level, x, y):
-        for i in range(3):
-            # 3 tries then barf ... we escape with a return p on first success
-            file = self.ensure_tile_in_cache(level, x, y)
-            with open(file, "rb") as f:
-                data = f.read()
-                print("here0 image file length:", len(data), str(file))
-                p = PNMImage()
-                p.read(StringStream(data))
-            if p.getXSize() and p.getYSize():
-                return p
-            else:
-                print("Image load failed ... bad file, forcing a refetch...")
-                file = self.ensure_tile_in_cache(level, x, y, force_download=True)
+    def ensure_tiles_in_cache(self, level, xys, force_download=False):
+        file_names = []
+        files = []
+        requests = []
+        for i, [x, y] in enumerate(xys):
+            path = self.ensure_path_in_cache(level, x)
+            file = os.path.join(path, "%d" % y + self.ext)
+            file_names.append( file )
 
-    def get_tile_as_tex(self, level, x, y):
-        p = self.get_tile_as_pnm(level, x, y)
-        tex = Texture()
-        tex.load(p)
-        return tex
+            # check if file exists and has non-zero length
+            file_ok = False
+            if os.path.exists(file) and not force_download:
+                file_stats = os.stat(file)
+                if file_stats.st_size > 0:
+                    file_ok = True
+
+            if not file_ok:
+                # file needs to be fetched
+                if self.index_scheme == "slippy":
+                    request = self.root + "/%d/%d/%d" % (level, x, y) + self.ext + self.options
+                elif self.index_scheme == "quadkey":
+                    tms_y = (2 ** level) - y - 1
+                    tile = Tile.from_tms(tms_x=x, tms_y=tms_y, zoom=level)
+                    print("quadkey:", tile.quad_tree)
+                    request = self.root.format(tile.quad_tree) + self.ext + self.options
+                    print("request:", request)
+                elif self.index_scheme == "google":
+                    tms_y = (2 ** level) - y - 1
+                    tile = Tile.from_tms(tms_x=x, tms_y=tms_y, zoom=level)
+                    print("google:", tile.google)
+                    x, y = tile.google
+                    request = self.root.format(x, y, level)
+                    print("request:", request)
+                files.append(file)
+                requests.append(request)
+
+        if len(files):
+            # print("fetching:", files, requests)
+
+            # documented way (with errors)
+            # asyncio.run(self.download_tiles(path, [file], [request]))
+
+            # stackoverflow way
+            loop = asyncio.get_event_loop()
+            loop.run_until_complete(self.download_tiles(path, files, requests))
+
+        return file_names
+
+    # def get_tile_as_pnm(self, level, x, y):
+    #     for i in range(3):
+    #         # 3 tries then barf ... we escape with a return p on first success
+    #         file = self.ensure_tile_in_cache(level, x, y)
+    #         with open(file, "rb") as f:
+    #             data = f.read()
+    #             print("here0 image file length:", len(data), str(file))
+    #             p = PNMImage()
+    #             p.read(StringStream(data))
+    #         if p.getXSize() and p.getYSize():
+    #             return p
+    #         else:
+    #             print("Image load failed ... bad file, forcing a refetch...")
+    #             file = self.ensure_tile_in_cache(level, x, y, force_download=True)
+
+    def get_tiles_as_pnm(self, level, xys):
+        pnms = [ None ] * len(xys)
+        for attempt in range(3):
+            # 3 attempts then barf ... we escape with a return pnms on first success
+            file_names = self.ensure_tiles_in_cache(level, xys)
+            print("file_names:", file_names)
+            for i, file in enumerate(file_names):
+                with open(file, "rb") as f:
+                    data = f.read()
+                    print("here0 image file length:", len(data), str(file))
+                    p = PNMImage()
+                    p.read(StringStream(data))
+                if p.getXSize() and p.getYSize():
+                    pnms[i] = p
+            if None in pnms:
+                print("At least one image load failed ... bad file, forcing a refetch...")
+                file = self.ensure_tiles_in_cache(level, xys, force_download=True)
+            else:
+                return pnms
+        return None
+
+    # def get_tile_as_tex(self, level, x, y):
+    #     p = self.get_tile_as_pnm(level, x, y)
+    #     tex = Texture()
+    #     tex.load(p)
+    #     return tex
 
 # https://github.com/tilezen/joerd/tree/master/docs
 # https://s3.amazonaws.com/elevation-tiles-prod/{terrarium,normal}/8/62/90.png

@@ -25,7 +25,7 @@ terrain_min_zoom_level = 8
 default_max_zoom_level = 15
 vis_range_m = 100000
 # vis_range_m = 4000
-tex_dim = 256
+tex_dim = 512
 
 state_lock = threading.Lock()
 protect_ownship_lla = None

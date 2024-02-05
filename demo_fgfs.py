@@ -2,7 +2,7 @@
 
 import argparse
 import cv2
-import importlib.metadata
+import importlib.metadata, importlib.util
 import numpy as np
 
 from direct.showbase.ShowBase import ShowBase # pip install panda3d
@@ -10,10 +10,13 @@ from direct.task import Task
 from panda3d.core import *
 
 from nsWorld import world
-if float(importlib.metadata.version("nsWorld")) < 1.1:
-    print("Please upgrade the nsWorld package to v1.1 or higher.")
-    print("Cannot continue.")
-    quit()
+try:
+    if float(importlib.metadata.version("nsWorld")) < 1.1:
+        print("Please upgrade the nsWorld package to v1.1 or higher.")
+        print("Cannot continue.")
+        quit()
+except:
+    print("nsWorld package not installed, so using local tree...")
 
 from comms import comms_mgr
 from lib import cam, fog, light
@@ -60,8 +63,8 @@ config = {
     "world": {
         # "airports": True,  # future devel
         "ground": "google",  # maptiler, bing, google, or polygon.  Add +wireframe (i.e. polygon+wireframe) to show the underlying mesh structure as wireframe
-        "max_zoom": 17,      # 15 is max for maptiler, 17 good for bing (18 works, but greatly increases the workload and the tile loading can get way behind)
-        "max_rwy_zoom": 19,
+        "max_zoom": 16,      # 15 is max for maptiler, 17 good for bing (18 works, but greatly increases the workload and the tile loading can get way behind)
+        "max_rwy_zoom": 18,
         "sky": "skybox",     # skybox
     },
 }
