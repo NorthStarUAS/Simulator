@@ -15,11 +15,14 @@ from panda3d.core import *
 
 async def get(session: aiohttp.ClientSession, url, file):
     print("url:", type(url), url)
-    async with session.get(url) as response:
-        data = await response.read()
-        print("read:", len(data))
-        with open(file, "wb") as f:
-            f.write(data)
+    try:
+        async with session.get(url) as response:
+            data = await response.read()
+            print("read:", len(data))
+            with open(file, "wb") as f:
+                f.write(data)
+    except:
+        print("failed ...")
 
 class SlippyCache():
     def __init__(self, rootpath, url=None, root=None, ext=".png", options="", index_scheme="slippy"):

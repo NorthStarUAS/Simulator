@@ -21,7 +21,7 @@ from . import apt_mgr
 from . import slippy_tiles
 from . import tile_cache
 
-terrain_min_zoom_level = 8
+terrain_min_zoom_level = 9
 default_max_zoom_level = 15
 vis_range_m = 100000
 # vis_range_m = 4000

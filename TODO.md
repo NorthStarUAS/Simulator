@@ -15,12 +15,12 @@
 * Manage a cache of textures and replace content instead of just
   loading/unloading textures.  Suspect card/driver default memory management is
   leading to big pauses in rendering.
-* unload top level-8 tiles when out of range
-* drop to level 9 now that we doubled texture resolution?
+* unload top level-9 tiles when out of range
 
 ## Completed in 2024
 
-* [20240204] 4x consolodated sub textures instead of 4x sub tiles, but recursively done.
-* [20240204] remove personal maptiler key, put in a config file:
+* [2024-02-05] drop to level 9 now that we doubled texture resolution?
+* [2024-02-04] 4x consolodated sub textures instead of 4x sub tiles, but recursively done.
+* [2024-02-04] remove personal maptiler key, put in a config file:
   ~/.nsWorld/maptiler.txt (currently hard coded into tile_builder.py)
-* [20240204] internally cache maptiler images under maptiler/ not satellite/
+* [2024-02-04] internally cache maptiler images under maptiler/ not satellite/
