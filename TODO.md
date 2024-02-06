@@ -1,12 +1,9 @@
 # Todo
 
-* remove personal maptiler key, put in a config file: ~/.nsWorld/maptiler.txt
-  (currently hard coded into tile_builder.py)
-* internally cache maptiler images under maptiler/ not satellite/
 * onscreen tile size from 4 corners instead of center-radius? (probalby no)  Can
   we support a tight bounding box?
 * blend patches with surrounding srtm data better
-* consolodate dot_root locations
+* consolodate dot_root locations (we don't want dot_root defined in multiple locations throughout the project!)
 * Coordinate system(s):
   * define/document coordinate system
   * Make world/tile_mgr interface accept lla only (it figures out nedref and
@@ -18,4 +15,12 @@
 * Manage a cache of textures and replace content instead of just
   loading/unloading textures.  Suspect card/driver default memory management is
   leading to big pauses in rendering.
-* 4x consolodated sub textures instead of 4x sub tiles, but recursively done.
+* unload top level-8 tiles when out of range
+* drop to level 9 now that we doubled texture resolution?
+
+## Completed in 2024
+
+* [20240204] 4x consolodated sub textures instead of 4x sub tiles, but recursively done.
+* [20240204] remove personal maptiler key, put in a config file:
+  ~/.nsWorld/maptiler.txt (currently hard coded into tile_builder.py)
+* [20240204] internally cache maptiler images under maptiler/ not satellite/
