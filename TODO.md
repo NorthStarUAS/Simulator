@@ -1,15 +1,15 @@
 # Todo
 
+* consolodate dot_root locations (we don't want dot_root defined in multiple
+  locations throughout the project!)
 * onscreen tile size from 4 corners instead of center-radius? (probalby no)  Can
   we support a tight bounding box?
 * blend patches with surrounding srtm data better
-* consolodate dot_root locations (we don't want dot_root defined in multiple
-  locations throughout the project!)
 * Coordinate system(s):
   * define/document coordinate system
   * Make world/tile_mgr interface accept lla only (it figures out nedref and
     stuffs)
-* Demo script that updates it's position (drone mode?) so we can do devel
+* Demo script that updates it's position (drone/ufo mode?) so we can do devel
   testing, quick demos, no joystick needed, etc.
 * Separate out textures from bam files (so we could manipulate the texture or
   select from a different set at runtime).
