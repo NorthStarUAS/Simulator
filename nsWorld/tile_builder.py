@@ -22,7 +22,7 @@ from nsWorld import srtm
 
 loadPrcFileData("", "compressed-textures 1") # compress textures when we load/save them
 
-tile_steps_sat = 32
+tile_steps_sat = 48
 tile_steps_wireframe = 4
 
 sat_mat = Material()
