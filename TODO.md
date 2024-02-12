@@ -17,6 +17,7 @@
   loading/unloading textures.  Suspect card/driver default memory management is
   leading to big pauses in rendering.
 * unload top level-9 tiles when out of range
+* stats could be useful: download speed, average resolution, ?
 
 ## Completed in 2024
 
