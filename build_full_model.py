@@ -50,20 +50,100 @@ if len(data["imu"]) == 0 and len(data["gps"]) == 0:
 
 state_mgr = StateManager(args.vehicle)
 
-if flight_format == "cirrus_csv":
+if False and flight_format == "cirrus_csv":
+    # experiment with a minimal alpha estimator
+    input_states = [
+        # flight controls (* qbar)
+        # "aileron",
+        "elevator",
+        # "rudder",
+        # "throttle",
+        # "ax",                       # thrust - drag
+        # "ay",                       # side force
+        "az",                       # lift
+        # "p", "q", "r",              # imu (body) rates
+        "q",
+    ]
+    internal_states = [
+        # "abs(aileron)",
+        # "abs(rudder)",
+        "bgx",
+        # "bgx", "bgy", "bgz",        # gravity rotated into body frame
+        "qbar",                     # effects due to airspeed airframe
+        # additional state history improves fit and output parameter prediction.
+        # "alpha_prev1", "beta_prev1",
+        "alpha_prev1",
+        # "ax_prev1", "ay_prev1", "az_prev1",
+        "ay_prev1",
+        # "p_prev1", "q_prev1", "r_prev1",
+        "q_prev1",
+        # "abs(ay)", "abs(bgy)",
+        # "K",                        # constant factor (1*parameter)
+    ]
+    output_states = [
+        # "alpha", "beta",            # angle of attack, side slip angle
+        "alpha",
+    ]
+    conditions = [
+        { "flaps": 0 },
+        { "flaps": 0.5 }
+    ]
+elif False and flight_format == "cirrus_csv":
+    # experiment with a minimal beta estimator
+    input_states = [
+        # flight controls (* qbar)
+        # "aileron",
+        # "elevator",
+        "rudder",
+        # "throttle",
+        # "ax",                       # thrust - drag
+        "ay",                       # side force
+        # "az",                       # lift
+        # "p", "q", "r",              # imu (body) rates
+        "r",
+    ]
+    internal_states = [
+        # "abs(aileron)",
+        # "abs(rudder)",
+        "bgy",
+        # "bgx", "bgy", "bgz",        # gravity rotated into body frame
+        "qbar",                     # effects due to airspeed airframe
+        # additional state history improves fit and output parameter prediction.
+        # "alpha_prev1", "beta_prev1",
+        "beta_prev1",
+        # "ax_prev1", "ay_prev1", "az_prev1",
+        "ay_prev1",
+        # "p_prev1", "q_prev1", "r_prev1",
+        "r_prev1",
+        # "abs(ay)", "abs(bgy)",
+        # "K",                        # constant factor (1*parameter)
+    ]
+    output_states = [
+        # "alpha", "beta",            # angle of attack, side slip angle
+        "beta",
+    ]
+    conditions = [
+        { "flaps": 0 },
+        { "flaps": 0.5 }
+    ]
+elif flight_format == "cirrus_csv":
+    # question: seem to get a better flaps up fit to airspeed (vs. qbar) but fails to converge for 50% flaps
+    # qbar only converges for both conditions
     input_states = [
         # flight controls (* qbar)
         "aileron",
         "elevator",
         "rudder",
         "throttle",
+        "ax",                       # thrust - drag
+        "ay",                       # side force
+        "az",                       # lift
+        # "airspeed_mps",
     ]
     internal_states = [
         "abs(aileron)",
         "abs(rudder)",
-        # "aileron_prev1", "elevator_prev1", "rudder_prev1",
         "bgx", "bgy", "bgz",        # gravity rotated into body frame
-        "qbar",                     # effects due to misaligned airframe
         # additional state history improves fit and output parameter prediction.
         "alpha_prev1", "beta_prev1",
         "ax_prev1", "ay_prev1", "az_prev1",
@@ -72,9 +152,7 @@ if flight_format == "cirrus_csv":
         "K",                        # constant factor (1*parameter)
     ]
     output_states = [
-        "ax",                       # thrust - drag
-        "ay",                       # side force
-        "az",                       # lift
+        "qbar",                     # effects due to airspeed airframe
         "alpha", "beta",            # angle of attack, side slip angle
         "p", "q", "r",              # imu (body) rates
     ]

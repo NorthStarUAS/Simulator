@@ -304,7 +304,9 @@ class SystemIdentification():
             idx = np.argsort(-np.abs(energy))
             total = np.sum(np.abs(energy))
             output_idx = output_index_list[i]
+            params[output_idx]["contributors"] = state_mgr.state_list[output_idx] + " = "
             params[output_idx]["formula"] = state_mgr.state_list[output_idx] + " = "
+            contributors = state_mgr.state_list[output_idx] + " = "
             formula = state_mgr.state_list[output_idx] + " = "
             first = True
             for j in idx:
@@ -315,11 +317,18 @@ class SystemIdentification():
                     first = False
                 else:
                     if perc >= 0:
-                        formula += " + "
+                        contributors += " + "
                     else:
-                        formula += " - "
-                formula += state_mgr.state_list[j] + " %.1f%%" % abs(perc)
+                        contributors += " - "
+                if row[j] < 0:
+                    formula += " - "
+                else:
+                    formula += " + "
+                contributors += state_mgr.state_list[j] + " %.1f%%" % abs(perc)
+                formula += "%.3f" % abs(row[j]) + "*" + state_mgr.state_list[j]
+            params[output_index_list[i]]["contributors"] = contributors
             params[output_index_list[i]]["formula"] = formula
+            print(params[output_index_list[i]]["contributors"])
             print(params[output_index_list[i]]["formula"])
 
     def save(self, model_name, dt):

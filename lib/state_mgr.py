@@ -55,6 +55,7 @@ class StateManager():
         self.gyros_prev1 = np.array( [0.0, 0.0, 0.0] )
         self.accels = np.array( [0.0, 0.0, 0.0] )
         self.accels_prev1 = np.array( [0.0, 0.0, 0.0] )
+        self.accels_prev2 = np.array( [0.0, 0.0, 0.0] )
 
         self.ned2body = quaternion.eul2quat( 0, 0, 0 )
 
@@ -148,6 +149,7 @@ class StateManager():
         self.gyros = gyros
 
     def set_accels(self, accels):
+        self.accels_prev2 = self.accels_prev1.copy()
         self.accels_prev1 = self.accels.copy()
         self.accels = accels
 
@@ -350,6 +352,8 @@ class StateManager():
                 val = abs(self.a_body[1])
             elif field == "baz":
                 val = self.a_body[2]
+            elif field == "airspeed_mps":
+                val = self.airspeed_mps
             elif field == "qbar":
                 val = self.qbar
             elif field == "alpha":
@@ -386,6 +390,12 @@ class StateManager():
                 val = self.accels_prev1[1]
             elif field == "az_prev1":
                 val = self.accels_prev1[2]
+            elif field == "ax_prev2":
+                val = self.accels_prev2[0]
+            elif field == "ay_prev2":
+                val = self.accels_prev2[1]
+            elif field == "az_prev2":
+                val = self.accels_prev2[2]
             elif field == "K":
                 val = 1.0
             else:
