@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 
-# a class to manage SRTM surfaces
-
 import matplotlib.pyplot as plt
 import numpy as np
 import os
@@ -18,7 +16,7 @@ import navpy
 
 from nsWorld import tile_cache
 from nsWorld import slippy_tiles
-from nsWorld import srtm
+from nsWorld import fabdem
 
 loadPrcFileData("", "compressed-textures 1") # compress textures when we load/save them
 
@@ -59,9 +57,9 @@ class Builder():
             google_dir = os.path.join(pathlib.Path.home(), dot_root, "cache", "google")
             self.cache = tile_cache.SlippyCache(google_dir, "https://mt1.google.com", "/vt/lyrs=s&x={}&y={}&z={}", ext=".jpg", options="", index_scheme="google")
 
-        self.srtm_dir = os.path.join(pathlib.Path.home(), dot_root, "cache", "srtm")
-        pathlib.Path(self.srtm_dir).mkdir(parents=True, exist_ok=True)
-        self.srtm_cache = srtm.Cache(self.srtm_dir)
+        self.fabdem_dir = os.path.join(pathlib.Path.home(), dot_root, "cache", "fabdem")
+        pathlib.Path(self.fabdem_dir).mkdir(parents=True, exist_ok=True)
+        self.fabdem_cache = fabdem.DEMCache(self.fabdem_dir)
 
         bam_dir = os.path.join(pathlib.Path.home(), dot_root, "cache", "bam")
         self.bam_cache = tile_cache.SlippyCache(bam_dir, "", "", ext=".bam")
@@ -78,7 +76,7 @@ class Builder():
         lon_min = nw_lon - dlon
         print("make_tin:", zoom_level, x, y, nw_lat, nw_lon, se_lat, se_lon)
 
-        llas = []
+        coords = []
         is_skirt = []
 
         # over cover range by one step on each side for generating a skirt to hide
@@ -95,7 +93,7 @@ class Builder():
             for r in range(start, end):
                 lon = nw_lon + dlon * c
                 lat = se_lat + dlat * r
-                llas.append( [lat, lon, 0] )
+                coords.append( [lon, lat, 0] )
 
                 # flag skirt points so later we can adjust their elevation artificially lower
                 if r < 0 or r > steps or c < 0 or c > steps:
@@ -103,34 +101,34 @@ class Builder():
                 else:
                     is_skirt.append(False)
             time.sleep(0)
-        llas = np.array(llas)
+        coords = np.array(coords)
 
         # compute texture coordinates
         texcoords = []
-        for p in llas:
-            u = (p[1] - nw_lon) / lon_size
-            v = (p[0] - se_lat) / lat_size
+        for p in coords:
+            u = (p[0] - nw_lon) / lon_size
+            v = (p[1] - se_lat) / lat_size
             texcoords.append([u,v])
             time.sleep(0)
 
-        lat1, lon1, lat2, lon2 = srtm.gen_tile_range(lat_min, lon_max, lat_max, lon_min)
+        lat1, lon1, lat2, lon2 = fabdem.gen_tile_range(lat_min, lon_max, lat_max, lon_min)
 
-        # for each srtm tile this region spans, interpolate as many elevation values
+        # for each fabdem tile this region spans, interpolate as many elevation values
         # as we can, then copy the good values into zs.  When we finish all the
         # loaded tiles, we should have found elevations for the entire range of
         # points.
         for lat in range(lat1, lat2+1):
             for lon in range(lon1, lon2+1):
-                srtm_tile = self.srtm_cache.get_tile(lat, lon)
-                tilename = srtm.make_tile_name(lat, lon)
-                self.srtm_cache.make_smooth_patches(tilename) # if needed
-                if srtm_tile is not None:
-                    srtm_tile.full_interpolate(llas)
+                fabdem_tile = self.fabdem_cache.get_tile(lat, lon)
+                tilename = fabdem.make_tile_name(lat, lon)
+                self.fabdem_cache.make_smooth_patches(tilename) # if needed
+                if fabdem_tile is not None:
+                    fabdem_tile.full_interpolate(coords)
                 time.sleep(0)
-        for i in range(len(llas)):
-            if is_skirt[i] and llas[i][2] > -9998:
+        for i in range(len(coords)):
+            if is_skirt[i] and coords[i][2] > -9998:
                 # artifically lower skirt elevations
-                llas[i][2] -= xsize_m / 10
+                coords[i][2] -= xsize_m / 10
 
         # (not needed now): default val zero vs. /down/ elevation quick sanity check
         # for i in range(len(llas)):
@@ -138,13 +136,13 @@ class Builder():
         #         print("Problem interpolating elevation for:", llas[i])
         #         llas[i][2] = 0.0 # ocean?
 
-        fv = np.array(llas)[:,2]
+        fv = np.array(coords)[:,2]
         sk = np.array(is_skirt)
         avg_elev_m = np.mean(fv[sk==False])
         # print(is_skirt, fv[sk==False])
         print("Tile average elev (m):", avg_elev_m)
 
-        return llas, [center_lat, center_lon, avg_elev_m], texcoords, is_skirt
+        return coords, [center_lat, center_lon, avg_elev_m], texcoords, is_skirt
 
     def gen_terrain_node(self, zoom_level, x, y):
         do_skirt = True
@@ -153,10 +151,10 @@ class Builder():
         #     do_skirt = False
         #     steps = tile_steps_wireframe
 
-        llas, center_lla, texcoords, is_skirt = self.make_tin(zoom_level, x, y, steps, do_skirt)
+        coords, center_lla, texcoords, is_skirt = self.make_tin(zoom_level, x, y, steps, do_skirt)
 
         # compute Delaunay triangulation in lon/lat space
-        tris = scipy.spatial.Delaunay(llas[:,:2])
+        tris = scipy.spatial.Delaunay(coords[:,:2])
         print("tris:", len(tris.simplices))
         if False:
             import matplotlib.pyplot as plt
@@ -167,8 +165,8 @@ class Builder():
         # convert to xyz (via ned)
         points_xyz = []
         vals_xyz = []
-        for i in range(len(llas)):
-            ned = navpy.lla2ned(llas[i][0], llas[i][1], llas[i][2], center_lla[0], center_lla[1], center_lla[2])
+        for i in range(len(coords)):
+            ned = navpy.lla2ned(coords[i][1], coords[i][0], coords[i][2], center_lla[0], center_lla[1], center_lla[2])
             points_xyz.append( [ned[1], ned[0]] )
             vals_xyz.append(-ned[2])
             time.sleep(0)
@@ -256,7 +254,7 @@ class Builder():
 
         prim = GeomTriangles(Geom.UHStatic) # don't expect geometry to change
         for t in tris.simplices:
-            prim.addVertices(t[0], t[2], t[1])
+            prim.addVertices(t[0], t[1], t[2])
             time.sleep(0)
         prim.closePrimitive()
 
