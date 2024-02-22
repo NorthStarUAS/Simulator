@@ -6,19 +6,19 @@ from panda3d.core import *
 
 import navpy
 
-from . import fabdem
+from . import srtm2
 from . import tile_mgr
 
 dot_root = ".nsWorld"
-fabdem_dir = os.path.join(pathlib.Path.home(), dot_root, "cache", "fabdem")
-pathlib.Path(fabdem_dir).mkdir(parents=True, exist_ok=True)
+srtm_dir = os.path.join(pathlib.Path.home(), dot_root, "cache", "srtm")
+pathlib.Path(srtm_dir).mkdir(parents=True, exist_ok=True)
 
 class World():
     def __init__(self, config, nedref_time):
         self.tile_mgr = tile_mgr.tile_mgr(config, dot_root)
         self.tile_mgr.start()
         self.saved_nedref_time = nedref_time
-        self.fabdem_cache = fabdem.DEMCache(fabdem_dir, download=False)
+        self.srtm_cache = srtm2.DEMCache(srtm_dir, download=False)
 
         self.skybox = None
         if "sky" in config and config["sky"] == "skybox":
@@ -90,12 +90,12 @@ class World():
 
     def get_elevation(self, lat_deg, lon_deg):
         # measure height above ground
-        fabdem_tile = self.fabdem_cache.get_tile(lat_deg, lon_deg)
-        if fabdem_tile is not None:
-            tilename = fabdem.make_tile_name(lat_deg, lon_deg)
-            self.fabdem_cache.make_smooth_patches(tilename)
-            lla = [lat_deg, lon_deg, 0]
-            fabdem_tile.full_interpolate([lla])
-            return lla[2]
+        tile = self.srtm_cache.get_tile(lat_deg, lon_deg)
+        if tile is not None:
+            tilename = srtm2.make_tile_name(lat_deg, lon_deg)
+            self.srtm_cache.make_smooth_patches(tilename)
+            coord = np.array( [[lon_deg, lat_deg, 0]] )
+            tile.full_interpolate(coord)
+            return coord[0][2]
         else:
             return 0.0

@@ -14,9 +14,9 @@ from direct.stdpy import threading
 
 import navpy
 
-from nsWorld import tile_cache
 from nsWorld import slippy_tiles
-from nsWorld import fabdem
+from nsWorld import srtm2
+from nsWorld import tile_cache
 
 loadPrcFileData("", "compressed-textures 1") # compress textures when we load/save them
 
@@ -57,9 +57,9 @@ class Builder():
             google_dir = os.path.join(pathlib.Path.home(), dot_root, "cache", "google")
             self.cache = tile_cache.SlippyCache(google_dir, "https://mt1.google.com", "/vt/lyrs=s&x={}&y={}&z={}", ext=".jpg", options="", index_scheme="google")
 
-        self.fabdem_dir = os.path.join(pathlib.Path.home(), dot_root, "cache", "fabdem")
-        pathlib.Path(self.fabdem_dir).mkdir(parents=True, exist_ok=True)
-        self.fabdem_cache = fabdem.DEMCache(self.fabdem_dir)
+        self.srtm_dir = os.path.join(pathlib.Path.home(), dot_root, "cache", "srtm")
+        pathlib.Path(self.srtm_dir).mkdir(parents=True, exist_ok=True)
+        self.srtm_cache = srtm2.DEMCache(self.srtm_dir)
 
         bam_dir = os.path.join(pathlib.Path.home(), dot_root, "cache", "bam")
         self.bam_cache = tile_cache.SlippyCache(bam_dir, "", "", ext=".bam")
@@ -100,7 +100,6 @@ class Builder():
                     is_skirt.append(True)
                 else:
                     is_skirt.append(False)
-            time.sleep(0)
         coords = np.array(coords)
 
         # compute texture coordinates
@@ -109,22 +108,21 @@ class Builder():
             u = (p[0] - nw_lon) / lon_size
             v = (p[1] - se_lat) / lat_size
             texcoords.append([u,v])
-            time.sleep(0)
 
-        lat1, lon1, lat2, lon2 = fabdem.gen_tile_range(lat_min, lon_max, lat_max, lon_min)
+        lat1, lon1, lat2, lon2 = srtm2.gen_tile_range(lat_min, lon_max, lat_max, lon_min)
 
-        # for each fabdem tile this region spans, interpolate as many elevation values
+        # for each srtm tile this region spans, interpolate as many elevation values
         # as we can, then copy the good values into zs.  When we finish all the
         # loaded tiles, we should have found elevations for the entire range of
         # points.
         for lat in range(lat1, lat2+1):
             for lon in range(lon1, lon2+1):
-                fabdem_tile = self.fabdem_cache.get_tile(lat, lon)
-                tilename = fabdem.make_tile_name(lat, lon)
-                self.fabdem_cache.make_smooth_patches(tilename) # if needed
-                if fabdem_tile is not None:
-                    fabdem_tile.full_interpolate(coords)
-                time.sleep(0)
+                srtm_tile = self.srtm_cache.get_tile(lat, lon)
+                tilename = srtm2.make_tile_name(lat, lon)
+                self.srtm_cache.make_smooth_patches(tilename) # if needed
+                if srtm_tile is not None:
+                    srtm_tile.full_interpolate(coords)
+
         for i in range(len(coords)):
             if is_skirt[i] and coords[i][2] > -9998:
                 # artifically lower skirt elevations
@@ -136,7 +134,7 @@ class Builder():
         #         print("Problem interpolating elevation for:", llas[i])
         #         llas[i][2] = 0.0 # ocean?
 
-        fv = np.array(coords)[:,2]
+        fv = coords[:,2]
         sk = np.array(is_skirt)
         avg_elev_m = np.mean(fv[sk==False])
         # print(is_skirt, fv[sk==False])
@@ -169,7 +167,6 @@ class Builder():
             ned = navpy.lla2ned(coords[i][1], coords[i][0], coords[i][2], center_lla[0], center_lla[1], center_lla[2])
             points_xyz.append( [ned[1], ned[0]] )
             vals_xyz.append(-ned[2])
-            time.sleep(0)
 
         # compute face normals
         normals_xyz = [[] for x in range(len(points_xyz))]
@@ -188,7 +185,6 @@ class Builder():
             normals_xyz[t[0]].append(n)
             normals_xyz[t[1]].append(n)
             normals_xyz[t[2]].append(n)
-            time.sleep(0)
         #print("normals_xyz:", normals_xyz)
 
         # average the connected face normals_xyz to compute each individual vertex normal
@@ -205,7 +201,6 @@ class Builder():
                 normals_xyz[i] = avg
             else:
                 normals_xyz[i] = np.array([0,0,1])
-            time.sleep(0)
 
         path = self.bam_cache.ensure_path_in_cache(zoom_level, x)
         meta_file = os.path.join(path, "%d" % y + ".meta")
@@ -240,22 +235,18 @@ class Builder():
         vertex = GeomVertexWriter(vdata, "vertex")
         for i in range(len(points_xyz)):
             vertex.addData3f(points_xyz[i][0], points_xyz[i][1], vals_xyz[i])
-            time.sleep(0)
 
         norm_writer = GeomVertexWriter(vdata, "normal")
         for i in range(len(normals_xyz)):
             norm_writer.addData3f(normals_xyz[i][0], normals_xyz[i][1], normals_xyz[i][2])
-            time.sleep(0)
 
         tex_writer = GeomVertexWriter(vdata, 'texcoord')
         for i in range(len(texcoords)):
             tex_writer.addData2f(texcoords[i][0], texcoords[i][1])
-            time.sleep(0)
 
         prim = GeomTriangles(Geom.UHStatic) # don't expect geometry to change
         for t in tris.simplices:
             prim.addVertices(t[0], t[1], t[2])
-            time.sleep(0)
         prim.closePrimitive()
 
         geom = Geom(vdata)

@@ -36,11 +36,11 @@ rwy_format = GeomVertexFormat.getV3()
 # cutoff_freq = step_size * 0.002  # bigger values == tighter fit
 # b, a = signal.butter(2, cutoff_freq, 'lowpass')
 
-from nsWorld import srtm
+from nsWorld import srtm_old
 dot_root = ".nsWorld"
 srtm_dir = os.path.join(pathlib.Path.home(), dot_root, "cache", "srtm")
 pathlib.Path(srtm_dir).mkdir(parents=True, exist_ok=True)
-srtm_cache = srtm.Cache(srtm_dir)
+srtm_cache = srtm_old.Cache(srtm_dir)
 
 def old_interpolate_terrain(vts, nedref):
     # inefficient, but we have to convert ned vts's back to lla before doing our interpolation work
@@ -56,13 +56,13 @@ def old_interpolate_terrain(vts, nedref):
         if lla[1] < lon_min: lon_min = lla[1]
         if lla[1] > lon_max: lon_max = lla[1]
         llas.append([lla[1], lla[0]]) # this has to be lon,lat (not lat,lon) here
-    lat1, lon1, lat2, lon2 = srtm.gen_tile_range(lat_min, lon_max, lat_max, lon_min)
+    lat1, lon1, lat2, lon2 = srtm_old.gen_tile_range(lat_min, lon_max, lat_max, lon_min)
     print("vts range:", lat1, lon1, lat2, lon2)
     for lat in range(lat1, lat2+1):
         for lon in range(lon1, lon2+1):
             print("vts working on:", lat, lon)
             srtm_tile = srtm_cache.get_tile(lat, lon)
-            tilename = srtm.make_tile_name(lat, lon)
+            tilename = srtm_old.make_tile_name(lat, lon)
             srtm_cache.level_runways(tilename) # if needed
             if srtm_tile is not None:
                 zs = srtm_tile.interpolate(np.array(llas))
@@ -189,7 +189,7 @@ def genapt(apt, just_do_overlap=False):
     if just_do_overlap:
         patch = None
     else:
-        patch = srtm.SmoothPatch(srtm_cache, lat_min, lat_max, lon_min, lon_max, local_nedref)
+        patch = srtm_old.SmoothPatch(srtm_cache, lat_min, lat_max, lon_min, lon_max, local_nedref)
 
     #airport_node = render.attachNewNode(id)
     airport_node = NodePath(id)
