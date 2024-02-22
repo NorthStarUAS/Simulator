@@ -66,7 +66,7 @@ pbar = None
 def show_progress(block_num, block_size, total_size):
     global pbar
     if pbar is None:
-        pbar = tqdm(total=total_size)
+        pbar = tqdm(total=total_size, smoothing=0.05)
     inc = block_num*block_size - pbar.n
     pbar.update(n=inc)
 
@@ -209,7 +209,6 @@ class DEMCache():
             url = "https://data.bris.ac.uk/datasets/s5hqmjcdj8yo2ibzi9b4ew3sn/" + zipname
             download_target = self.cache_dir + '/' + zipname
             print("FABDEM: downloading:", url)
-            urllib.request.urlretrieve(url, download_target, show_progress)
             try:
                 urllib.request.urlretrieve(url, download_target, show_progress)
             except:
@@ -311,8 +310,8 @@ class SmoothPatch:
 
         # sample the airport coverage area at high density
         coords = []
-        for lat in np.linspace(lat_min, lat_max, ndivs+1):
-            for lon in np.linspace(lon_min, lon_max, edivs+1):
+        for lon in np.linspace(lon_min, lon_max, edivs+1):
+            for lat in np.linspace(lat_min, lat_max, ndivs+1):
                 coords.append( [lon, lat, nedref[2]] )
         # coords = np.array(coords)
         # print(coords.shape)
@@ -377,8 +376,10 @@ if __name__ == "__main__":
 
     fabdem_cache = DEMCache(fabdem_dir)
 
-    lat = 46.5
-    lon = -92.2
+    # lat = 46.5
+    # lon = -92.2
+    lat = 37.2
+    lon = -113.5
     tile = fabdem_cache.get_tile(lat, lon)
 
     # print(tile.delaunay_interpolate( [-92.25, 46.45 ] ))
