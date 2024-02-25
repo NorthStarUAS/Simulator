@@ -52,7 +52,7 @@ state_mgr = StateManager(args.vehicle)
 
 if False and flight_format == "cirrus_csv":
     # experiment with a minimal alpha estimator
-    input_states = [
+    inceptor_states = [
         # flight controls (* qbar)
         # "aileron",
         "elevator",
@@ -90,7 +90,7 @@ if False and flight_format == "cirrus_csv":
     ]
 elif False and flight_format == "cirrus_csv":
     # experiment with a minimal beta estimator
-    input_states = [
+    inceptor_states = [
         # flight controls (* qbar)
         # "aileron",
         # "elevator",
@@ -129,16 +129,48 @@ elif False and flight_format == "cirrus_csv":
 elif flight_format == "cirrus_csv":
     # question: seem to get a better flaps up fit to airspeed (vs. qbar) but fails to converge for 50% flaps
     # qbar only converges for both conditions
-    input_states = [
+    inceptor_states = [
         # flight controls (* qbar)
-        "aileron",
-        "elevator",
+        # "aileron",
+        # "elevator",
         "rudder",
         "throttle",
         "ax",                       # thrust - drag
         "ay",                       # side force
         "az",                       # lift
-        # "airspeed_mps",
+        "p", "q", "r",              # imu (body) rates
+]
+    internal_states = [
+        # "abs(aileron)",
+        # "abs(rudder)",
+        "bgx", "bgy", "bgz",        # gravity rotated into body frame
+        # additional state history improves fit and output parameter prediction.
+        # "alpha_prev1", "beta_prev1",
+        "ax_prev1", "ay_prev1", "az_prev1",
+        "p_prev1", "q_prev1", "r_prev1",
+        "abs(ay)", "abs(bgy)",
+        "qbar",                     # effects due to airspeed airframe
+        # "K",                        # constant factor (1*parameter)
+    ]
+    output_states = [
+        "airspeed_mps",
+        # "alpha", "beta",            # angle of attack, side slip angle
+        "alpha",
+    ]
+    conditions = [
+        { "flaps": 0 },
+        { "flaps": 0.5 }
+    ]
+elif flight_format == "cirrus_csv":
+    # question 1: seem to get a better flaps up fit to airspeed (vs. qbar) but fails to converge for 50% flaps
+    # qbar only converges for both conditions
+    # question 2: would it be useful to have a gamma (flight path angle) parameter (may help asi)
+    inceptor_states = [
+        # flight controls (* qbar)
+        "aileron",
+        "elevator",
+        "rudder",
+        "throttle",
     ]
     internal_states = [
         "abs(aileron)",
@@ -149,11 +181,15 @@ elif flight_format == "cirrus_csv":
         "ax_prev1", "ay_prev1", "az_prev1",
         "p_prev1", "q_prev1", "r_prev1",
         "abs(ay)", "abs(bgy)",
+        "qbar",                     # effects due to airspeed airframe
         "K",                        # constant factor (1*parameter)
     ]
     output_states = [
-        "qbar",                     # effects due to airspeed airframe
+        "airspeed_mps",
         "alpha", "beta",            # angle of attack, side slip angle
+        "ax",                       # thrust - drag
+        "ay",                       # side force
+        "az",                       # lift
         "p", "q", "r",              # imu (body) rates
     ]
     conditions = [
@@ -192,11 +228,11 @@ elif args.vehicle == "quad":
         #"p", "q", "r",               # imu (body) rates
     ]
 
-state_names = input_states + internal_states + output_states
-state_mgr.set_state_names(input_states, internal_states, output_states)
+state_names = inceptor_states + internal_states + output_states
+state_mgr.set_state_names(inceptor_states, internal_states, output_states)
 
 if flight_format == "cirrus_csv":
-    state_mgr.set_is_flying_thresholds(60*kt2mps, 50*kt2mps)
+    state_mgr.set_is_flying_thresholds(75*kt2mps, 65*kt2mps)
 
 # dt estimation
 print("Estimating median dt from IMU records:")
