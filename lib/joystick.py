@@ -135,6 +135,7 @@ class Joystick():
             handle = joy["handle"]
             for i in range(joy["num_axes"]):
                 joy["axes"][i] = handle.get_axis(i)
+            # print(joy["axes"])
             for i in range(joy["num_buttons"]):
                 joy["buttons"][i] = handle.get_button(i)
             for i in range(joy["num_hats"]):
