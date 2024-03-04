@@ -2,7 +2,7 @@
 # avoid getting lost in our index offsets as we play around with
 # different state parameters.
 
-from math import atan2, sin, sqrt
+from math import atan2, cos, sin, sqrt
 import numpy as np
 
 from lib.constants import gravity, d2r
@@ -10,19 +10,24 @@ from lib import quaternion
 
 class StateManager():
     def __init__(self, vehicle="wing"):
+        # config
         self.vehicle = vehicle
         self.input_states = []
         self.internal_states = []
         self.output_states = []
         self.state_list = []
-        self.dt = 0.02
+        self.dt = None
         self.airborne_thresh_mps = 10 # default for small fixed wing drone
         self.land_thresh_mps = 7      # default for small fixed wing drone
-        self.airspeed_mps = 0
         self.wn_filt = 0
         self.we_filt = 0
         self.wd_filt = 0
 
+        self.rho = 1        # atmospheric density = 1 atm!
+        self.mass_kg = 1    # mass of aircraft = 1 aircraft would work!
+        self.wing_area = 1  # wing area = 1 wing!  "S"
+
+        # inputs
         self.aileron = 0
         self.aileron_prev1 = 0
         self.elevator = 0
@@ -33,31 +38,43 @@ class StateManager():
         self.throttle = 0
         self.throttle_prev1 = 0
 
-        self.qbar = 0
-        self.lift = 0
-        self.Cl = 0
-        self.drag = 0
-        self.Cd = 0
-        self.thrust = 0
-        self.have_alpha = False
-        self.alpha = 0
-        self.alpha_prev1 = 0
-        self.beta = 0
-        self.beta_prev1 = 0
-        self.flying = False
-        self.ground_alt = None
-        self.g_ned = np.array( [0.0, 0.0, gravity] )
-        self.g_body = np.array( [0.0, 0.0, 0.0] )
-        self.vel_ned = np.array( [0.0, 0.0, 0.0] )
-        self.vel_body = np.array( [0.0, 0.0, 0.0] )
-
+        # direct states
+        self.time = 0
         self.gyros = np.array( [0.0, 0.0, 0.0] )
         self.gyros_prev1 = np.array( [0.0, 0.0, 0.0] )
         self.accels = np.array( [0.0, 0.0, 0.0] )
         self.accels_prev1 = np.array( [0.0, 0.0, 0.0] )
         self.accels_prev2 = np.array( [0.0, 0.0, 0.0] )
-
+        self.airspeed_mps = 0
+        self.alpha = 0
+        self.alpha_prev1 = 0
+        self.beta = 0
+        self.beta_prev1 = 0
+        self.vel_ned = np.array( [0.0, 0.0, 0.0] )
+        self.gs_mps = 0
+        self.phi_rad = 0
+        self.the_rad = 0
+        self.psi_rad = 0
         self.ned2body = quaternion.eul2quat( 0, 0, 0 )
+        self.lon = 0
+        self.lat = 0
+        self.alt = 0
+
+        # terms (combinations of states)
+        self.qbar = 0
+        self.alpha_dot_term2 = 0
+        self.alpha_dot_term3 = 0
+
+        self.Cl_raw = 0   # raw/immediate estimate from accels and qbar
+        self.thrust = 0
+        self.have_alpha = False
+        self.alpha_dot = 0
+        self.flying = False
+        self.ground_alt = None
+        self.g_ned = np.array( [0.0, 0.0, gravity] )
+        self.g_body = np.array( [0.0, 0.0, 0.0] )
+        self.vel_body = np.array( [0.0, 0.0, 0.0] )
+
 
     def set_state_names(self, input_states, internal_states, output_states):
         self.input_states = input_states
@@ -84,6 +101,8 @@ class StateManager():
             print("land threshold must be lower than airborne threshold for hysterisis.")
         self.airborne_thresh_mps = airborne_thresh_mps
         self.land_thresh_mps = land_thresh_mps
+
+    # set direct states
 
     def set_time(self, time):
         self.time = time
@@ -118,20 +137,14 @@ class StateManager():
     def set_motors(self, motors):
         self.motors = motors.copy()
 
-    def set_orientation(self, phi_rad, the_rad, psi_rad):
-        self.phi_rad = phi_rad
-        self.the_rad = the_rad
-        self.psi_rad = psi_rad
-        self.ned2body = quaternion.eul2quat( phi_rad, the_rad, psi_rad )
-
     def set_airdata(self, airspeed_mps, alpha_rad=None, beta_rad=None):
         self.airspeed_mps = airspeed_mps
-        self.qbar = 0.5 * self.airspeed_mps**2
         self.vel_body[0] = airspeed_mps
         self.alpha_prev1 = self.alpha
         if alpha_rad is not None:
             self.have_alpha = True
             self.alpha = alpha_rad
+            self.alpha_dot = (self.alpha - self.alpha_prev1) / self.dt
             self.vel_body[2] = airspeed_mps * sin(alpha_rad)
         self.beta_prev1 = self.beta
         if beta_rad is not None:
@@ -159,7 +172,22 @@ class StateManager():
         self.we_filt = 0.95 * self.we_filt + 0.05 * we
         self.wd_filt = 0.95 * self.wd_filt + 0.05 * wd
         self.vel_ned = np.array( [vn + wn, ve + we, vd + wd] )
+        self.gs_mps = sqrt( self.vel_ned[0]**2 + self.vel_ned[1]**2 )
 
+    def set_orientation(self, phi_rad, the_rad, psi_rad):
+        self.phi_rad = phi_rad
+        self.the_rad = the_rad
+        self.psi_rad = psi_rad
+        self.ned2body = quaternion.eul2quat( phi_rad, the_rad, psi_rad )
+
+    def set_pos(self, lon, lat, alt):
+        self.lon = lon
+        self.lat = lat
+        self.alt = alt
+        if self.ground_alt is None or alt < self.ground_alt:
+            self.ground_alt = alt
+
+    # for simulator
     def set_body_velocity(self, v_body):
         self.vel_body = v_body
 
@@ -184,9 +212,10 @@ class StateManager():
         # self.accels[0] = ax_mps2
         self.vel_body[0] += (self.accels[0] - self.g_body[0])  * self.dt
         self.airspeed_mps = self.vel_body[0]
-        self.qbar = 0.5 * self.airspeed_mps**2
+        self.compute_qbar()
         self.alpha_prev1 = self.alpha
         self.alpha = alpha_rad
+        self.alpha_dot = (self.alpha - self.alpha_prev1) / self.dt
         self.vel_body[2] = self.vel_body[0] * sin(alpha_rad)
         self.beta_prev1 = self.beta
         self.beta = beta_rad
@@ -203,7 +232,7 @@ class StateManager():
         # todo: use observed min/max range from model
 
         self.airspeed_mps = self.vel_body[0]
-        self.qbar = 0.5 * self.airspeed_mps**2
+        self.compute_qbar()
 
         # try to clamp side/vertical velocities from getting crazy
         cutoff = 0.3
@@ -219,27 +248,18 @@ class StateManager():
         self.alpha = atan2( self.vel_body[2], self.vel_body[0] )
         # if abs(self.alpha) > max:
         #     self.alpha = np.sign(self.alpha) * max
+        self.alpha_dot = (self.alpha - self.alpha_prev1) / self.dt
         self.beta = atan2( self.vel_body[1], self.vel_body[0] )
         # if abs(self.beta) > max:
         #     self.beta = np.sign(self.beta) * max
 
-    def set_pos(self, lon, lat, alt):
-        self.lon = lon
-        self.lat = lat
-        self.alt = alt
-        if self.ground_alt is None or alt < self.ground_alt:
-            self.ground_alt = alt
-
     def is_flying(self):
         if self.vehicle == "wing":
-            # ground speed mps (ned)
-            gs_mps = sqrt( self.vel_ned[0]**2 + self.vel_ned[1]**2 )
-
             # test if we are flying?
-            if not self.flying and gs_mps > self.airborne_thresh_mps*0.7 and self.airspeed_mps > self.airborne_thresh_mps:
+            if not self.flying and self.gs_mps > self.airborne_thresh_mps*0.7 and self.airspeed_mps > self.airborne_thresh_mps:
                 print("Start flying @ %.2f" % self.time)
                 self.flying = True
-            elif self.flying and gs_mps < self.airborne_thresh_mps*1.2 and self.airspeed_mps < self.land_thresh_mps:
+            elif self.flying and self.gs_mps < self.airborne_thresh_mps*1.2 and self.airspeed_mps < self.land_thresh_mps:
                 print("Stop flying @ %.2f" % self.time)
                 self.flying = False
         elif self.vehicle == "quad":
@@ -252,17 +272,14 @@ class StateManager():
         return self.flying
 
     # compute body frame of reference values
-    def compute_body_frame_values(self, have_alpha_beta=False):
+    def compute_derived_states(self, have_alpha_beta=False):
         if self.dt is None:
             print("Did you forget to set dt for this system?")
             return None
 
-        # transformation between NED coordations and body coordinates
-        ned2body = quaternion.eul2quat( self.phi_rad, self.the_rad, self.psi_rad )
-
         if not have_alpha_beta:
             # rotate ned velocity vector into body frame
-            self.vel_body = quaternion.transform(ned2body, self.vel_ned)
+            self.vel_body = quaternion.transform(self.ned2body, self.vel_ned)
             #print("v_ned:", self.vel_ned, np.linalg.norm(self.vel_ned),
             #      "v_body:", self.vel_body, np.linalg.norm(self.vel_body))
 
@@ -273,25 +290,27 @@ class StateManager():
 
 
         # rotate ned gravity vector into body frame
-        self.g_body = quaternion.transform(ned2body, self.g_ned)
+        self.g_body = quaternion.transform(self.ned2body, self.g_ned)
 
-        # lift, drag, and weight vector estimates
+    # terms are direct combinations of measurable states
+    def compute_terms(self):
+        # qbar = 1/2 * V^2 * rho
+        self.qbar = 0.5 * self.airspeed_mps**2 * self.rho
 
-        # is my math correct here? (for drag need grav & body_accel in
-        # flight path frame of reference ... I think.
-
-        self.drag = self.accels[0] - self.thrust
+        # Cl coefficient of lift (varies as a function of alpha)
+        lift = -self.accels[2] * self.mass_kg  # actual measured force
+        # lift (L) = Cl * qbar * A (wing area)
+        # Cl = lift / (qbar * A)
         if self.qbar > 10:
-            self.Cd = self.drag / self.qbar
+            self.Cl_raw = lift / (self.qbar * self.wing_area)
         else:
-            self.Cd = 0
+            self.Cl_raw = 0
 
-        self.lift = -self.accels[2]
+        # alpha_dot term2: contribution from aerodynamic lift
+        self.alpha_dot_term2 = (self.qbar * self.wing_area) / (self.mass_kg * self.airspeed_mps * cos(self.beta))
 
-        if self.qbar > 10:
-            self.Cl = self.lift / self.qbar
-        else:
-            self.Cl = 0
+        # alpha_dot_term3: contribution from gravity forces
+        self.alpha_dot_term3 = gravity * (cos(self.alpha) * cos(self.phi_rad) * cos(self.the_rad) + sin(self.alpha) * sin(self.the_rad)) / (self.airspeed_mps * cos(self.beta))
 
     def gen_state_vector(self, params=None):
         result = []
@@ -308,6 +327,8 @@ class StateManager():
                 val = abs(self.aileron) * self.qbar
             elif field == "elevator":
                 val = self.elevator * self.qbar
+            elif field == "abs(elevator)":
+                val = abs(self.elevator) * self.qbar
             elif field == "elevator_prev1":
                 val = self.elevator_prev1 * self.qbar
             elif field == "rudder":
@@ -328,10 +349,6 @@ class StateManager():
                 val = self.motors[4]
             elif field == "motor[5]":
                 val = self.motors[5]
-            elif field == "lift":
-                val = self.lift
-            elif field == "drag":
-                val = self.drag
             elif field == "thrust":
                 val = self.thrust
             elif field == "bgx":
@@ -354,10 +371,21 @@ class StateManager():
                 val = self.a_body[2]
             elif field == "airspeed_mps":
                 val = self.airspeed_mps
+            elif field == "inv_airspeed_mps":
+                if self.airspeed_mps != 0:
+                    val = 1 / self.airspeed_mps
+                else:
+                    val = 0
             elif field == "qbar":
                 val = self.qbar
             elif field == "alpha":
                 val = sin(self.alpha) * self.qbar
+            elif field == "alpha_dot":
+                val = self.alpha_dot
+            elif field == "alpha_dot_term2":
+                val = self.alpha_dot_term2
+            elif field == "alpha_dot_term3":
+                val = self.alpha_dot_term3
             elif field == "alpha_prev1":
                 val = sin(self.alpha_prev1) * self.qbar
             elif field == "beta":

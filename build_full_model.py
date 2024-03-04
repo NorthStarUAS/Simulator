@@ -51,38 +51,40 @@ if len(data["imu"]) == 0 and len(data["gps"]) == 0:
 state_mgr = StateManager(args.vehicle)
 
 if False and flight_format == "cirrus_csv":
-    # experiment with a minimal alpha estimator
+    # experiment with an alpha and alpha_dot estimator
     inceptor_states = [
         # flight controls (* qbar)
-        # "aileron",
+        "aileron",
         "elevator",
-        # "rudder",
-        # "throttle",
-        # "ax",                       # thrust - drag
-        # "ay",                       # side force
+        "rudder",
+        "throttle",
+        "ax",                       # thrust - drag
+        "ay",                       # side force
         "az",                       # lift
         # "p", "q", "r",              # imu (body) rates
-        "q",
+        "q",              # pitch rate
     ]
     internal_states = [
-        # "abs(aileron)",
-        # "abs(rudder)",
-        "bgx",
-        # "bgx", "bgy", "bgz",        # gravity rotated into body frame
-        "qbar",                     # effects due to airspeed airframe
+        "abs(aileron)", "abs(elevator)", "abs(rudder)",
+        "bgx", "bgy", "bgz",        # gravity rotated into body frame
+        # "qbar",                     # effects due to dynamic pressure
+        # "inv_airspeed_mps",             # effects due to airspeed
         # additional state history improves fit and output parameter prediction.
         # "alpha_prev1", "beta_prev1",
-        "alpha_prev1",
+        # "alpha",
+        # "alpha_prev1",
+        "alpha_dot_term2",
+        "alpha_dot_term3",
         # "ax_prev1", "ay_prev1", "az_prev1",
-        "ay_prev1",
         # "p_prev1", "q_prev1", "r_prev1",
         "q_prev1",
-        # "abs(ay)", "abs(bgy)",
-        # "K",                        # constant factor (1*parameter)
+        "abs(ay)", "abs(bgy)",
+        "K",                        # constant factor (1*parameter)
     ]
     output_states = [
         # "alpha", "beta",            # angle of attack, side slip angle
         "alpha",
+        # "alpha_dot",
     ]
     conditions = [
         { "flaps": 0 },
@@ -107,7 +109,7 @@ elif False and flight_format == "cirrus_csv":
         # "abs(rudder)",
         "bgy",
         # "bgx", "bgy", "bgz",        # gravity rotated into body frame
-        "qbar",                     # effects due to airspeed airframe
+        "qbar",                     # effects due to dynamic pressure
         # additional state history improves fit and output parameter prediction.
         # "alpha_prev1", "beta_prev1",
         "beta_prev1",
@@ -126,7 +128,7 @@ elif False and flight_format == "cirrus_csv":
         { "flaps": 0 },
         { "flaps": 0.5 }
     ]
-elif flight_format == "cirrus_csv":
+elif False and flight_format == "cirrus_csv":
     # question: seem to get a better flaps up fit to airspeed (vs. qbar) but fails to converge for 50% flaps
     # qbar only converges for both conditions
     inceptor_states = [
@@ -177,6 +179,8 @@ elif flight_format == "cirrus_csv":
         "abs(rudder)",
         "bgx", "bgy", "bgz",        # gravity rotated into body frame
         # additional state history improves fit and output parameter prediction.
+        "alpha_dot_term2",
+        "alpha_dot_term3",
         "alpha_prev1", "beta_prev1",
         "ax_prev1", "ay_prev1", "az_prev1",
         "p_prev1", "q_prev1", "r_prev1",
@@ -294,28 +298,14 @@ cond_list = []
 for i in range(len(conditions)):
     cond_list.append( { "traindata_list": [], "coeff": [] } )
 
-def time_update(vehicle):
-    if state_mgr.is_flying():
-        state_mgr.compute_body_frame_values(state_mgr.have_alpha)
-        state = state_mgr.gen_state_vector()
-        # print(state_mgr.state2dict(state))
-        for i, condition in enumerate(conditions):
-            # print(i, condition)
-            if "flaps" in condition and abs(state_mgr.flaps - condition["flaps"]) < 0.1:
-                # print(True)
-                cond_list[i]["traindata_list"].append( state )
-                if vehicle == "wing":
-                    params = [ state_mgr.alpha*r2d, state_mgr.Cl, state_mgr.Cd, state_mgr.qbar,
-                                state_mgr.accels[0], state_mgr.throttle ]
-                    # print("params:", params)
-                    cond_list[i]["coeff"].append( params )
-
-# iterate through the flight data log, cherry pick the selected parameters
+# iterate through the flight data log (a sequence of time samples of all the measured states)
 iter = flight_interp.IterateGroup(data)
 for i in tqdm(range(iter.size())):
     record = iter.next()
     if len(record) == 0:
         continue
+
+    # 1. Do the messy work of cherry picking out the direct measured states from each time sample
     if "filter" in record:
         # need ahead of air in case we are doing a wind estimate
         navpt = record["filter"]
@@ -407,7 +397,28 @@ for i in tqdm(range(iter.size())):
             state_mgr.set_ned_velocity( gpspt["vn"], gpspt["ve"],
                                               gpspt["vd"], wn, we, wd )
 
-    time_update(args.vehicle)
+    # Our model is only valid during flight aloft, skip non-flying data points
+    if not state_mgr.is_flying():
+        continue
+
+    # 2. Derived states
+    state_mgr.compute_derived_states(state_mgr.have_alpha)
+
+    # 3. Compute terms (combinations of states and derived states)
+    state_mgr.compute_terms()
+
+    state = state_mgr.gen_state_vector()
+    # print(state_mgr.state2dict(state))
+    for i, condition in enumerate(conditions):
+        # print(i, condition)
+        if "flaps" in condition and abs(state_mgr.flaps - condition["flaps"]) < 0.1:
+            # print(True)
+            cond_list[i]["traindata_list"].append( state )
+            if args.vehicle == "wing":
+                params = [ state_mgr.alpha*r2d, state_mgr.Cl_raw, 0, state_mgr.qbar,
+                            state_mgr.accels[0], state_mgr.throttle ]
+                # print("params:", params)
+                cond_list[i]["coeff"].append( params )
 
 print("Conditions report:")
 for i, cond in enumerate(conditions):
