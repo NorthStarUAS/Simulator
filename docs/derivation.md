@@ -171,18 +171,30 @@ Rearranging and substituting:
 $$
 \mathbf{x}(k+1) = \mathbf{\dot{x}}(k) + \mathbf{x}(k)
 \\
-\mathbf{\dot{x}}(k) + \mathbf{x}(k) = \mathbf{A}_{discrete} \cdot \mathbf{x}(k) + \mathbf{B} \cdot \mathbf{u}(k)
+\mathbf{\dot{x}}(k) + \mathbf{x}(k) = \mathbf{A}_{discrete} \cdot \mathbf{x}(k) + \mathbf{B}_{discrete} \cdot \mathbf{u}(k)
 \\
-\mathbf{\dot{x}}(k) = \mathbf{A}_{discrete} \cdot \mathbf{x}(k) - \mathbf{x}(k) + \mathbf{B} \cdot \mathbf{u}(k)
+\mathbf{\dot{x}}(k) = \mathbf{A}_{discrete} \cdot \mathbf{x}(k) - \mathbf{x}(k) + \mathbf{B}_{discrete} \cdot \mathbf{u}(k)
 \\
-\mathbf{\dot{x}}(k) = (\mathbf{A}_{discrete} - \mathbf{I}) \cdot \mathbf{x}(k) + \mathbf{B} \cdot \mathbf{u}(k)
+\mathbf{\dot{x}}(k) = (\mathbf{A}_{discrete} - \mathbf{I}) \cdot \mathbf{x}(k) + \mathbf{B}_{discrete} \cdot \mathbf{u}(k)
 \\
-\mathbf{\dot{x}}(t) = ((\mathbf{A}_{discrete} - \mathbf{I}) \cdot \mathbf{x}(k) + \mathbf{B} \cdot \mathbf{u}(k) ) \cdot 50
+\mathbf{\dot{x}}(t) = ((\mathbf{A}_{discrete} - \mathbf{I}) \cdot \mathbf{x}(k) + \mathbf{B}_{discrete} \cdot \mathbf{u}(k) ) \cdot 50
 $$
-By inspection: $\mathbf{A}_{continuous} = \mathbf{A}_{discrete} - \mathbf{I}$ and we will call $\mathbf{A}_{continuous} = \mathbf{A}$ and further simplify the equation to continous state space form:
+By inspection (in this discussion our data sample rate was an invariant 50hz):
+$$
+\mathbf{A}_{continuous} = (\mathbf{A}_{discrete} - \mathbf{I}) \cdot 50
+\\
+\mathbf{B}_{continuous} = \mathbf{B}_{discrete} \cdot 50
+$$
+and we will call:
+$$
+\mathbf{A}_{continuous} = \mathbf{A}
+\\
+\mathbf{B}_{continuous} = \mathbf{B}
+$$
+ and further simplify the equation to continous state space form:
 
 $$
-\mathbf{\dot{x}}(t) = (\mathbf{A}_{(cont)} \cdot \mathbf{x}(k) + \mathbf{B} \cdot \mathbf{u}(k) ) \cdot 50
+\mathbf{\dot{x}}(t) = \mathbf{A}_{(cont)} \cdot \mathbf{x}(k) + \mathbf{B}_{(cont)} \cdot \mathbf{u}(k)
 \\
 \mathbf{y}(t) = \mathbf{C} \cdot \mathbf{x}(t) + \mathbf{D} \cdot \mathbf{u}(t)
 \\

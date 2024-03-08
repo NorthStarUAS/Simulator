@@ -148,6 +148,56 @@ class SystemIdentification():
                 plt.legend()
                 plt.show()
 
+    def correlation_report(self, state_mgr, traindata):
+        print("test pearson correlation coefficients:")
+        print(state_mgr.state_list)
+        corr = np.corrcoef(traindata.T)
+        print(corr)
+
+        # report leading correlations versus each state
+        for i in range(len(state_mgr.state_list)):
+            print(state_mgr.state_list[i] + ": ", end="")
+            row = corr[i,:]
+            idx = np.argsort(-np.abs(row))
+            for j in range(len(idx)):
+                if i != idx[j]:
+                    print("%.3f" % row[idx[j]], state_mgr.state_list[idx[j]] + ", ", end="")
+            print("")
+
+    def correlation_report_2(self, state_mgr, traindata):
+        print("test pearson correlation coefficients:")
+        print(state_mgr.state_list)
+        corr = np.corrcoef(traindata.T)
+        print(corr)
+
+        # pick the next most correlating state that correlates the least with already chosen states
+        for i in range(len(state_mgr.state_list)):
+            print(state_mgr.state_list[i] + ": ", end="")
+            row = corr[i,:]
+            incl = {}
+            rem = {}
+            for j in range(len(row)):
+                if i != j:
+                    rem[j] = 0
+            # print()
+            while len(rem):
+                # score remaining states based on correlation with state[i] minus max(correlation with allocated states)
+                for j in rem.keys():
+                    # print(" ", state_mgr.state_list[j])
+                    max_corr = 0
+                    for k in incl.keys():
+                        c = abs(corr[j,k])
+                        if c > max_corr:
+                            max_corr = c
+                    rem[j] = abs(corr[i,j]) - max_corr
+                idx = sorted(rem.items(), key=lambda item: item[1], reverse=True)
+                # print(idx)
+                # print("choose:", idx[0][0], state_mgr.state_list[idx[0][0]])
+                print("%.3f" % row[idx[0][0]], state_mgr.state_list[idx[0][0]] + ", ", end="")
+                del rem[idx[0][0]]
+                incl[idx[0][0]] = True
+            print("")
+
     def fit(self, state_mgr, traindata):
         if False:    # need to use filtfilt here to avoid phase change
             # signal smoothing experiment

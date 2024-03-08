@@ -54,19 +54,23 @@ if False and flight_format == "cirrus_csv":
     # experiment with an alpha and alpha_dot estimator
     inceptor_states = [
         # flight controls (* qbar)
-        "aileron",
+        # "aileron",
         "elevator",
-        "rudder",
+        # "rudder",
         "throttle",
         "ax",                       # thrust - drag
-        "ay",                       # side force
+        # "ay",                       # side force
         "az",                       # lift
-        # "p", "q", "r",              # imu (body) rates
-        "q",              # pitch rate
+        "p",
+        "q",
+        # "r",              # imu (body) rates
     ]
     internal_states = [
-        "abs(aileron)", "abs(elevator)", "abs(rudder)",
-        "bgx", "bgy", "bgz",        # gravity rotated into body frame
+        # "abs(aileron)",
+        # "abs(elevator)",
+        # "abs(rudder)",
+        # "bgx", "bgy", "bgz",        # gravity rotated into body frame
+        "bgy",
         # "qbar",                     # effects due to dynamic pressure
         # "inv_airspeed_mps",             # effects due to airspeed
         # additional state history improves fit and output parameter prediction.
@@ -76,15 +80,18 @@ if False and flight_format == "cirrus_csv":
         "alpha_dot_term2",
         "alpha_dot_term3",
         # "ax_prev1", "ay_prev1", "az_prev1",
+        "ax_prev1", "az_prev1",
         # "p_prev1", "q_prev1", "r_prev1",
-        "q_prev1",
-        "abs(ay)", "abs(bgy)",
-        "K",                        # constant factor (1*parameter)
+        "p_prev1", "q_prev1",
+        # "abs(ay)",
+        # "abs(bgy)",
+        # "K",                        # constant factor (1*parameter)
     ]
     output_states = [
         # "alpha", "beta",            # angle of attack, side slip angle
-        "alpha",
+        "alpha_deg",
         # "alpha_dot",
+        # "airspeed_mps",
     ]
     conditions = [
         { "flaps": 0 },
@@ -167,35 +174,53 @@ elif flight_format == "cirrus_csv":
     # question 1: seem to get a better flaps up fit to airspeed (vs. qbar) but fails to converge for 50% flaps
     # qbar only converges for both conditions
     # question 2: would it be useful to have a gamma (flight path angle) parameter (may help asi)
+
+    # flight controls
     inceptor_states = [
-        # flight controls (* qbar)
         "aileron",
         "elevator",
         "rudder",
         "throttle",
     ]
-    internal_states = [
-        "abs(aileron)",
-        "abs(rudder)",
-        "bgx", "bgy", "bgz",        # gravity rotated into body frame
-        # additional state history improves fit and output parameter prediction.
+
+    # sensors (directly sensed, or directly converted)
+    direct_states = [
+        "p", "q", "r",        # imu (body) rates
+        "ax",                 # thrust - drag
+        "ay",                 # side force
+        "az",                 # lift
+        "bgx", "bgy", "bgz",  # gravity rotated into body frame
+        "alpha_dot",
+        "alpha_dot_term2", "alpha_dot_term3",
+        "alpha_deg",          # angle of attack
+        "beta_deg",           # side slip angle
+        "airspeed_mps",
+    ]
+
+    # terms (combinations of states)
+    term_states = [
+        "qbar",
+        "aileron*qbar",
+        "abs(aileron)*qbar",
+        "elevator*qbar",
+        "abs(elevator)*qbar",
+        "rudder*qbar",
+        "abs(rudder)*qbar",
         "alpha_dot_term2",
         "alpha_dot_term3",
-        "alpha_prev1", "beta_prev1",
+        # state history can improve fit and output parameter prediction, but reduce determinism
+        "sin(alpha_prev1)*qbar", "sin(beta_prev1)*qbar",
         "ax_prev1", "ay_prev1", "az_prev1",
         "p_prev1", "q_prev1", "r_prev1",
         "abs(ay)", "abs(bgy)",
-        "qbar",                     # effects due to airspeed airframe
-        "K",                        # constant factor (1*parameter)
     ]
+
+    # states to predict
     output_states = [
-        "airspeed_mps",
-        "alpha", "beta",            # angle of attack, side slip angle
-        "ax",                       # thrust - drag
-        "ay",                       # side force
-        "az",                       # lift
-        "p", "q", "r",              # imu (body) rates
+        "p",
     ]
+
+    # bins of unique flight conditions
     conditions = [
         { "flaps": 0 },
         { "flaps": 0.5 }
@@ -232,8 +257,8 @@ elif args.vehicle == "quad":
         #"p", "q", "r",               # imu (body) rates
     ]
 
-state_names = inceptor_states + internal_states + output_states
-state_mgr.set_state_names(inceptor_states, internal_states, output_states)
+state_names = inceptor_states + direct_states + output_states
+state_mgr.set_state_names(inceptor_states, direct_states, output_states)
 
 if flight_format == "cirrus_csv":
     state_mgr.set_is_flying_thresholds(75*kt2mps, 65*kt2mps)
@@ -407,7 +432,7 @@ for i in tqdm(range(iter.size())):
     # 3. Compute terms (combinations of states and derived states)
     state_mgr.compute_terms()
 
-    state = state_mgr.gen_state_vector()
+    state = state_mgr.gen_state_vector(inceptor_states + direct_states)
     # print(state_mgr.state2dict(state))
     for i, condition in enumerate(conditions):
         # print(i, condition)
@@ -444,6 +469,7 @@ for i, cond in enumerate(conditions):
     sysid = SystemIdentification(args.vehicle)
     cond_list[i]["sysid"] = sysid
 
+    sysid.correlation_report_2(state_mgr, traindata)
     sysid.compute_lift_curve(coeff)
     sysid.fit(state_mgr, traindata)
     sysid.model_noise(state_mgr, traindata)

@@ -5,7 +5,7 @@
 from math import atan2, cos, sin, sqrt
 import numpy as np
 
-from lib.constants import gravity, d2r
+from lib.constants import gravity, d2r, r2d
 from lib import quaternion
 
 class StateManager():
@@ -312,30 +312,41 @@ class StateManager():
         # alpha_dot_term3: contribution from gravity forces
         self.alpha_dot_term3 = gravity * (cos(self.alpha) * cos(self.phi_rad) * cos(self.the_rad) + sin(self.alpha) * sin(self.the_rad)) / (self.airspeed_mps * cos(self.beta))
 
-    def gen_state_vector(self, params=None):
+    def gen_state_vector(self, state_list=None, params=None):
         result = []
-        for index, field in enumerate(self.state_list):
+        if state_list is None:
+            state_list = self.state_list
+        for index, field in enumerate(state_list):
+            # Inceptors
             if field == "throttle":
                 val = self.throttle
             elif field == "throttle_prev1":
                 val = self.throttle_prev1
             elif field == "aileron":
-                val = self.aileron * self.qbar
-            elif field == "aileron_prev1":
-                val = self.aileron_prev1 * self.qbar
-            elif field == "abs(aileron)":
-                val = abs(self.aileron) * self.qbar
+                val = self.aileron
             elif field == "elevator":
-                val = self.elevator * self.qbar
-            elif field == "abs(elevator)":
-                val = abs(self.elevator) * self.qbar
-            elif field == "elevator_prev1":
-                val = self.elevator_prev1 * self.qbar
+                val = self.elevator
             elif field == "rudder":
-                val = self.rudder * self.qbar
-            elif field == "abs(rudder)":
-                val = abs(self.rudder) * self.qbar
+                val = self.rudder
             elif field == "flaps":
+                val = self.flaps
+            elif field == "aileron*qbar":
+                val = self.aileron * self.qbar
+            elif field == "aileron_prev1*qbar":
+                val = self.aileron_prev1 * self.qbar
+            elif field == "abs(aileron)*qbar":
+                val = abs(self.aileron) * self.qbar
+            elif field == "elevator*qbar":
+                val = self.elevator * self.qbar
+            elif field == "abs(elevator)*qbar":
+                val = abs(self.elevator) * self.qbar
+            elif field == "elevator_prev1*qbar":
+                val = self.elevator_prev1 * self.qbar
+            elif field == "rudder*qbar":
+                val = self.rudder * self.qbar
+            elif field == "abs(rudder)*qbar":
+                val = abs(self.rudder) * self.qbar
+            elif field == "flaps*qbar":
                 val = self.flaps * self.qbar
             elif field == "motor[0]":
                 val = self.motors[0]
@@ -371,26 +382,30 @@ class StateManager():
                 val = self.a_body[2]
             elif field == "airspeed_mps":
                 val = self.airspeed_mps
-            elif field == "inv_airspeed_mps":
+            elif field == "inv(airspeed_mps)":
                 if self.airspeed_mps != 0:
                     val = 1 / self.airspeed_mps
                 else:
                     val = 0
             elif field == "qbar":
                 val = self.qbar
-            elif field == "alpha":
+            elif field == "alpha_deg":
+                val = self.alpha * r2d
+            elif field == "beta_deg":
+                val = self.beta * r2d
+            elif field == "sin(alpha)*qbar":
                 val = sin(self.alpha) * self.qbar
+            elif field == "sin(alpha_prev1)*qbar":
+                val = sin(self.alpha_prev1) * self.qbar
             elif field == "alpha_dot":
                 val = self.alpha_dot
             elif field == "alpha_dot_term2":
                 val = self.alpha_dot_term2
             elif field == "alpha_dot_term3":
                 val = self.alpha_dot_term3
-            elif field == "alpha_prev1":
-                val = sin(self.alpha_prev1) * self.qbar
-            elif field == "beta":
+            elif field == "sin(beta)*qbar":
                 val = sin(self.beta) * self.qbar
-            elif field == "beta_prev1":
+            elif field == "sin(beta_prev1)*qbar":
                 val = sin(self.beta_prev1) * self.qbar
             elif field == "p":
                 val = self.gyros[0]
