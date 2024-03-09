@@ -164,15 +164,15 @@ class SystemIdentification():
                     print("%.3f" % row[idx[j]], state_mgr.state_list[idx[j]] + ", ", end="")
             print("")
 
-    def correlation_report_2(self, state_mgr, traindata):
+    def correlation_report_2(self, train_states, traindata, fit_states):
         print("test pearson correlation coefficients:")
-        print(state_mgr.state_list)
+        print(train_states)
         corr = np.corrcoef(traindata.T)
         print(corr)
 
         # pick the next most correlating state that correlates the least with already chosen states
-        for i in range(len(state_mgr.state_list)):
-            print(state_mgr.state_list[i] + ": ", end="")
+        for i in range(len(train_states)):
+            print(train_states[i] + ": ", end="")
             row = corr[i,:]
             incl = {}
             rem = {}
@@ -183,7 +183,7 @@ class SystemIdentification():
             while len(rem):
                 # score remaining states based on correlation with state[i] minus max(correlation with allocated states)
                 for j in rem.keys():
-                    # print(" ", state_mgr.state_list[j])
+                    # print(" ", state_list[j])
                     max_corr = 0
                     for k in incl.keys():
                         c = abs(corr[j,k])
@@ -192,8 +192,8 @@ class SystemIdentification():
                     rem[j] = abs(corr[i,j]) - max_corr
                 idx = sorted(rem.items(), key=lambda item: item[1], reverse=True)
                 # print(idx)
-                # print("choose:", idx[0][0], state_mgr.state_list[idx[0][0]])
-                print("%.3f" % row[idx[0][0]], state_mgr.state_list[idx[0][0]] + ", ", end="")
+                # print("choose:", idx[0][0], state_list[idx[0][0]])
+                print("%.3f" % row[idx[0][0]], train_states[idx[0][0]] + ", ", end="")
                 del rem[idx[0][0]]
                 incl[idx[0][0]] = True
             print("")
