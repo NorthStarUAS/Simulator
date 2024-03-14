@@ -13,18 +13,13 @@ Engineering and Mechanics, UAV Lab.
 
 import argparse
 import dask.array as da         # dnf install python3-dask+array
-from math import cos, pi, sin
 from matplotlib import pyplot as plt
 import numpy as np
-from tqdm import tqdm
 
-from flightdata import flight_loader, flight_interp
-
-from lib.constants import d2r, r2d, kt2mps
+from lib.constants import kt2mps
 from lib.state_mgr import StateManager
 from lib.system_id import SystemIdentification
 from lib.traindata import TrainData
-from lib.wind import Wind
 
 # command line arguments
 parser = argparse.ArgumentParser(description="build full model")
