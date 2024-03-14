@@ -12,7 +12,7 @@ Engineering and Mechanics, UAV Lab.
 """
 
 import argparse
-import json
+import dask.array as da         # dnf install python3-dask+array
 from math import cos, pi, sin
 from matplotlib import pyplot as plt
 import numpy as np
@@ -118,15 +118,107 @@ root_dict = {
     "conditions": [],
 }
 
+def solve(i, traindata):
+    states = len(traindata[0])
+    X = np.array(traindata[:,:-1])
+    Y = np.array(traindata[i,1:])
+    print("X:\n", X.shape, np.array(X))
+    print("Y:\n", Y.shape, np.array(Y))
+
+    # Y = A * X, solve for A
+    #
+    # A is a matrix that projects (predicts) all the next states
+    # given all the previous states (in a least squares best fit
+    # sense)
+    #
+    # X isn't nxn and doesn't have a direct inverse, so first
+    # perform an svd:
+    #
+    # Y = A * U * D * V.T
+
+    print("dask svd...")
+    daX = da.from_array(X, chunks=(X.shape[0], 10000)).persist()
+    u, s, vh = da.linalg.svd(daX)
+
+    if True:
+        # debug and sanity check
+        print("u:\n", u.shape, u)
+        print("s:\n", s.shape, s)
+        print("vh:\n", vh.shape, vh)
+        Xr = (u * s) @ vh[:states, :]
+        print( "dask svd close?", np.allclose(X, Xr.compute()) )
+
+    # after algebraic manipulation
+    #
+    # A = Y * V * D.inv() * U.T
+
+    v = vh.T
+    print("s inv:", (1/s).compute() )
+
+    A = (Y @ (v[:,:states] * (1/s)) @ u.T).compute()
+    print("A rank:", np.linalg.matrix_rank(A))
+    print("A:\n", A.shape, A)
+
+    return A
+
+def estimate(A, traindata):
+    param = 0
+
 def correlation_report_3(train_states, traindata, fit_states):
     print("test pearson correlation coefficients:")
     print(train_states)
-    corr = np.corrcoef(traindata.T)
+    corr = np.corrcoef(traindata)
     print(corr)
 
-    # pick the next most correlating state that correlates the least with already chosen states
     for s in fit_states:
         i = train_states.index(s)
+
+        # initial error =-signal (initial estimate error compared to a fit function = 0)
+        error = -traindata[i,:]
+        print(error)
+
+        incl = {i}
+        rem = set()
+        for j in range(len(train_states)):
+            if j != i:
+                rem.add(j)
+
+        while True:
+            # append the signal error to the train data (tde = train data + error) so we can correlate all the signals/terms to the error
+            tde = np.vstack( [traindata, error] )
+
+            # compute the n x n correlation
+            corr = np.corrcoef(tde)
+            print(corr[-1,:])
+
+            # find the parameter/term (not already included) having the best correlation to the error signal
+            max_index = -1
+            max_abs = 0
+            for j in range(len(train_states)):
+                if j in incl:
+                    continue
+                if abs(corr[-1,j]) > max_abs:
+                    max_index = j
+                    max_abs = abs(corr[-1,j])
+            print("max correlation parameter:", max_index, train_states[max_index])
+            incl.add(max_index)
+
+            includes = sorted(incl)
+            param_index = includes.index(i) # map our original index i to the index in the tde traindata subset
+            print(traindata[includes,:].shape)
+            A = solve(param_index, traindata[includes,:])
+
+            est = A @ traindata[includes,:]
+
+            plt.figure()
+            plt.plot(traindata[i,:], label="original signal")
+            plt.plot(est, label="estimated signal")
+            plt.legend()
+            plt.show()
+
+            error = traindata[i,:] - est
+            print("ERROR:", np.std(error))
+
         print(train_states[i] + ": ", end="")
         row = corr[i,:]
         incl = {}
@@ -157,7 +249,7 @@ def correlation_report_3(train_states, traindata, fit_states):
 for i, cond in enumerate(conditions):
     print(i, cond)
     condition_dict = { "condition": cond }
-    traindata = np.array(train_data.cond_list[i]["traindata_list"])
+    traindata = np.array(train_data.cond_list[i]["traindata_list"]).T
     coeff = np.array(train_data.cond_list[i]["coeff"])
 
     sysid = SystemIdentification(args.vehicle)
