@@ -113,10 +113,10 @@ root_dict = {
     "conditions": [],
 }
 
-def solve(i, traindata):
+def solve(soldata, traindata):
     states = len(traindata[0])
     X = np.array(traindata[:,:-1])
-    Y = np.array(traindata[i,1:])
+    Y = np.array(soldata[:,1:])
     print("X:\n", X.shape, np.array(X))
     print("Y:\n", Y.shape, np.array(Y))
 
@@ -172,7 +172,7 @@ def correlation_report_3(train_states, traindata, fit_states):
         error = -traindata[i,:]
         print(error)
 
-        incl = {i}
+        incl = set()
         rem = set()
         for j in range(len(train_states)):
             if j != i:
@@ -190,6 +190,8 @@ def correlation_report_3(train_states, traindata, fit_states):
             max_index = -1
             max_abs = 0
             for j in range(len(train_states)):
+                if j == i:
+                    continue
                 if j in incl:
                     continue
                 if abs(corr[-1,j]) > max_abs:
@@ -199,15 +201,18 @@ def correlation_report_3(train_states, traindata, fit_states):
             incl.add(max_index)
 
             includes = sorted(incl)
-            param_index = includes.index(i) # map our original index i to the index in the tde traindata subset
+            soldata = np.matrix(traindata[i,:])
+            print(soldata.shape)
             print(traindata[includes,:].shape)
-            A = solve(param_index, traindata[includes,:])
+            A = solve(soldata, traindata[includes,:])
 
             est = A @ traindata[includes,:]
+            print("sol shape:", soldata[0,:].shape)
+            print("est shape:", est.shape)
 
             plt.figure()
-            plt.plot(traindata[i,:], label="original signal")
-            plt.plot(est, label="estimated signal")
+            plt.plot(soldata[0,:], label="original signal")
+            # plt.plot(est, label="estimated signal")
             plt.legend()
             plt.show()
 
