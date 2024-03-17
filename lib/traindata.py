@@ -1,5 +1,7 @@
 from math import cos, pi, sin
 import numpy as np
+import os
+import pickle
 from tqdm import tqdm
 
 from flightdata import flight_loader, flight_interp
@@ -9,9 +11,21 @@ from .wind import Wind
 
 class TrainData():
     def __init__(self):
-        pass
+        self.session = None
+        self.cond_list = None
 
     def load_flightdata(self, path):
+        self.session_file = path + ".session.pkl"
+
+        if os.path.exists(self.session_file) and os.path.getmtime(self.session_file) > os.path.getmtime(path):
+            print("loading session from cached pickle file ...")
+            with open(self.session_file, "rb") as f:
+                self.session = pickle.load(f)
+                self.data = self.session["data"]
+                self.flight_format = self.session["flight_format"]
+                self.cond_list = self.session["cond_list"]
+            return
+
         self.data, self.flight_format = flight_loader.load(path)
 
         print("imu records:", len(self.data["imu"]))
@@ -26,6 +40,9 @@ class TrainData():
 
 
     def build(self, vehicle, invert_elevator, invert_rudder, state_mgr, conditions, train_states):
+        if self.cond_list is not None:
+            return
+
         # dt estimation
         print("Estimating median dt from IMU records:")
         iter = flight_interp.IterateGroup(self.data)
@@ -207,3 +224,12 @@ class TrainData():
                                     state_mgr.accels[0], state_mgr.throttle ]
                         # print("params:", params)
                         self.cond_list[i]["coeff"].append( params )
+
+        # cache our work
+        with open(self.session_file, "wb") as f:
+            print("Saving a pickle cache of this session data...")
+            session = {}
+            session["data"] = self.data
+            session["flight_format"] = self.flight_format
+            session["cond_list"] = self.cond_list
+            pickle.dump(session, f)

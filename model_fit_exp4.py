@@ -82,7 +82,7 @@ if train_data.flight_format == "cirrus_csv":
 
     # states to predict
     output_states = [
-        "r",
+        "p", "q", "r",
     ]
 
     # bins of unique flight conditions
@@ -208,94 +208,58 @@ def solve(traindata, includes_idx, solutions_idx):
 def estimate(A, traindata):
     param = 0
 
-def correlation_report_3(train_states, traindata, fit_states, self_reference=False):
-    print("test pearson correlation coefficients:")
-    print(train_states)
-    corr = np.corrcoef(traindata)
-    print("corr:", corr)
+def correlation_report_4(traindata, train_states, output_states, self_reference=False):
+    outputs_idx = []
+    for s in output_states:
+        outputs_idx.append(train_states.index(s))
 
-    for s in fit_states:
-        i = train_states.index(s)
+    inputs_idx = []
+    for i in range(len(train_states)):
+        if not self_reference:
+            if i in outputs_idx:
+                continue
+        inputs_idx.append(i)
 
-        # initial error =-signal (initial estimate error compared to a fit function = 0)
-        error = -traindata[i,:]
-        print("error:", error)
+    A = solve(traindata, inputs_idx, outputs_idx)
 
-        incl = set()
-        rem = set()
-        for j in range(len(train_states)):
-            if j != i:
-                rem.add(j)
+    est = A @ traindata[inputs_idx,:]
 
-        while True:
-            # append the signal error to the train data (tde = train data + error) so we can correlate all the signals/terms to the error
-            tde = np.vstack( [traindata, error] )
+    error = traindata[outputs_idx,1:] - est[:,:-1]
+    for i in range(error.shape[0]):
+        print("ERROR:", output_states[i], np.std(error[i,:]), "%.3f%%" % (100 * np.std(error[i,:]) / np.std(est[i,:]) ))
+        plt.figure()
+        plt.plot(error[i,:].T, label="estimation error")
+        plt.plot(traindata[outputs_idx[i],1:].T, label="original signal")
+        plt.plot(est[i,:-1].T, label="estimated signal")
+        plt.legend()
+    plt.show()
+    quit()
 
-            # compute the n x n correlation
-            corr = np.corrcoef(tde)
-            print("error corr:", corr[-1,:])
-
-            # find the parameter/term (not already included) having the best correlation to the error signal
-            max_index = -1
-            max_abs = 0
-            for j in range(len(train_states)):
-                if not self_reference and (j == i):
-                    continue
-                if j in incl:
-                    continue
-                if abs(corr[-1,j]) > max_abs:
-                    max_index = j
-                    max_abs = abs(corr[-1,j])
-            print("max correlation parameter:", max_index, train_states[max_index], "val:", max_abs)
-            incl.add(max_index)
-
-            includes = sorted(incl)
-            soldata = np.matrix(traindata[i,:])
-            print(soldata.shape)
-            print(traindata[includes,:].shape)
-            # A = solve(soldata, traindata[includes,:])
-            A = solve(traindata, includes, [i])
-
-            est = A @ traindata[includes,:]
-            print("sol shape:", type(soldata[0,:]), soldata[0,:].shape)
-            print("est shape:", type(est), est.shape)
-
-            error = traindata[i,:-1] - est[:,1:]
-            print("ERROR:", np.std(error), "%.3f%%" % (100 * np.std(error) / np.std(soldata[0,:]) ))
-
-            plt.figure()
-            plt.plot(error.T, label="estimation error")
-            plt.plot(soldata[0,1:].T, label="original signal")
-            plt.plot(est[:,1:].T, label="estimated signal")
-            plt.legend()
-            plt.show()
-
-
-        print(train_states[i] + ": ", end="")
-        row = corr[i,:]
-        incl = {}
-        rem = {}
-        for j in range(len(row)):
-            if i != j:
-                rem[j] = 0
-        # print()
-        while len(rem):
-            # score remaining states based on correlation with state[i] minus max(correlation with allocated states)
-            for j in rem.keys():
-                # print(" ", state_list[j])
-                max_corr = 0
-                for k in incl.keys():
-                    c = abs(corr[j,k])
-                    if c > max_corr:
-                        max_corr = c
-                rem[j] = abs(corr[i,j]) - max_corr
-            idx = sorted(rem.items(), key=lambda item: item[1], reverse=True)
-            # print(idx)
-            # print("choose:", idx[0][0], state_list[idx[0][0]])
-            print("%.3f" % row[idx[0][0]], train_states[idx[0][0]] + ", ", end="")
-            del rem[idx[0][0]]
-            incl[idx[0][0]] = True
-        print("")
+    print(train_states[i] + ": ", end="")
+    row = corr[i,:]
+    incl = {}
+    rem = {}
+    for j in range(len(row)):
+        if i != j:
+            rem[j] = 0
+    # print()
+    while len(rem):
+        # score remaining states based on correlation with state[i] minus max(correlation with allocated states)
+        for j in rem.keys():
+            # print(" ", state_list[j])
+            max_corr = 0
+            for k in incl.keys():
+                c = abs(corr[j,k])
+                if c > max_corr:
+                    max_corr = c
+            rem[j] = abs(corr[i,j]) - max_corr
+        idx = sorted(rem.items(), key=lambda item: item[1], reverse=True)
+        # print(idx)
+        # print("choose:", idx[0][0], state_list[idx[0][0]])
+        print("%.3f" % row[idx[0][0]], train_states[idx[0][0]] + ", ", end="")
+        del rem[idx[0][0]]
+        incl[idx[0][0]] = True
+    print("")
 
 # evaluate each condition
 for i, cond in enumerate(conditions):
@@ -307,4 +271,4 @@ for i, cond in enumerate(conditions):
     sysid = SystemIdentification(args.vehicle)
     train_data.cond_list[i]["sysid"] = sysid
 
-    correlation_report_3(train_states, traindata, output_states, self_reference=True)
+    correlation_report_4(traindata, train_states, output_states, self_reference=True)

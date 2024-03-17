@@ -393,9 +393,9 @@ class StateManager():
                 val = self.alpha * r2d
             elif field == "beta_deg":
                 val = self.beta * r2d
-            elif field == "sin(alpha)*qbar":
+            elif field == "sin(alpha_deg)*qbar":
                 val = sin(self.alpha) * self.qbar
-            elif field == "sin(alpha_prev1)*qbar":
+            elif field == "sin(alpha_prev1_deg)*qbar":
                 val = sin(self.alpha_prev1) * self.qbar
             elif field == "alpha_dot":
                 val = self.alpha_dot
@@ -403,9 +403,9 @@ class StateManager():
                 val = self.alpha_dot_term2
             elif field == "alpha_dot_term3":
                 val = self.alpha_dot_term3
-            elif field == "sin(beta)*qbar":
+            elif field == "sin(beta_deg)*qbar":
                 val = sin(self.beta) * self.qbar
-            elif field == "sin(beta_prev1)*qbar":
+            elif field == "sin(beta_prev1_deg)*qbar":
                 val = sin(self.beta_prev1) * self.qbar
             elif field == "p":
                 val = self.gyros[0]
