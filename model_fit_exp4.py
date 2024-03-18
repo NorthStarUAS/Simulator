@@ -75,14 +75,15 @@ if train_data.flight_format == "cirrus_csv":
         "sin(beta_deg)*qbar",
         "abs(ay)", "abs(bgy)",
         # state history can improve fit and output parameter prediction, but reduce determinism
-        # "sin(alpha_prev1_deg)*qbar", "sin(beta_prev1_deg)*qbar",
-        # "ax_prev1", "ay_prev1", "az_prev1",
-        # "p_prev1", "q_prev1", "r_prev1",
+        "sin(alpha_prev1_deg)*qbar", "sin(beta_prev1_deg)*qbar",
+        "ax_prev1", "ay_prev1", "az_prev1",
+        "p_prev1", "q_prev1", "r_prev1",
     ]
 
     # states to predict
     output_states = [
         "p", "q", "r",
+        "ax", "ay", "az",
     ]
 
     # bins of unique flight conditions
@@ -113,49 +114,6 @@ root_dict = {
     "cols": len(state_mgr.state_list),
     "conditions": [],
 }
-
-def solve_old(soldata, traindata):
-    states = len(traindata[0])
-    X = np.array(traindata[:,:-1])
-    Y = np.array(soldata[:,1:])
-    print("X:\n", X.shape, np.array(X))
-    print("Y:\n", Y.shape, np.array(Y))
-
-    # Y = A * X, solve for A
-    #
-    # A is a matrix that projects (predicts) all the next states
-    # given all the previous states (in a least squares best fit
-    # sense)
-    #
-    # X isn't nxn and doesn't have a direct inverse, so first
-    # perform an svd:
-    #
-    # Y = A * U * D * V.T
-
-    print("dask svd...")
-    daX = da.from_array(X, chunks=(X.shape[0], 10000)).persist()
-    u, s, vh = da.linalg.svd(daX)
-
-    if True:
-        # debug and sanity check
-        print("u:\n", u.shape, u)
-        print("s:\n", s.shape, s)
-        print("vh:\n", vh.shape, vh)
-        Xr = (u * s) @ vh[:states, :]
-        print( "dask svd close?", np.allclose(X, Xr.compute()) )
-
-    # after algebraic manipulation
-    #
-    # A = Y * V * D.inv() * U.T
-
-    v = vh.T
-    print("s inv:", (1/s).compute() )
-
-    A = (Y @ (v[:,:states] * (1/s)) @ u.T).compute()
-    print("A rank:", np.linalg.matrix_rank(A))
-    print("A:\n", A.shape, A)
-
-    return A
 
 def solve(traindata, includes_idx, solutions_idx):
     srcdata = traindata[includes_idx,:]
@@ -205,8 +163,23 @@ def solve(traindata, includes_idx, solutions_idx):
 
     return A
 
-def estimate(A, traindata):
-    param = 0
+def simulate(traindata, includes_idx, solutions_idx, A):
+    est = []
+    next = np.zeros(len(solutions_idx))
+    est.append(next)
+    for i in range(traindata.shape[1]-1):
+        # print("i:", i)
+        # print("includes_idx:", includes_idx)
+        # print("solutions_idx:", solutions_idx)
+        v = traindata[includes_idx,i]
+        # print(v.shape, v)
+        v[solutions_idx] = next
+        next = A @ v
+        est.append(next)
+    return np.array(est).T
+
+def rms(y):
+    return np.sqrt(np.mean(y**2))
 
 def correlation_report_4(traindata, train_states, output_states, self_reference=False):
     outputs_idx = []
@@ -222,44 +195,30 @@ def correlation_report_4(traindata, train_states, output_states, self_reference=
 
     A = solve(traindata, inputs_idx, outputs_idx)
 
-    est = A @ traindata[inputs_idx,:]
+    if False:
+        est = A @ traindata[inputs_idx,:]
+        error = traindata[outputs_idx,1:] - est[:,:-1]
+        for i in range(error.shape[0]):
+            print("ERROR:", output_states[i], rms(error[i,:]), "%.3f%%" % (100 * rms(error[i,:]) / rms(est[i,:]) ))
+            plt.figure()
+            plt.plot(error[i,:].T, label="estimation error")
+            plt.plot(traindata[outputs_idx[i],1:].T, label="original signal")
+            plt.plot(est[i,:-1].T, label="estimated signal")
+            plt.legend()
+        plt.show()
 
+    est = simulate(traindata,inputs_idx, outputs_idx, A)
+    print("est:", est.shape)
     error = traindata[outputs_idx,1:] - est[:,:-1]
     for i in range(error.shape[0]):
-        print("ERROR:", output_states[i], np.std(error[i,:]), "%.3f%%" % (100 * np.std(error[i,:]) / np.std(est[i,:]) ))
+        print("ERROR:", output_states[i], rms(error[i,:]), "%.3f%%" % (100 * rms(error[i,:]) / rms(est[i,:]) ))
         plt.figure()
         plt.plot(error[i,:].T, label="estimation error")
         plt.plot(traindata[outputs_idx[i],1:].T, label="original signal")
         plt.plot(est[i,:-1].T, label="estimated signal")
         plt.legend()
     plt.show()
-    quit()
 
-    print(train_states[i] + ": ", end="")
-    row = corr[i,:]
-    incl = {}
-    rem = {}
-    for j in range(len(row)):
-        if i != j:
-            rem[j] = 0
-    # print()
-    while len(rem):
-        # score remaining states based on correlation with state[i] minus max(correlation with allocated states)
-        for j in rem.keys():
-            # print(" ", state_list[j])
-            max_corr = 0
-            for k in incl.keys():
-                c = abs(corr[j,k])
-                if c > max_corr:
-                    max_corr = c
-            rem[j] = abs(corr[i,j]) - max_corr
-        idx = sorted(rem.items(), key=lambda item: item[1], reverse=True)
-        # print(idx)
-        # print("choose:", idx[0][0], state_list[idx[0][0]])
-        print("%.3f" % row[idx[0][0]], train_states[idx[0][0]] + ", ", end="")
-        del rem[idx[0][0]]
-        incl[idx[0][0]] = True
-    print("")
 
 # evaluate each condition
 for i, cond in enumerate(conditions):
