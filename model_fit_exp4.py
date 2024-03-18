@@ -166,8 +166,7 @@ def solve(traindata, includes_idx, solutions_idx):
 def simulate(traindata, includes_idx, solutions_idx, A):
     est = []
     next = np.zeros(len(solutions_idx))
-    est.append(next)
-    for i in range(traindata.shape[1]-1):
+    for i in range(traindata.shape[1]):
         # print("i:", i)
         # print("includes_idx:", includes_idx)
         # print("solutions_idx:", solutions_idx)
@@ -195,29 +194,36 @@ def correlation_report_4(traindata, train_states, output_states, self_reference=
 
     A = solve(traindata, inputs_idx, outputs_idx)
 
-    if False:
-        est = A @ traindata[inputs_idx,:]
-        error = traindata[outputs_idx,1:] - est[:,:-1]
-        for i in range(error.shape[0]):
-            print("ERROR:", output_states[i], rms(error[i,:]), "%.3f%%" % (100 * rms(error[i,:]) / rms(est[i,:]) ))
-            plt.figure()
-            plt.plot(error[i,:].T, label="estimation error")
-            plt.plot(traindata[outputs_idx[i],1:].T, label="original signal")
-            plt.plot(est[i,:-1].T, label="estimated signal")
-            plt.legend()
-        plt.show()
+    # direct solution with all current states known, how well does our fit estimate the next state?
+    direct_est = A @ traindata[inputs_idx,:]
+    direct_error = traindata[outputs_idx,1:] - direct_est[:,:-1]
 
-    est = simulate(traindata,inputs_idx, outputs_idx, A)
-    print("est:", est.shape)
-    error = traindata[outputs_idx,1:] - est[:,:-1]
-    for i in range(error.shape[0]):
-        print("ERROR:", output_states[i], rms(error[i,:]), "%.3f%%" % (100 * rms(error[i,:]) / rms(est[i,:]) ))
-        plt.figure()
-        plt.plot(error[i,:].T, label="estimation error")
-        plt.plot(traindata[outputs_idx[i],1:].T, label="original signal")
-        plt.plot(est[i,:-1].T, label="estimated signal")
-        plt.legend()
+    sim_est = simulate(traindata,inputs_idx, outputs_idx, A)
+    sim_error = traindata[outputs_idx,1:] - sim_est[:,:-1]
+
+
+    for i in range(len(output_states)):
+        print("ERROR Direct:", output_states[i], rms(direct_error[i,:]), "%.3f%%" % (100 * rms(direct_error[i,:]) / rms(direct_est[i,:]) ))
+        print("ERROR Sim:", output_states[i], rms(sim_error[i,:]), "%.3f%%" % (100 * rms(sim_error[i,:]) / rms(sim_est[i,:]) ))
+
+        fig, axs = plt.subplots(2, sharex=True)
+        fig.suptitle("Estimate for: " + output_states[i])
+        axs[0].plot(traindata[outputs_idx[i],1:].T, label="original signal")
+        axs[0].plot(direct_est[i,:-1].T, label="fit signal")
+        axs[0].plot(sim_est[i,:-1].T, label="sim signal")
+        axs[0].legend()
+        axs[1].plot(direct_error[i,:].T, label="fit error")
+        axs[1].plot(sim_error[i,:].T, label="sim error")
+        axs[1].legend()
     plt.show()
+
+    # for i in range(error.shape[0]):
+    #     plt.figure()
+    #     plt.plot(error[i,:].T, label="estimation error")
+    #     plt.plot(traindata[outputs_idx[i],1:].T, label="original signal")
+    #     plt.plot(est[i,:-1].T, label="estimated signal")
+    #     plt.legend()
+    # plt.show()
 
 
 # evaluate each condition
