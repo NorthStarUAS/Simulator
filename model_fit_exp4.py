@@ -84,6 +84,7 @@ if train_data.flight_format == "cirrus_csv":
     output_states = [
         "p", "q", "r",
         "ax", "ay", "az",
+        # "alpha_dot",
     ]
 
     # bins of unique flight conditions
@@ -216,15 +217,6 @@ def correlation_report_4(traindata, train_states, output_states, self_reference=
         axs[1].plot(sim_error[i,:].T, label="sim error")
         axs[1].legend()
     plt.show()
-
-    # for i in range(error.shape[0]):
-    #     plt.figure()
-    #     plt.plot(error[i,:].T, label="estimation error")
-    #     plt.plot(traindata[outputs_idx[i],1:].T, label="original signal")
-    #     plt.plot(est[i,:-1].T, label="estimated signal")
-    #     plt.legend()
-    # plt.show()
-
 
 # evaluate each condition
 for i, cond in enumerate(conditions):
