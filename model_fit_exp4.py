@@ -62,28 +62,32 @@ if train_data.flight_format == "cirrus_csv":
 
     # terms (combinations of states)
     terms_list = [
+        "K",
         "qbar",
+        "inv(qbar)",
+        "inv(airspeed_mps)",
         "aileron*qbar",
-        "abs(aileron)*qbar",
+        "abs(aileron)*qbar", # drag term
         "elevator*qbar",
-        "abs(elevator)*qbar",
         "rudder*qbar",
-        "abs(rudder)*qbar",
+        "abs(rudder)*qbar", # drag term
         "alpha_dot_term2",
         "alpha_dot_term3",
         "sin(alpha_deg)*qbar",
         "sin(beta_deg)*qbar",
+        "qbar/cos(beta_deg)", # drag term
         "abs(ay)", "abs(bgy)",
         # state history can improve fit and output parameter prediction, but reduce determinism
-        "sin(alpha_prev1_deg)*qbar", "sin(beta_prev1_deg)*qbar",
-        "ax_prev1", "ay_prev1", "az_prev1",
-        "p_prev1", "q_prev1", "r_prev1",
+        # "sin(alpha_prev1_deg)*qbar", "sin(beta_prev1_deg)*qbar",
+        # "ax_prev1", "ay_prev1", "az_prev1",
+        # "p_prev1", "q_prev1", "r_prev1",
     ]
 
     # states to predict
     output_states = [
         "p", "q", "r",
         "ax", "ay", "az",
+        "airspeed_mps",
         # "alpha_dot",
     ]
 
@@ -94,7 +98,6 @@ if train_data.flight_format == "cirrus_csv":
     ]
 
 train_states = inceptor_states + direct_states + terms_list
-state_names = inceptor_states + direct_states + output_states
 state_mgr.set_state_names(inceptor_states, direct_states, output_states)
 
 if train_data.flight_format == "cirrus_csv":
@@ -107,14 +110,6 @@ for i, cond in enumerate(conditions):
     print(i, cond)
     print("  Number of states:", len(train_data.cond_list[i]["traindata_list"][0]))
     print("  Input state vectors:", len(train_data.cond_list[i]["traindata_list"]))
-
-# stub / top of our model structure to save
-root_dict = {
-    "dt": state_mgr.dt,
-    "rows": len(state_mgr.output_states),
-    "cols": len(state_mgr.state_list),
-    "conditions": [],
-}
 
 def solve(traindata, includes_idx, solutions_idx):
     srcdata = traindata[includes_idx,:]
@@ -164,24 +159,79 @@ def solve(traindata, includes_idx, solutions_idx):
 
     return A
 
+def analyze(A, traindata, train_states, output_states):
+    stds = []
+    for i in range(len(train_states)):
+        stds.append(np.std(traindata[i,:]))
+
+    # output_index_list = state_mgr.get_state_index( state_mgr.output_states )
+    # states = len(traindata[0])
+    # params = self.parameters
+
+    # report leading contributions towards computing each output state
+    for i in range(len(output_states)):
+        #print(self.state_names[i])
+        row = A[i,:]
+        energy = []
+        for j in range(len(train_states)):
+            # e = row[j] * (abs(params[j]["median"]) + 0.5 * params[j]["std"]) * np.sign(params[j]["median"])
+            e = row[j] * stds[j]
+            # e = row[j] * params[j]["median"]
+            # e = row[j] * (params[j]["max"] - params[j]["min"]) # probably no ...
+            energy.append(e)
+        idx = np.argsort(-np.abs(energy))
+        total = np.sum(np.abs(energy))
+        # output_idx = output_index_list[i]
+        contributors = output_states[i] + " = "
+        formula = output_states[i] + " = "
+        first = True
+        for j in idx:
+            perc = 100 * energy[j] / total
+            if abs(perc) < 0.01:
+                continue
+            if first:
+                first = False
+            else:
+                if perc >= 0:
+                    contributors += " + "
+                else:
+                    contributors += " - "
+            if row[j] < 0:
+                formula += " - "
+            else:
+                formula += " + "
+            contributors += train_states[j] + " %.1f%%" % abs(perc)
+            formula += "%.3f" % abs(row[j]) + "*" + train_states[j]
+        print(contributors)
+        print(formula)
+
 def simulate(traindata, includes_idx, solutions_idx, A):
+    indirect_idx = []
+    for i in solutions_idx:
+        if i in includes_idx:
+            ind = includes_idx.index(i)
+        else:
+            return np.zeros([1, traindata.shape[1]])
+        indirect_idx.append(ind)
+
     est = []
-    next = np.zeros(len(solutions_idx))
+    next = np.zeros(len(indirect_idx))
     for i in range(traindata.shape[1]):
         # print("i:", i)
         # print("includes_idx:", includes_idx)
         # print("solutions_idx:", solutions_idx)
         v = traindata[includes_idx,i]
         # print(v.shape, v)
-        v[solutions_idx] = next
+        v[indirect_idx] = next
         next = A @ v
         est.append(next)
     return np.array(est).T
 
 def rms(y):
-    return np.sqrt(np.mean(y**2))
+    # return np.sqrt(np.mean(y**2))
+    return np.std(y)
 
-def correlation_report_4(traindata, train_states, output_states, self_reference=False):
+def mass_solution_4(traindata, train_states, output_states, self_reference=False):
     outputs_idx = []
     for s in output_states:
         outputs_idx.append(train_states.index(s))
@@ -202,8 +252,10 @@ def correlation_report_4(traindata, train_states, output_states, self_reference=
     sim_est = simulate(traindata,inputs_idx, outputs_idx, A)
     sim_error = traindata[outputs_idx,1:] - sim_est[:,:-1]
 
+    analyze(A, traindata, train_states, output_states)
 
     for i in range(len(output_states)):
+        print("rms vs std:", rms(direct_error[i,:]), np.std(direct_error[i,:]))
         print("ERROR Direct:", output_states[i], rms(direct_error[i,:]), "%.3f%%" % (100 * rms(direct_error[i,:]) / rms(direct_est[i,:]) ))
         print("ERROR Sim:", output_states[i], rms(sim_error[i,:]), "%.3f%%" % (100 * rms(sim_error[i,:]) / rms(sim_est[i,:]) ))
 
@@ -218,6 +270,64 @@ def correlation_report_4(traindata, train_states, output_states, self_reference=
         axs[1].legend()
     plt.show()
 
+def parameter_rank_5(traindata, train_states, output_states, self_reference=False):
+
+    for os in output_states:
+        include_idx = []
+        output_idx = train_states.index(os)
+        evalout_idx = [output_idx]
+
+        remain_states = train_states.copy()
+        if not self_reference:
+            remain_states.remove(os)
+
+        min_rms = np.std(traindata[output_idx,:])
+
+        while len(remain_states):
+            for rs in remain_states:
+                print("evaluating:", rs)
+                r_idx = train_states.index(rs)
+                evalin_idx = include_idx + [r_idx]
+
+                A = solve(traindata, evalin_idx, evalout_idx)
+
+                # direct solution with all current states known, how well does our fit estimate the next state?
+                direct_est = A @ traindata[evalin_idx,:]
+                # print("direct_est:", direct_est.shape, direct_est)
+                direct_error = traindata[output_idx,1:] - direct_est[:,:-1]
+                # print("direct_error:", direct_error.shape, direct_error)
+                direct_rms = np.std(direct_error)
+                print("direct_rms:", direct_rms)
+                if direct_rms < min_rms:
+                    min_rms = direct_rms
+                    min_idx = r_idx
+                    min_est = direct_est
+                    min_err = direct_error
+                    min_evalin_idx = evalin_idx
+
+                print("ERROR Direct:", os, "->", rs, rms(direct_error), "%.3f%%" % (100 * rms(direct_error) / rms(direct_est) ))
+                # print("ERROR Sim:", output_states[i], rms(sim_error[i,:]), "%.3f%%" % (100 * rms(sim_error[i,:]) / rms(sim_est[i,:]) ))
+
+            print("Best next parameter:", train_states[min_idx], "rms val: %.05f" % min_rms)
+            include_idx.append(min_idx)
+            remain_states.remove(train_states[min_idx])
+
+            sim_est = simulate(traindata, min_evalin_idx, evalout_idx, A)
+            sim_error = traindata[output_idx,1:] - sim_est[:,:-1]
+
+            fig, axs = plt.subplots(3, sharex=True)
+            fig.suptitle("Estimate for: " + os + " vs " + train_states[min_idx])
+            axs[0].plot(traindata[output_idx,1:].T, label="original signal")
+            axs[0].plot(min_est[:,:-1].T, label="fit signal")
+            axs[0].legend()
+            axs[1].plot(traindata[output_idx,1:].T, label="original signal")
+            axs[1].plot(sim_est[:,:-1].T, label="sim signal")
+            axs[1].legend()
+            axs[2].plot(min_err.T, label="fit error")
+            axs[2].plot(sim_error[i,:].T, label="sim error")
+            axs[2].legend()
+            plt.show()
+
 # evaluate each condition
 for i, cond in enumerate(conditions):
     print(i, cond)
@@ -225,7 +335,11 @@ for i, cond in enumerate(conditions):
     traindata = np.array(train_data.cond_list[i]["traindata_list"]).T
     coeff = np.array(train_data.cond_list[i]["coeff"])
 
-    sysid = SystemIdentification(args.vehicle)
-    train_data.cond_list[i]["sysid"] = sysid
+    # sysid = SystemIdentification(args.vehicle)
+    # train_data.cond_list[i]["sysid"] = sysid
 
-    correlation_report_4(traindata, train_states, output_states, self_reference=True)
+    if False:
+        mass_solution_4(traindata, train_states, output_states, self_reference=True)
+
+    if True:
+        parameter_rank_5(traindata, train_states, output_states, self_reference=True)
