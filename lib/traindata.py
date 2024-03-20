@@ -24,6 +24,10 @@ class TrainData():
                 self.data = self.session["data"]
                 self.flight_format = self.session["flight_format"]
                 self.cond_list = self.session["cond_list"]
+                if "train_states" in self.session:
+                    self.train_states = self.session["train_states"]
+                else:
+                    self.train_states = None
             return
 
         self.data, self.flight_format = flight_loader.load(path)
@@ -38,10 +42,11 @@ class TrainData():
             print("not enough data loaded to continue.")
             quit()
 
-
     def build(self, vehicle, invert_elevator, invert_rudder, state_mgr, conditions, train_states):
-        if self.cond_list is not None:
+        if self.cond_list is not None and self.train_states == train_states:
             return
+
+        self.train_states = train_states
 
         # dt estimation
         print("Estimating median dt from IMU records:")
@@ -232,4 +237,5 @@ class TrainData():
             session["data"] = self.data
             session["flight_format"] = self.flight_format
             session["cond_list"] = self.cond_list
+            session["train_states"] = self.train_states
             pickle.dump(session, f)
