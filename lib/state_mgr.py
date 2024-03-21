@@ -382,14 +382,14 @@ class StateManager():
                 val = self.a_body[2]
             elif field == "airspeed_mps":
                 val = self.airspeed_mps
-            elif field == "inv(airspeed_mps)":
+            elif field == "1/airspeed_mps":
                 if self.airspeed_mps != 0:
                     val = 1 / self.airspeed_mps
                 else:
                     val = 0
             elif field == "qbar":
                 val = self.qbar
-            elif field == "inv(qbar)":
+            elif field == "1/qbar":
                 if self.qbar != 0:
                     val = 1 / self.qbar
                 else:
