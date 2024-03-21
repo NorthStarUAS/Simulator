@@ -62,10 +62,9 @@ if train_data.flight_format == "cirrus_csv":
 
     # terms (combinations of states)
     terms_list = [
-        "K",
         "qbar",
-        "inv(qbar)",
-        "inv(airspeed_mps)",
+        "1/qbar",
+        "1/airspeed_mps",
         "aileron*qbar",
         "abs(aileron)*qbar", # drag term
         "elevator*qbar",
@@ -85,9 +84,9 @@ if train_data.flight_format == "cirrus_csv":
 
     # states to predict
     output_states = [
+        "airspeed_mps",
         "p", "q", "r",
         "ax", "ay", "az",
-        "airspeed_mps",
         # "alpha_dot",
     ]
 
@@ -342,4 +341,4 @@ for i, cond in enumerate(conditions):
         mass_solution_4(traindata, train_states, output_states, self_reference=True)
 
     if True:
-        parameter_rank_5(traindata, train_states, output_states, self_reference=True)
+        parameter_rank_5(traindata, train_states, output_states, self_reference=False)
