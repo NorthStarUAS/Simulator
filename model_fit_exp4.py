@@ -54,10 +54,10 @@ if train_data.flight_format == "cirrus_csv":
         "ay",                 # side force
         "az",                 # lift
         "bgx", "bgy", "bgz",  # gravity rotated into body frame
-        "alpha_dot",
+        "airspeed_mps",
+        # "alpha_dot",
         "alpha_deg",          # angle of attack
         "beta_deg",           # side slip angle
-        "airspeed_mps",
     ]
 
     # terms (combinations of states)
@@ -71,10 +71,10 @@ if train_data.flight_format == "cirrus_csv":
         "rudder*qbar",
         "abs(rudder)*qbar", # drag term
         "alpha_dot_term2",
-        "alpha_dot_term3",
-        "sin(alpha_deg)*qbar",
-        "sin(beta_deg)*qbar",
-        "qbar/cos(beta_deg)", # drag term
+        # "alpha_dot_term3",
+        # "sin(alpha_deg)*qbar",
+        # "sin(beta_deg)*qbar",
+        # "qbar/cos(beta_deg)", # drag term
         "abs(ay)", "abs(bgy)",
         # state history can improve fit and output parameter prediction, but reduce determinism
         # "sin(alpha_prev1_deg)*qbar", "sin(beta_prev1_deg)*qbar",
@@ -82,12 +82,17 @@ if train_data.flight_format == "cirrus_csv":
         # "p_prev1", "q_prev1", "r_prev1",
     ]
 
-    # states to predict
-    output_states = [
+    # deterministic output states (do not include their own value in future estimates)
+    deterministic_output_states = [
+        # "alpha_deg",
+        "beta_deg",
+    ]
+
+    # non-deterministic output states (may roll their current value into the next estimate)
+    nondeterministic_output_states = [
         "airspeed_mps",
         "p", "q", "r",
         "ax", "ay", "az",
-        # "alpha_dot",
     ]
 
     # bins of unique flight conditions
@@ -97,7 +102,7 @@ if train_data.flight_format == "cirrus_csv":
     ]
 
 train_states = inceptor_states + direct_states + terms_list
-state_mgr.set_state_names(inceptor_states, direct_states, output_states)
+state_mgr.set_state_names(inceptor_states, direct_states, nondeterministic_output_states)
 
 if train_data.flight_format == "cirrus_csv":
     state_mgr.set_is_flying_thresholds(75*kt2mps, 65*kt2mps)
@@ -209,9 +214,9 @@ def simulate(traindata, includes_idx, solutions_idx, A):
     for i in solutions_idx:
         if i in includes_idx:
             ind = includes_idx.index(i)
-        else:
-            return np.zeros([1, traindata.shape[1]])
-        indirect_idx.append(ind)
+            indirect_idx.append(ind)
+        # else:
+        #     return np.zeros([1, traindata.shape[1]])
 
     est = []
     next = np.zeros(len(indirect_idx))
@@ -221,7 +226,8 @@ def simulate(traindata, includes_idx, solutions_idx, A):
         # print("solutions_idx:", solutions_idx)
         v = traindata[includes_idx,i]
         # print(v.shape, v)
-        v[indirect_idx] = next
+        if len(indirect_idx):
+            v[indirect_idx] = next
         next = A @ v
         est.append(next)
     return np.array(est).T
@@ -298,6 +304,7 @@ def parameter_rank_5(traindata, train_states, output_states, self_reference=Fals
                 direct_rms = np.std(direct_error)
                 print("direct_rms:", direct_rms)
                 if direct_rms < min_rms:
+                    min_A = A
                     min_rms = direct_rms
                     min_idx = r_idx
                     min_est = direct_est
@@ -307,24 +314,40 @@ def parameter_rank_5(traindata, train_states, output_states, self_reference=Fals
                 print("ERROR Direct:", os, "->", rs, rms(direct_error), "%.3f%%" % (100 * rms(direct_error) / rms(direct_est) ))
                 # print("ERROR Sim:", output_states[i], rms(sim_error[i,:]), "%.3f%%" % (100 * rms(sim_error[i,:]) / rms(sim_est[i,:]) ))
 
+            print()
             print("Best next parameter:", train_states[min_idx], "rms val: %.05f" % min_rms)
             include_idx.append(min_idx)
             remain_states.remove(train_states[min_idx])
 
-            sim_est = simulate(traindata, min_evalin_idx, evalout_idx, A)
+            sim_est = simulate(traindata, min_evalin_idx, evalout_idx, min_A)
             sim_error = traindata[output_idx,1:] - sim_est[:,:-1]
 
-            fig, axs = plt.subplots(3, sharex=True)
-            fig.suptitle("Estimate for: " + os + " vs " + train_states[min_idx])
+            terms = ""
+            for i, idx in enumerate(min_evalin_idx):
+                terms += "%.2f*" % min_A[0,i] + train_states[idx] + ", "
+            print(os, "=", terms)
+
+            fig, axs = plt.subplots(2, sharex=True)
+            fig.suptitle("Estimate for: " + os + " = " + terms)
             axs[0].plot(traindata[output_idx,1:].T, label="original signal")
-            axs[0].plot(min_est[:,:-1].T, label="fit signal")
+            if self_reference:
+                axs[0].plot(sim_est[:,:-1].T, label="sim signal")
+            else:
+                axs[0].plot(min_est[:,:-1].T, label="fit signal")
             axs[0].legend()
-            axs[1].plot(traindata[output_idx,1:].T, label="original signal")
-            axs[1].plot(sim_est[:,:-1].T, label="sim signal")
+            if self_reference:
+                axs[1].plot(sim_error[0,:].T, label="sim error")
+                y_mean = np.mean(sim_error[0,:])
+                y_std = np.std(sim_error[0,:])
+            else:
+                axs[1].plot(min_err.T, label="fit error")
+                y_mean = np.mean(min_err)
+                y_std = np.std(min_err)
+            print(y_mean, y_std)
+            print(len(min_est[:,:-1].T))
+            axs[1].hlines(y=y_mean-2*y_std, xmin=0, xmax=len(min_est[:,:-1].T), colors='green', linestyles='--')
+            axs[1].hlines(y=y_mean+2*y_std, xmin=0, xmax=len(min_est[:,:-1].T), colors='green', linestyles='--', label="2*stddev")
             axs[1].legend()
-            axs[2].plot(min_err.T, label="fit error")
-            axs[2].plot(sim_error[i,:].T, label="sim error")
-            axs[2].legend()
             plt.show()
 
 # evaluate each condition
@@ -341,4 +364,4 @@ for i, cond in enumerate(conditions):
         mass_solution_4(traindata, train_states, output_states, self_reference=True)
 
     if True:
-        parameter_rank_5(traindata, train_states, output_states, self_reference=False)
+        parameter_rank_5(traindata, train_states, deterministic_output_states, self_reference=True)
