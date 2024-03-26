@@ -81,8 +81,7 @@ if train_data.flight_format == "cirrus_csv":
         # "sin(alpha_prev1_deg)*qbar", "sin(beta_prev1_deg)*qbar",
         "ax_1", "ay_1", "az_1",
         "ax_2", "ay_2", "az_2",
-        # "ax_prev1", "ay_prev1", "az_prev1",
-        "p_prev1", "q_prev1", "r_prev1",
+        "p_1", "q_1", "r_1",
     ]
 
     # deterministic output states (do not include their own value in future estimates)

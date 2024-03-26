@@ -225,8 +225,8 @@ class TrainData():
                     # print(True)
                     self.cond_list[i]["traindata_list"].append( state )
                     if vehicle == "wing":
-                        params = [ state_mgr.alpha*r2d, state_mgr.Cl_raw, 0, state_mgr.qbar,
-                                    state_mgr.accels[0], state_mgr.throttle ]
+                        params = [ state_mgr.alpha[0]*r2d, state_mgr.Cl_raw, 0, state_mgr.qbar,
+                                    state_mgr.accels[0][0], state_mgr.throttle[0] ]
                         # print("params:", params)
                         self.cond_list[i]["coeff"].append( params )
 

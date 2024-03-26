@@ -8,6 +8,8 @@ import numpy as np
 from lib.constants import gravity, d2r, r2d
 from lib import quaternion
 
+num = 3 # length of history to maintain in state mgr
+
 class StateManager():
     def __init__(self, vehicle="wing"):
         # config
@@ -28,28 +30,19 @@ class StateManager():
         self.wing_area = 1  # wing area = 1 wing!  "S"
 
         # inputs
-        self.aileron = 0
-        self.aileron_prev1 = 0
-        self.elevator = 0
-        self.elevator_prev1 = 0
-        self.rudder = 0
-        self.rudder_prev1 = 0
+        self.aileron = [0]*num  # list maintains some past state
+        self.elevator = [0]*num  # list maintains some past state
+        self.rudder = [0]*num  # list maintains some past state
         self.flaps = 0
-        self.throttle = 0
-        self.throttle_prev1 = 0
+        self.throttle = [0]*num  # list maintains some past state
 
         # direct states
         self.time = 0
-        self.gyros = np.array( [0.0, 0.0, 0.0] )
-        self.gyros_prev1 = np.array( [0.0, 0.0, 0.0] )
-        self.accels = np.array( [0.0, 0.0, 0.0] )
-        self.accels_prev1 = np.array( [0.0, 0.0, 0.0] )
-        self.accels_prev2 = np.array( [0.0, 0.0, 0.0] )
+        self.gyros = [np.zeros(3)]*num  # list maintains some past state
+        self.accels = [np.zeros(3)]*num  # list maintains some past state
         self.airspeed_mps = 0
-        self.alpha = 0
-        self.alpha_prev1 = 0
-        self.beta = 0
-        self.beta_prev1 = 0
+        self.alpha = [0]*num  # list maintains some past state
+        self.beta = [0]*num  # list maintains some past state
         self.vel_ned = np.array( [0.0, 0.0, 0.0] )
         self.gs_mps = 0
         self.phi_rad = 0
@@ -108,31 +101,26 @@ class StateManager():
         self.time = time
 
     def set_throttle(self, throttle):
-        self.throttle_prev1 = self.throttle
-        self.throttle = throttle
-        if self.throttle < 0: self.throttle = 0
-        if self.throttle > 1: self.throttle = 1
+        if throttle < 0: throttle = 0
+        if throttle > 1: throttle = 1
+        self.throttle = [throttle] + self.throttle[:num]
         # max thrust is 0.75 gravity, so we can't quite hover on full power
-        self.thrust = sqrt(self.throttle) * 0.75 * abs(gravity)
+        self.thrust = sqrt(self.throttle[0]) * 0.75 * abs(gravity)
 
     def set_flight_surfaces(self, aileron, elevator, rudder, flaps=0):
-        self.aileron_prev1 = self.aileron
-        self.aileron = aileron
-        self.elevator_prev1 = self.elevator
-        self.elevator = elevator
+        if aileron < -1: aileron = -1
+        if aileron > 1: aileron = 1
+        if elevator < -1: elevator = -1
+        if elevator > 1: elevator = 1
+        if rudder < -1: rudder = -1
+        if rudder > 1: rudder = 1
+        if flaps < 0: flaps = 0
+        if flaps > 1: flaps = 1
 
-        self.rudder_prev1 = self.rudder
-        self.rudder = rudder
-
+        self.aileron = [aileron] + self.aileron[:num]
+        self.elevator = [elevator] + self.elevator[:num]
+        self.rudder = [rudder] + self.rudder[:num]
         self.flaps = flaps
-        if self.aileron < -1: self.aileron = -1
-        if self.aileron > 1: self.aileron = 1
-        if self.elevator < -1: self.elevator = -1
-        if self.elevator > 1: self.elevator = 1
-        if self.rudder < -1: self.rudder = -1
-        if self.rudder > 1: self.rudder = 1
-        if self.flaps < 0: self.flaps = 0
-        if self.flaps > 1: self.flaps = 1
 
     def set_motors(self, motors):
         self.motors = motors.copy()
@@ -140,15 +128,14 @@ class StateManager():
     def set_airdata(self, airspeed_mps, alpha_rad=None, beta_rad=None):
         self.airspeed_mps = airspeed_mps
         self.vel_body[0] = airspeed_mps
-        self.alpha_prev1 = self.alpha
         if alpha_rad is not None:
             self.have_alpha = True
-            self.alpha = alpha_rad
-            self.alpha_dot = (self.alpha - self.alpha_prev1) / self.dt
+            self.alpha = [alpha_rad] + self.alpha[:num]
+            self.alpha_dot = (self.alpha[0] - self.alpha[1]) / self.dt
             self.vel_body[2] = airspeed_mps * sin(alpha_rad)
         self.beta_prev1 = self.beta
         if beta_rad is not None:
-            self.beta = beta_rad
+            self.beta = [beta_rad] + self.beta[:num]
             self.vel_body[1] = airspeed_mps * sin(beta_rad)
         # print("rudder:", self.rudder, "beta:", self.beta, "vby:", self.vel_body[1])
         # print("alpha:", self.alpha*r2d, "v_body:", self.vel_body)
@@ -158,13 +145,10 @@ class StateManager():
         self.we_filt = 0.95 * self.we_filt + 0.05 * we
 
     def set_gyros(self, gyros):
-        self.gyros_prev1 = self.gyros.copy()
-        self.gyros = gyros
+        self.gyros = [gyros] + self.gyros[:num]
 
     def set_accels(self, accels):
-        self.accels_prev2 = self.accels_prev1.copy()
-        self.accels_prev1 = self.accels.copy()
-        self.accels = accels
+        self.accels = [accels] + self.accels[:num]
 
     def set_ned_velocity(self, vn, ve, vd, wn, we, wd):
         # store NED velocity, corrected to remove wind effects
@@ -213,12 +197,10 @@ class StateManager():
         self.vel_body[0] += (self.accels[0] - self.g_body[0])  * self.dt
         self.airspeed_mps = self.vel_body[0]
         self.compute_qbar()
-        self.alpha_prev1 = self.alpha
-        self.alpha = alpha_rad
+        self.alpha = [alpha_rad] + self.alpha[:num]
         self.alpha_dot = (self.alpha - self.alpha_prev1) / self.dt
         self.vel_body[2] = self.vel_body[0] * sin(alpha_rad)
-        self.beta_prev1 = self.beta
-        self.beta = beta_rad
+        self.beta = [beta_rad] + self.beta[:num]
         self.vel_body[1] = self.vel_body[0] * sin(beta_rad)
 
         # hey, estimate ay, az accels! (and make the new vel official) and FIXME!
@@ -242,14 +224,13 @@ class StateManager():
             self.vel_body[2] = np.sign(self.vel_body[2]) * abs(self.vel_body[0]) * cutoff
 
         # alpha and beta from body frame velocity
-        self.alpha_prev1 = self.alpha
-        self.beta_prev1 = self.beta
         # max = 20 * d2r
-        self.alpha = atan2( self.vel_body[2], self.vel_body[0] )
+        self.alpha = [ atan2( self.vel_body[2], self.vel_body[0] ) ] + self.alpha[:num]
         # if abs(self.alpha) > max:
         #     self.alpha = np.sign(self.alpha) * max
-        self.alpha_dot = (self.alpha - self.alpha_prev1) / self.dt
-        self.beta = atan2( self.vel_body[1], self.vel_body[0] )
+        if len(self.alpha) >= 2:
+            self.alpha_dot = (self.alpha[0] - self.alpha[1]) / self.dt
+        self.beta = [ atan2( self.vel_body[1], self.vel_body[0] ) ] + self.beta[:num]
         # if abs(self.beta) > max:
         #     self.beta = np.sign(self.beta) * max
 
@@ -298,7 +279,7 @@ class StateManager():
         self.qbar = 0.5 * self.airspeed_mps**2 * self.rho
 
         # Cl coefficient of lift (varies as a function of alpha)
-        lift = -self.accels[2] * self.mass_kg  # actual measured force
+        lift = -self.accels[0][2] * self.mass_kg  # actual measured force
         # lift (L) = Cl * qbar * A (wing area)
         # Cl = lift / (qbar * A)
         if self.qbar > 10:
@@ -307,45 +288,45 @@ class StateManager():
             self.Cl_raw = 0
 
         # alpha_dot term2: contribution from aerodynamic lift
-        self.alpha_dot_term2 = (self.qbar * self.wing_area) / (self.mass_kg * self.airspeed_mps * cos(self.beta))
+        self.alpha_dot_term2 = (self.qbar * self.wing_area) / (self.mass_kg * self.airspeed_mps * cos(self.beta[0]))
 
         # alpha_dot_term3: contribution from gravity forces
-        self.alpha_dot_term3 = gravity * (cos(self.alpha) * cos(self.phi_rad) * cos(self.the_rad) + sin(self.alpha) * sin(self.the_rad)) / (self.airspeed_mps * cos(self.beta))
+        self.alpha_dot_term3 = gravity * (cos(self.alpha[0]) * cos(self.phi_rad) * cos(self.the_rad) + sin(self.alpha[0]) * sin(self.the_rad)) / (self.airspeed_mps * cos(self.beta[0]))
 
     def gen_state_vector(self, state_list=None, params=None):
         result = []
         if state_list is None:
             state_list = self.state_list
-        for index, field in enumerate(state_list):
+        for index, name in enumerate(state_list):
+            if len(name) >= 3 and name[-2] == "_":
+                field = name[:-2]
+                n = int(name[-1])
+            else:
+                field = name
+                n = 0
             # Inceptors
             if field == "throttle":
-                val = self.throttle
-            elif field == "throttle_prev1":
-                val = self.throttle_prev1
+                val = self.throttle[n]
             elif field == "aileron":
-                val = self.aileron
+                val = self.aileron[n]
             elif field == "elevator":
-                val = self.elevator
+                val = self.elevator[n]
             elif field == "rudder":
-                val = self.rudder
+                val = self.rudder[n]
             elif field == "flaps":
                 val = self.flaps
             elif field == "aileron*qbar":
-                val = self.aileron * self.qbar
-            elif field == "aileron_prev1*qbar":
-                val = self.aileron_prev1 * self.qbar
+                val = self.aileron[n] * self.qbar
             elif field == "abs(aileron)*qbar":
-                val = abs(self.aileron) * self.qbar
+                val = abs(self.aileron[n]) * self.qbar
             elif field == "elevator*qbar":
-                val = self.elevator * self.qbar
+                val = self.elevator[n] * self.qbar
             elif field == "abs(elevator)*qbar":
-                val = abs(self.elevator) * self.qbar
-            elif field == "elevator_prev1*qbar":
-                val = self.elevator_prev1 * self.qbar
+                val = abs(self.elevator[n]) * self.qbar
             elif field == "rudder*qbar":
-                val = self.rudder * self.qbar
+                val = self.rudder[n] * self.qbar
             elif field == "abs(rudder)*qbar":
-                val = abs(self.rudder) * self.qbar
+                val = abs(self.rudder[n]) * self.qbar
             elif field == "flaps*qbar":
                 val = self.flaps * self.qbar
             elif field == "motor[0]":
@@ -397,15 +378,11 @@ class StateManager():
             elif field == "Cl":
                 val = self.Cl_raw
             elif field == "alpha_deg":
-                val = self.alpha * r2d
-            elif field == "alpha_prev1_deg":
-                val = self.alpha_prev1 * r2d
+                val = self.alpha[n] * r2d
             elif field == "beta_deg":
-                val = self.beta * r2d
+                val = self.beta[n] * r2d
             elif field == "sin(alpha_deg)*qbar":
-                val = sin(self.alpha) * self.qbar
-            elif field == "sin(alpha_prev1_deg)*qbar":
-                val = sin(self.alpha_prev1) * self.qbar
+                val = sin(self.alpha[n]) * self.qbar
             elif field == "alpha_dot":
                 val = self.alpha_dot
             elif field == "alpha_dot_term2":
@@ -419,37 +396,19 @@ class StateManager():
             elif field == "sin(beta_prev1_deg)*qbar":
                 val = sin(self.beta_prev1) * self.qbar
             elif field == "p":
-                val = self.gyros[0]
+                val = self.gyros[n][0]
             elif field == "q":
-                val = self.gyros[1]
+                val = self.gyros[n][1]
             elif field == "r":
-                val = self.gyros[2]
-            elif field == "p_prev1":
-                val = self.gyros_prev1[0]
-            elif field == "q_prev1":
-                val = self.gyros_prev1[1]
-            elif field == "r_prev1":
-                val = self.gyros_prev1[2]
+                val = self.gyros[n][2]
             elif field == "ax":
-                val = self.accels[0]
+                val = self.accels[n][0]
             elif field == "ay":
-                val = self.accels[1]
+                val = self.accels[n][1]
             elif field == "abs(ay)":
-                val = abs(self.accels[1])
+                val = abs(self.accels[n][1])
             elif field == "az":
-                val = self.accels[2]
-            elif field == "ax_prev1":
-                val = self.accels_prev1[0]
-            elif field == "ay_prev1":
-                val = self.accels_prev1[1]
-            elif field == "az_prev1":
-                val = self.accels_prev1[2]
-            elif field == "ax_prev2":
-                val = self.accels_prev2[0]
-            elif field == "ay_prev2":
-                val = self.accels_prev2[1]
-            elif field == "az_prev2":
-                val = self.accels_prev2[2]
+                val = self.accels[n][2]
             elif field == "K":
                 val = 1.0
             else:
