@@ -1,13 +1,54 @@
 # Random Notes and Thoughts
 
-Caution: this could still be a rapidly evolving project.  Much of the
-information could be out dated.  The notes here reflect my thinking
-and best understanding on the day they were written.  For sure I am
-learning as I go.  If you see any comments here that are wildly wrong
-or misleading, please let me know so I can fix and improve the
-information.  Don't feel bad about calling me out on my mistakes.
-It's all good and helps me learn new things and make this system
+Caution: this is anevolving project.  Much of the information could be outdated.
+The notes here reflect my thinking and best understanding as I go.  With this
+project specifically, I keep learning (or thinking of) new things and
+backtracking and redoing things (breaking other things in the process).  If you
+see any comments here that are wildly wrong or misleading, please let me know so
+I can fix and improve the information.  Don't feel bad about calling me out on
+my mistakes. It's all good and helps me learn new things and make this system
 better.
+
+## Mar 25, 2024: Deterministic vs. Non-deterministic solutions
+
+Lacking the energy to look up the official mathematical definition, here is what
+I mean:
+
+* Deterministic: the previous state(s) of the "y" are not included in the
+  solution.  The estimate could be computed (via matrix math) in one step.
+
+* Non-deterministic: the previous state(s) of "y" roll forward into the next
+  estimate.  Sorta: the solution is a mix of some portion of the current state
+  combined with other terms.
+
+Some values can be computed from other terms each iteration (deterministic) but
+some values carry momentum and rolling in the previous state(s) enables a more
+accurate solution ... if it converges ... and convergence is hard to prove
+beyond throwing some data sets at the formula to see what happens.
+
+Ok for non-deterministic solutions I'd like to carry more than just the previous
+state.  I'd like to carry n-1, n-2, ... and like to formalize that a bit in the
+code so I can experiment with different amounts of history on different states.
+
+What I need:
+
+* A nomenclature: p = current roll rate, p_1 = previous roll rate, p_2 = the
+  roll rate before that, etc.
+  * I will only support digits 1-9 (0 is the current term) beyond that would be
+    silly and this restriction makes the coding a bit simpler. (I could get
+    fancy with regex, but ugh)
+  * _ (underscore) will be allowed in other places in the term name, but if it
+    is _n at the end of the term it has special meaning.  alpha_dot_term3 is ok
+    and just a top level current term.
+* A function to find these _n terms (dst) and their source term and a mapping of
+  src_idx -> dst_idx for propagating these back in time.
+* Every term (even the _n terms) need their own row in the X and Y matrices.
+  This data needs to be built up correctly when the data is loaded.  This allows
+  us to fit the A matrix with 'perfect' original data.
+* When simulating, we need to roll the simulated estimates down cascading to
+  each following term, so we can't depend on the pre-cooked data.
+* system will propagate bottom up, so don't put ax_2 before ax_1 in the list or
+  it will screw everything up!  It's not that smart .....
 
 ## Dec 30, 2021: Nature of fitting to noisy / imperfect data
 

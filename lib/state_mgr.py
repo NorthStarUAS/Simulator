@@ -394,8 +394,12 @@ class StateManager():
                     val = 1 / self.qbar
                 else:
                     val = 0
+            elif field == "Cl":
+                val = self.Cl_raw
             elif field == "alpha_deg":
                 val = self.alpha * r2d
+            elif field == "alpha_prev1_deg":
+                val = self.alpha_prev1 * r2d
             elif field == "beta_deg":
                 val = self.beta * r2d
             elif field == "sin(alpha_deg)*qbar":

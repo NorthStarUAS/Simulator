@@ -65,6 +65,7 @@ if train_data.flight_format == "cirrus_csv":
         "qbar",
         "1/qbar",
         "1/airspeed_mps",
+        "Cl",
         "aileron*qbar",
         "abs(aileron)*qbar", # drag term
         "elevator*qbar",
@@ -78,12 +79,15 @@ if train_data.flight_format == "cirrus_csv":
         "abs(ay)", "abs(bgy)",
         # state history can improve fit and output parameter prediction, but reduce determinism
         # "sin(alpha_prev1_deg)*qbar", "sin(beta_prev1_deg)*qbar",
+        "ax_1", "ay_1", "az_1",
+        "ax_2", "ay_2", "az_2",
         # "ax_prev1", "ay_prev1", "az_prev1",
-        # "p_prev1", "q_prev1", "r_prev1",
+        "p_prev1", "q_prev1", "r_prev1",
     ]
 
     # deterministic output states (do not include their own value in future estimates)
     deterministic_output_states = [
+        "p",
         # "alpha_deg",
         "beta_deg",
     ]
@@ -103,6 +107,30 @@ if train_data.flight_format == "cirrus_csv":
 
 train_states = inceptor_states + direct_states + terms_list
 state_mgr.set_state_names(inceptor_states, direct_states, nondeterministic_output_states)
+
+# previous state propagation
+propagate = []
+for i, s in enumerate(train_states):
+    if len(s) >= 3 and s[-2] == "_":
+        print("evaluating:", s)
+        n = int(s[-1])
+        root = s[:-2]
+        if n == 1:
+            if root in train_states:
+                src = train_states.index(root)
+            else:
+                print("ERROR: requested state history without finding the current state:", s, "->", root)
+                quit()
+        else:
+            newer = root + "_%d" % (n-1)
+            if newer in train_states:
+                src = train_states.index(newer)
+            else:
+                print("ERROR: requested state history without finding the current state:", s, "->", newer)
+                quit()
+        dst = i
+        propagate.append( [src, dst] )
+print("Previous state propagation:", propagate)
 
 if train_data.flight_format == "cirrus_csv":
     state_mgr.set_is_flying_thresholds(75*kt2mps, 65*kt2mps)
@@ -210,21 +238,22 @@ def analyze(A, traindata, train_states, output_states):
         print(formula)
 
 def simulate(traindata, includes_idx, solutions_idx, A):
+    data = traindata.copy()
     indirect_idx = []
     for i in solutions_idx:
         if i in includes_idx:
             ind = includes_idx.index(i)
             indirect_idx.append(ind)
         # else:
-        #     return np.zeros([1, traindata.shape[1]])
+        #     return np.zeros([1, data.shape[1]])
 
     est = []
     next = np.zeros(len(indirect_idx))
-    for i in range(traindata.shape[1]):
+    for i in range(data.shape[1]):
         # print("i:", i)
         # print("includes_idx:", includes_idx)
         # print("solutions_idx:", solutions_idx)
-        v = traindata[includes_idx,i]
+        v = data[includes_idx,i]
         # print(v.shape, v)
         if len(indirect_idx):
             v[indirect_idx] = next
