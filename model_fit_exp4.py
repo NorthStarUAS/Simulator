@@ -67,6 +67,7 @@ if train_data.flight_format == "cirrus_csv":
         "1/airspeed_mps",
         "Cl",
         "aileron*qbar",
+        "aileron*qbar_1",
         "abs(aileron)*qbar", # drag term
         "elevator*qbar",
         "rudder*qbar",
@@ -82,11 +83,12 @@ if train_data.flight_format == "cirrus_csv":
         "ax_1", "ay_1", "az_1",
         "ax_2", "ay_2", "az_2",
         "p_1", "q_1", "r_1",
+        "p_2", "q_2", "r_2",
     ]
 
     # deterministic output states (do not include their own value in future estimates)
     deterministic_output_states = [
-        "p",
+        "q",
         # "alpha_deg",
         "beta_deg",
     ]
@@ -237,17 +239,32 @@ def analyze(A, traindata, train_states, output_states):
         print(formula)
 
 def simulate(traindata, includes_idx, solutions_idx, A):
+    # make a copy because we are going to roll our state estimates through the
+    # data matrix and make a mess (or a piece of artwork!) out of it.
     data = traindata.copy()
+
+    # this gets a little funky because we will be using numpy implied indexing below.
     indirect_idx = []
     for i in solutions_idx:
         if i in includes_idx:
-            ind = includes_idx.index(i)
-            indirect_idx.append(ind)
-        # else:
-        #     return np.zeros([1, data.shape[1]])
+            indirect_idx.append( includes_idx.index(i) )
+
+    if False: # we don't need this
+        # more craziness ... the propagate (state history) mapping is relative to
+        # the full traindata so we need to indirectly index those as well
+        local_prop = []
+        for [src, dst] in propagate:
+            if src in includes_idx and dst in includes_idx:
+                local_prop.append( [includes_idx.index(src), includes_idx.index(dst)] )
+
+    def shuffle_down(j):
+        if j < data.shape[1] - 1:
+            for [src, dst] in reversed(propagate):
+                data[dst,j+1] = data[src,j]
 
     est = []
     next = np.zeros(len(indirect_idx))
+    data[solutions_idx,i] = next
     for i in range(data.shape[1]):
         # print("i:", i)
         # print("includes_idx:", includes_idx)
@@ -257,6 +274,9 @@ def simulate(traindata, includes_idx, solutions_idx, A):
         if len(indirect_idx):
             v[indirect_idx] = next
         next = A @ v
+        shuffle_down(i)
+        if i < data.shape[1] - 1:
+            data[solutions_idx,i+1] = next
         est.append(next)
     return np.array(est).T
 
@@ -313,6 +333,10 @@ def parameter_rank_5(traindata, train_states, output_states, self_reference=Fals
         remain_states = train_states.copy()
         if not self_reference:
             remain_states.remove(os)
+            for i in range(1, 3):
+                os_prev = os + "_%d" % i
+                if os_prev in remain_states:
+                    remain_states.remove(os_prev)
 
         min_rms = np.std(traindata[output_idx,:])
 
@@ -339,16 +363,18 @@ def parameter_rank_5(traindata, train_states, output_states, self_reference=Fals
                     min_err = direct_error
                     min_evalin_idx = evalin_idx
 
-                print("ERROR Direct:", os, "->", rs, rms(direct_error), "%.3f%%" % (100 * rms(direct_error) / rms(direct_est) ))
+                print("ERROR Direct:", os, "->", rs, rms(direct_error), "%.3f%%" % (100 * rms(direct_error) / rms(traindata[output_idx,1:])))
                 # print("ERROR Sim:", output_states[i], rms(sim_error[i,:]), "%.3f%%" % (100 * rms(sim_error[i,:]) / rms(sim_est[i,:]) ))
 
-            print()
-            print("Best next parameter:", train_states[min_idx], "rms val: %.05f" % min_rms)
+            print(rms(min_err), rms(traindata[output_idx,1:]))
+            print("Best next parameter:", train_states[min_idx], "rms val: %.05f" % min_rms,
+                  "error = %.3f%%" % (100 * rms(min_err) / rms(traindata[output_idx,1:])))
             include_idx.append(min_idx)
             remain_states.remove(train_states[min_idx])
 
-            sim_est = simulate(traindata, min_evalin_idx, evalout_idx, min_A)
-            sim_error = traindata[output_idx,1:] - sim_est[:,:-1]
+            if self_reference:
+                sim_est = simulate(traindata, min_evalin_idx, evalout_idx, min_A)
+                sim_error = traindata[output_idx,1:] - sim_est[:,:-1]
 
             terms = ""
             for i, idx in enumerate(min_evalin_idx):
@@ -371,8 +397,8 @@ def parameter_rank_5(traindata, train_states, output_states, self_reference=Fals
                 axs[1].plot(min_err.T, label="fit error")
                 y_mean = np.mean(min_err)
                 y_std = np.std(min_err)
-            print(y_mean, y_std)
-            print(len(min_est[:,:-1].T))
+            print("  mean: %.4f" % y_mean, "std: %.4f" % y_std)
+            # print(len(min_est[:,:-1].T))
             axs[1].hlines(y=y_mean-2*y_std, xmin=0, xmax=len(min_est[:,:-1].T), colors='green', linestyles='--')
             axs[1].hlines(y=y_mean+2*y_std, xmin=0, xmax=len(min_est[:,:-1].T), colors='green', linestyles='--', label="2*stddev")
             axs[1].legend()
@@ -392,4 +418,4 @@ for i, cond in enumerate(conditions):
         mass_solution_4(traindata, train_states, output_states, self_reference=True)
 
     if True:
-        parameter_rank_5(traindata, train_states, deterministic_output_states, self_reference=True)
+        parameter_rank_5(traindata, train_states, deterministic_output_states, self_reference=False)

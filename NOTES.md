@@ -37,18 +37,22 @@ What I need:
   * I will only support digits 1-9 (0 is the current term) beyond that would be
     silly and this restriction makes the coding a bit simpler. (I could get
     fancy with regex, but ugh)
-  * _ (underscore) will be allowed in other places in the term name, but if it
-    is _n at the end of the term it has special meaning.  alpha_dot_term3 is ok
+  * "_" (underscore) will be allowed in other places in the term name, but if it
+    is "_n" at the end of the term it has special meaning.  alpha_dot_term3 is ok
     and just a top level current term.
 * A function to find these _n terms (dst) and their source term and a mapping of
   src_idx -> dst_idx for propagating these back in time.
 * Every term (even the _n terms) need their own row in the X and Y matrices.
   This data needs to be built up correctly when the data is loaded.  This allows
   us to fit the A matrix with 'perfect' original data.
-* When simulating, we need to roll the simulated estimates down cascading to
-  each following term, so we can't depend on the pre-cooked data.
+* When simulating:
+  * we need to initial the estimated target to zero and all of it's cascading
+    history
+  * we need to roll the simulated estimates down cascading to each following
+    term, so we can't depend on the pre-cooked data.
 * system will propagate bottom up, so don't put ax_2 before ax_1 in the list or
   it will screw everything up!  It's not that smart .....
+* self_reference=False means we can't use propagated states of the self state.
 
 ## Dec 30, 2021: Nature of fitting to noisy / imperfect data
 
