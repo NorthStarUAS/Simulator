@@ -8,7 +8,7 @@ import numpy as np
 from lib.constants import gravity, d2r, r2d
 from lib import quaternion
 
-num = 3 # length of history to maintain in state mgr
+num = 4 # length of history to maintain in state mgr
 
 class StateManager():
     def __init__(self, vehicle="wing"):

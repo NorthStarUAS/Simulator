@@ -66,13 +66,12 @@ if train_data.flight_format == "cirrus_csv":
         "1/qbar",
         "1/airspeed_mps",
         "Cl",
-        "aileron*qbar",
-        "aileron*qbar_1",
+        "aileron*qbar", "aileron*qbar_1",
         "abs(aileron)*qbar", # drag term
-        "elevator*qbar",
-        "rudder*qbar",
+        "elevator*qbar", "elevator*qbar_1", "elevator*qbar_2", "elevator*qbar_3",
+        "rudder*qbar", "rudder*qbar_1", "rudder*qbar_2", "rudder*qbar_3",
         "abs(rudder)*qbar", # drag term
-        "alpha_dot_term2",
+        # "alpha_dot_term2",
         # "alpha_dot_term3",
         # "sin(alpha_deg)*qbar",
         # "sin(beta_deg)*qbar",
@@ -80,14 +79,17 @@ if train_data.flight_format == "cirrus_csv":
         "abs(ay)", "abs(bgy)",
         # state history can improve fit and output parameter prediction, but reduce determinism
         # "sin(alpha_prev1_deg)*qbar", "sin(beta_prev1_deg)*qbar",
-        "ax_1", "ay_1", "az_1",
-        "ax_2", "ay_2", "az_2",
-        "p_1", "q_1", "r_1",
-        "p_2", "q_2", "r_2",
+        # "ax_1", "ax_2", "ax_3", "ax_4",
+        # "ay_1", "ay_2", "ay_3", "ay_4",
+        # "az_1", "az_2", "az_3", "az_4",
+        # "p_1", "p_2", "p_3", "p_4",
+        # "q_1", "q_2", "q_3", "q_4",
+        # "r_1", "r_2", "r_3", "r_4",
     ]
 
     # deterministic output states (do not include their own value in future estimates)
     deterministic_output_states = [
+        "beta_deg",
         "q",
         # "alpha_deg",
         "beta_deg",
@@ -332,13 +334,25 @@ def parameter_rank_5(traindata, train_states, output_states, self_reference=Fals
 
         remain_states = train_states.copy()
         if not self_reference:
+            # ensure none of the output state history is included if we don't self reference
             remain_states.remove(os)
-            for i in range(1, 3):
+            for i in range(1, 5):
                 os_prev = os + "_%d" % i
                 if os_prev in remain_states:
                     remain_states.remove(os_prev)
+        else:
+            # ensure /all/ of the output state history is included if we self reference
+            include_idx.append(train_states.index(os))
+            remain_states.remove(os)
+            for i in range(1, 5):
+                os_prev = os + "_%d" % i
+                if os_prev in remain_states:
+                    # print(os_prev, traindata[train_states.index(os_prev),:])
+                    include_idx.append(train_states.index(os_prev))
+                    remain_states.remove(os_prev)
 
-        min_rms = np.std(traindata[output_idx,:])
+        # min_rms = np.std(traindata[output_idx,:])
+        min_rms = None
 
         while len(remain_states):
             for rs in remain_states:
@@ -355,7 +369,7 @@ def parameter_rank_5(traindata, train_states, output_states, self_reference=Fals
                 # print("direct_error:", direct_error.shape, direct_error)
                 direct_rms = np.std(direct_error)
                 print("direct_rms:", direct_rms)
-                if direct_rms < min_rms:
+                if min_rms is None or direct_rms < min_rms:
                     min_A = A
                     min_rms = direct_rms
                     min_idx = r_idx
@@ -417,5 +431,9 @@ for i, cond in enumerate(conditions):
     if False:
         mass_solution_4(traindata, train_states, output_states, self_reference=True)
 
+    if False:
+        # reverse the data for doing NDI!
+        traindata = np.fliplr(traindata)
+
     if True:
-        parameter_rank_5(traindata, train_states, deterministic_output_states, self_reference=False)
+        parameter_rank_5(traindata, train_states, deterministic_output_states, self_reference=True)
