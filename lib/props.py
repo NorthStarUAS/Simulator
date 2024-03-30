@@ -28,7 +28,11 @@ Author: Curtis Olson
 License: MIT
 """
 
-from __future__ import print_function
+#### TODO ####
+# Merge new functionality here back into the original code -- mostly pretty
+# print and getting a flat (recursively generated) listing of all properties.
+#### TODO ####
+
 import re
 
 class PropertyNode:
