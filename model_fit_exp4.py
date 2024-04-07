@@ -40,7 +40,7 @@ if train_data.flight_format == "cirrus_csv":
     # question 2: would it be useful to have a gamma (flight path angle) parameter (may help asi)
 
     # flight controls
-    inceptor_states = [
+    inceptor_terms = [
         "aileron",
         "elevator",
         "rudder",
@@ -48,37 +48,13 @@ if train_data.flight_format == "cirrus_csv":
     ]
 
     # sensors (directly sensed, or directly converted)
-    direct_states = [
+    inertial_terms = [
         "p", "q", "r",        # imu (body) rates
         "ax",                 # thrust - drag
         "ay",                 # side force
         "az",                 # lift
         "bgx", "bgy", "bgz",  # gravity rotated into body frame
-        "airspeed_mps",
-        # "alpha_dot",
-        "alpha_deg",          # angle of attack
-        "beta_deg",           # side slip angle
-    ]
-
-    # terms (combinations of states)
-    terms_list = [
-        "qbar",
-        "1/qbar",
-        "1/airspeed_mps",
-        "Cl",
-        "aileron*qbar", "aileron*qbar_1",
-        "abs(aileron)*qbar", # drag term
-        "elevator*qbar", "elevator*qbar_1", "elevator*qbar_2", "elevator*qbar_3",
-        "rudder*qbar", "rudder*qbar_1", "rudder*qbar_2", "rudder*qbar_3",
-        "abs(rudder)*qbar", # drag term
-        # "alpha_dot_term2",
-        # "alpha_dot_term3",
-        # "sin(alpha_deg)*qbar",
-        # "sin(beta_deg)*qbar",
-        # "qbar/cos(beta_deg)", # drag term
         "abs(ay)", "abs(bgy)",
-        # state history can improve fit and output parameter prediction, but reduce determinism
-        # "sin(alpha_prev1_deg)*qbar", "sin(beta_prev1_deg)*qbar",
         # "ax_1", "ax_2", "ax_3", "ax_4",
         # "ay_1", "ay_2", "ay_3", "ay_4",
         # "az_1", "az_2", "az_3", "az_4",
@@ -87,8 +63,37 @@ if train_data.flight_format == "cirrus_csv":
         # "r_1", "r_2", "r_3", "r_4",
     ]
 
+    airdata_terms = [
+        "airspeed_mps",
+        # "alpha_dot",
+        "alpha_deg",          # angle of attack
+        "beta_deg",           # side slip angle
+        "qbar",
+        "1/qbar",
+        "1/airspeed_mps",
+        # "alpha_dot_term2",
+        # "sin(alpha_deg)*qbar", "sin(alpha_deg)*qbar_1",
+        # "sin(beta_deg)*qbar", "sin(beta_deg)*qbar_1",
+        # "qbar/cos(beta_deg)",
+    ]
+
+    inceptor_airdata_terms = [
+        # "aileron*qbar", "aileron*qbar_1",
+        # "abs(aileron)*qbar",
+        # "elevator*qbar", "elevator*qbar_1", "elevator*qbar_2", "elevator*qbar_3",
+        # "rudder*qbar", "rudder*qbar_1", "rudder*qbar_2", "rudder*qbar_3",
+        # "abs(rudder)*qbar",
+    ]
+
+    inertial_airdata_terms = [
+        "Cl",
+        # "alpha_dot_term3",
+    ]
+
     # deterministic output states (do not include their own value in future estimates)
-    deterministic_output_states = [
+    output_states = [
+        "aileron",
+        "q",
         "beta_deg",
         "q",
         # "alpha_deg",
@@ -96,7 +101,7 @@ if train_data.flight_format == "cirrus_csv":
     ]
 
     # non-deterministic output states (may roll their current value into the next estimate)
-    nondeterministic_output_states = [
+    output_states_2 = [
         "airspeed_mps",
         "p", "q", "r",
         "ax", "ay", "az",
@@ -108,8 +113,9 @@ if train_data.flight_format == "cirrus_csv":
         { "flaps": 0.5 }
     ]
 
-train_states = inceptor_states + direct_states + terms_list
-state_mgr.set_state_names(inceptor_states, direct_states, nondeterministic_output_states)
+train_states = inceptor_terms + inceptor_airdata_terms + inertial_terms + airdata_terms
+# train_states = inceptor_terms + inertial_terms + airdata_terms
+state_mgr.set_state_names(inceptor_terms, inertial_terms + airdata_terms, output_states)
 
 # previous state propagation
 propagate = []
@@ -392,7 +398,7 @@ def parameter_rank_5(traindata, train_states, output_states, self_reference=Fals
 
             terms = ""
             for i, idx in enumerate(min_evalin_idx):
-                terms += "%.2f*" % min_A[0,i] + train_states[idx] + ", "
+                terms += "%.3f*" % min_A[0,i] + train_states[idx] + ", "
             print(os, "=", terms)
 
             fig, axs = plt.subplots(2, sharex=True)
@@ -425,15 +431,21 @@ for i, cond in enumerate(conditions):
     traindata = np.array(train_data.cond_list[i]["traindata_list"]).T
     coeff = np.array(train_data.cond_list[i]["coeff"])
 
+    if True:
+        print("test pearson correlation coefficients:")
+        print(traindata)
+        corr = np.corrcoef(traindata)
+        print("corr:\n", corr)
+
     # sysid = SystemIdentification(args.vehicle)
     # train_data.cond_list[i]["sysid"] = sysid
 
     if False:
         mass_solution_4(traindata, train_states, output_states, self_reference=True)
 
-    if False:
+    if True:
         # reverse the data for doing NDI!
         traindata = np.fliplr(traindata)
 
     if True:
-        parameter_rank_5(traindata, train_states, deterministic_output_states, self_reference=True)
+        parameter_rank_5(traindata, train_states, output_states, self_reference=False)
