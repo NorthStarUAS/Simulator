@@ -9,7 +9,7 @@ Engineering and Mechanics, UAV Lab.
 
 """
 
-from apscheduler.schedulers.background import BackgroundScheduler # pip install APScheduler (dnf install python3-APScheduler)
+from apscheduler.schedulers.background import BackgroundScheduler   # pip install APScheduler (dnf install python3-APScheduler)
 import argparse
 import json
 import numpy as np

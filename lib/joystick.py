@@ -13,6 +13,8 @@ except:
     print("or pip install pygame")
     sleep(5)
 
+from lib.props import inceptor_node
+
 class Joystick():
     def __init__(self):
         # physical values
@@ -28,15 +30,9 @@ class Joystick():
             "gear": [None] * 3,
         }
 
-        # logical values
-        self.throttle = 0.0
-        self.aileron = 0.0
+        # internally tracked trim values
         self.rudder_trim = 0.0
-        self.elevator = 0.0
         self.elevator_trim = 0.0
-        self.rudder = 0.0
-        self.flaps = 0.0
-        self.gear = 1.0
 
         if not have_pygame:
             return
@@ -142,27 +138,25 @@ class Joystick():
                 joy["hats"][i] = handle.get_hat(i)
             # print(joy)
 
-        self.throttle = (1.0 - self.get_input_value("throttle")) * 0.5
-        # if self.num_buttons >= 12:
-        #     if self.buttons[11]:
-        #         self.rudder_trim -= 0.001
-        #     elif self.buttons[10]:
-        #         self.rudder_trim += 0.001
-        #     if self.rudder_trim < -0.25: self.rudder_trim = -0.25
-        #     if self.rudder_trim >  0.25: self.rudder_trim =  0.25
-        self.aileron = self.get_input_value("aileron")
-        if True:
-            trim_cmd = 0
-            trim_cmd -= self.get_input_value("elevator_trim_down")
-            trim_cmd += self.get_input_value("elevator_trim_up")
-            trim_cmd += self.get_input_value("elevator_trim")
-            self.elevator_trim += 0.001 * trim_cmd
-            if self.elevator_trim < -0.25: self.elevator_trim = -0.25
-            if self.elevator_trim > 0.25: self.elevator_trim = 0.25
-            print("elevator trim:", self.elevator_trim)
-        self.elevator = -self.get_input_value("elevator") + self.elevator_trim
-        self.rudder = self.get_input_value("rudder") + self.rudder_trim
+        inceptor_node.setFloat("throttle", (1.0 - self.get_input_value("throttle")) * 0.5)
+
+        inceptor_node.setFloat("aileron", self.get_input_value("aileron"))
+
+        trim_cmd = 0
+        trim_cmd -= self.get_input_value("elevator_trim_down")
+        trim_cmd += self.get_input_value("elevator_trim_up")
+        trim_cmd += self.get_input_value("elevator_trim")
+        self.elevator_trim += 0.001 * trim_cmd
+        if self.elevator_trim < -0.25: self.elevator_trim = -0.25
+        if self.elevator_trim > 0.25: self.elevator_trim = 0.25
+        # print("elevator trim:", self.elevator_trim)
+        inceptor_node.setFloat("elevator_trim", self.elevator_trim)
+
+        inceptor_node.setFloat("elevator", -self.get_input_value("elevator") + self.elevator_trim)
+
+        inceptor_node.setFloat("rudder", self.get_input_value("rudder") + self.rudder_trim)
+
         if self.get_input_value("flaps_down"):
-            self.flaps = 0.5
+            inceptor_node.setFloat("flaps", 0.5)
         if self.get_input_value("flaps_up"):
-            self.flaps = 0.0
+            inceptor_node.setFloat("flaps", 0.0)

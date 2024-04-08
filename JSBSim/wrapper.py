@@ -4,13 +4,14 @@
 Copyright (c) 2016 - 2020 Regents of the University of Minnesota.
 MIT License; See LICENSE.md for complete details
 Author: Chris Regan
+Modifications: Curtis Olson
 '''
 
 #%% JSBSim
 import numpy as np
-import jsbsim as jsb
+import jsbsim as jsb    # pip install jsbsim
 
-from Core.props import mass_node, environment_node, accel_node, aero_node, att_node, engine_node, fcs_node, pos_node, root_node, vel_node
+from lib.props import accel_node, aero_node, att_node, engine_node, environment_node, fcs_node, inceptor_node, mass_node, pos_node, root_node, vel_node
 
 slug2kg = 14.5939029
 in2m = 0.0254
@@ -298,41 +299,41 @@ class JSBSimWrap:
         vel_node.setFloat("v_mps", self.fdm['velocities/v-fps'] * ft2m)
         vel_node.setFloat("w_mps", self.fdm['velocities/w-fps'] * ft2m)
 
-    def InitLog(self, logList=None):
-        self.dataLog = {}
+    # def InitLog(self, logList=None):
+    #     self.dataLog = {}
 
-        if logList is None:
-            logList = ['simulation/sim-time-sec', \
-                       'position/lat-geod-rad', 'position/long-gc-rad', 'position/geod-alt-ft', 'position/h-sl-ft', 'position/h-agl-ft',\
-                       'fcs/throttle-cmd-norm', 'fcs/throttle-pos-norm', 'velocities/vtrue-kts', 'velocities/vc-kts', 'velocities/vtrue-fps', 'velocities/vc-fps', 'velocities/h-dot-fps', \
-                       'propulsion/engine/propeller-rpm', 'propulsion/engine/power-hp', 'propulsion/engine/blade-angle', 'propulsion/engine/advance-ratio', \
-                       'aero/beta-rad', 'aero/alpha-rad', 'aero/betadot-rad_sec', 'aero/alphadot-rad_sec', \
-                       'aero/beta-deg', 'aero/alpha-deg', 'aero/betadot-deg_sec', 'aero/alphadot-deg_sec', \
-                       'atmosphere/p-turb-rad_sec', 'atmosphere/q-turb-rad_sec', 'atmosphere/r-turb-rad_sec', \
-                       'atmosphere/turb-north-fps', 'atmosphere/turb-east-fps', 'atmosphere/turb-down-fps', \
-                       'atmosphere/total-wind-north-fps', 'atmosphere/total-wind-east-fps', 'atmosphere/total-wind-down-fps', \
-                       'attitude/phi-rad', 'attitude/theta-rad', 'attitude/psi-rad', 'attitude/roll-rad', 'attitude/pitch-rad', \
-                       'attitude/phi-deg', 'attitude/theta-deg', 'attitude/psi-deg', \
-                       'velocities/p-rad_sec', 'velocities/q-rad_sec', 'velocities/r-rad_sec', 'velocities/psidot-rad_sec', \
-                       'flight-path/gamma-rad', 'flight-path/gamma-deg',
-                       'accelerations/Nx', 'accelerations/Ny', 'accelerations/Nz', \
-                       'accelerations/pdot-rad_sec2', 'accelerations/qdot-rad_sec2', 'accelerations/rdot-rad_sec2', \
-                       'fcs/cmdAil_deg', 'fcs/cmdElev_deg', 'fcs/cmdRud_deg', 'fcs/cmdFlap_deg', \
-                       'fcs/posAil_deg', 'fcs/posElev_deg', 'fcs/posRud_deg', 'fcs/posFlap_deg', \
-                       'fcs/left-brake-cmd-norm', 'fcs/right-brake-cmd-norm', \
-                       'velocities/v-fps', 'velocities/v-down-fps', 'velocities/w-fps', 'velocities/w-aero-fps', \
-                       'inertia/pointmass-weight-lbs', 'inertia/pointmass-weight-lbs[1]', 'inertia/pointmass-weight-lbs[2]', 'inertia/pointmass-weight-lbs[3]', 'inertia/pointmass-weight-lbs[4]', 'inertia/pointmass-weight-lbs[5]']
+    #     if logList is None:
+    #         logList = ['simulation/sim-time-sec', \
+    #                    'position/lat-geod-rad', 'position/long-gc-rad', 'position/geod-alt-ft', 'position/h-sl-ft', 'position/h-agl-ft',\
+    #                    'fcs/throttle-cmd-norm', 'fcs/throttle-pos-norm', 'velocities/vtrue-kts', 'velocities/vc-kts', 'velocities/vtrue-fps', 'velocities/vc-fps', 'velocities/h-dot-fps', \
+    #                    'propulsion/engine/propeller-rpm', 'propulsion/engine/power-hp', 'propulsion/engine/blade-angle', 'propulsion/engine/advance-ratio', \
+    #                    'aero/beta-rad', 'aero/alpha-rad', 'aero/betadot-rad_sec', 'aero/alphadot-rad_sec', \
+    #                    'aero/beta-deg', 'aero/alpha-deg', 'aero/betadot-deg_sec', 'aero/alphadot-deg_sec', \
+    #                    'atmosphere/p-turb-rad_sec', 'atmosphere/q-turb-rad_sec', 'atmosphere/r-turb-rad_sec', \
+    #                    'atmosphere/turb-north-fps', 'atmosphere/turb-east-fps', 'atmosphere/turb-down-fps', \
+    #                    'atmosphere/total-wind-north-fps', 'atmosphere/total-wind-east-fps', 'atmosphere/total-wind-down-fps', \
+    #                    'attitude/phi-rad', 'attitude/theta-rad', 'attitude/psi-rad', 'attitude/roll-rad', 'attitude/pitch-rad', \
+    #                    'attitude/phi-deg', 'attitude/theta-deg', 'attitude/psi-deg', \
+    #                    'velocities/p-rad_sec', 'velocities/q-rad_sec', 'velocities/r-rad_sec', 'velocities/psidot-rad_sec', \
+    #                    'flight-path/gamma-rad', 'flight-path/gamma-deg',
+    #                    'accelerations/Nx', 'accelerations/Ny', 'accelerations/Nz', \
+    #                    'accelerations/pdot-rad_sec2', 'accelerations/qdot-rad_sec2', 'accelerations/rdot-rad_sec2', \
+    #                    'fcs/cmdAil_deg', 'fcs/cmdElev_deg', 'fcs/cmdRud_deg', 'fcs/cmdFlap_deg', \
+    #                    'fcs/posAil_deg', 'fcs/posElev_deg', 'fcs/posRud_deg', 'fcs/posFlap_deg', \
+    #                    'fcs/left-brake-cmd-norm', 'fcs/right-brake-cmd-norm', \
+    #                    'velocities/v-fps', 'velocities/v-down-fps', 'velocities/w-fps', 'velocities/w-aero-fps', \
+    #                    'inertia/pointmass-weight-lbs', 'inertia/pointmass-weight-lbs[1]', 'inertia/pointmass-weight-lbs[2]', 'inertia/pointmass-weight-lbs[3]', 'inertia/pointmass-weight-lbs[4]', 'inertia/pointmass-weight-lbs[5]']
 
-        for sig in logList:
-            self.dataLog[sig] = []
+    #     for sig in logList:
+    #         self.dataLog[sig] = []
 
-    def UpdateLog(self):
-        for sig in self.dataLog.keys():
-            self.dataLog[sig].append(self.fdm[sig])
+    # def UpdateLog(self):
+    #     for sig in self.dataLog.keys():
+    #         self.dataLog[sig].append(self.fdm[sig])
 
-    def LogLists2Array(self):
-        for sig in self.dataLog.keys():
-            self.dataLog[sig] = np.array(self.dataLog[sig])
+    # def LogLists2Array(self):
+    #     for sig in self.dataLog.keys():
+    #         self.dataLog[sig] = np.array(self.dataLog[sig])
 
     def __del__(self):
         del self.fdm
