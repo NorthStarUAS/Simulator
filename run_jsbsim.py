@@ -11,13 +11,12 @@ Engineering and Mechanics, UAV Lab.
 
 from apscheduler.schedulers.background import BackgroundScheduler   # pip install APScheduler (dnf install python3-APScheduler)
 import argparse
-import json
-import numpy as np
 import os
 import time
 
-from JSBSim.wrapper import JSBSimWrap
+from lib.jsbsim import JSBSimWrap
 from lib.joystick import Joystick
+from lib.props import control_engine_node, control_flight_node, inceptor_node
 from visuals.fgfs import fgfs
 from visuals.pvi.pvi import PVI
 from visuals.xp.xp import XPlane
@@ -41,12 +40,18 @@ sim = JSBSimWrap(model, pathJSB)
 sim.SetupICprops()
 
 if not args.no_trim: # fixme
-    trimType = 2  # 1 = in air, 2 = on the ground
-    sim.RunTrim(trimType=trimType, throttle=0.75, flap=0.0)
+    trimType = 1  # 1 = in air, 2 = on the ground
+    sim.RunTrim(trimType=trimType, throttle=0.5, flap=0.5)
     sim.DispTrim()
+
+def easy_fcs():
+    control_engine_node.setFloat("throttle", inceptor_node.getFloat("throttle"))
+    control_flight_node.setFloat("aileron", inceptor_node.getFloat("aileron"))
+    control_flight_node.setFloat("elevator", inceptor_node.getFloat("elevator"))
 
 def update():
     joystick.update()
+    easy_fcs()
     sim.RunSteps(4, updateWind=True)
     sim.PublishProps()
 
@@ -56,7 +61,7 @@ def update():
 
 if args.realtime:
     sched = BackgroundScheduler()
-    sched.add_job(update, 'interval', seconds=sim.dt)
+    sched.add_job(update, 'interval', seconds=sim.dt*4)
     sched.start()
     while True:
         time.sleep(run_time)

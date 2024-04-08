@@ -11,7 +11,7 @@ Modifications: Curtis Olson
 import numpy as np
 import jsbsim as jsb    # pip install jsbsim
 
-from lib.props import accel_node, aero_node, att_node, engine_node, environment_node, fcs_node, inceptor_node, mass_node, pos_node, root_node, vel_node
+from lib.props import accel_node, aero_node, att_node, control_engine_node, control_flight_node, engine_node, environment_node, fcs_node, mass_node, pos_node, root_node, vel_node
 
 slug2kg = 14.5939029
 in2m = 0.0254
@@ -38,10 +38,12 @@ class JSBSimWrap:
 
     def SetupICprops(self):
         # Load IC file
-        self.fdm["ic/vc-kts"] = 120
+        self.fdm["ic/vt-kts"] = 120
         self.fdm["ic/lat-geod-deg"] = 37.03
         self.fdm["ic/long-gc-deg"] = -113.52
-        self.fdm["ic/h-sl-ft"] = 5000
+        self.fdm["ic/terrain-elevation-ft"] = 2500
+        self.fdm["ic/h-agl-ft"] = 10000
+        self.fdm["propulsion/set-running"] = -1
 
         # self.fdm.disable_output() # Disable Output
         self.fdm.run_ic()
@@ -175,6 +177,17 @@ class JSBSimWrap:
             self.fdm.run()
 
     def RunSteps(self, steps, updateWind = None):
+        # update control inputs
+        self.fdm["fcs/cmdAilL_ext_deg"] = control_flight_node.getFloat("aileron") * 12.5
+        self.fdm["fcs/cmdAilR_ext_deg"] = -control_flight_node.getFloat("aileron") * 12.5
+        elev_norm = control_flight_node.getFloat("elevator")
+        if elev_norm > 0:
+            elev_deg = elev_norm * 15
+        else:
+            elev_deg = elev_norm * 25
+        self.fdm['fcs/cmdElevL_ext_deg'] = elev_deg
+        self.fdm['fcs/cmdElevR_ext_deg'] = elev_deg
+
         # honor visual system ground elevation if set
         vis_ground_m = pos_node.getFloat("visual_terrain_elevation_m")
         if vis_ground_m > 0:
