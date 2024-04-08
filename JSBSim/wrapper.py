@@ -36,14 +36,24 @@ class JSBSimWrap:
 
         self.fileLog = []
 
-    def SetupIC(self, icFile):
+    def SetupICprops(self):
+        # Load IC file
+        self.fdm["ic/vc-kts"] = 120
+        self.fdm["ic/lat-geod-deg"] = 37.03
+        self.fdm["ic/long-gc-deg"] = -113.52
+        self.fdm["ic/h-sl-ft"] = 5000
+
+        # self.fdm.disable_output() # Disable Output
+        self.fdm.run_ic()
+        # self.fdm.enable_output()
+
+    def SetupICfile(self, icFile):
         # Load IC file
         self.fdm.load_ic(icFile, True)
 
         self.fdm.disable_output() # Disable Output
         self.fdm.run_ic()
         self.fdm.enable_output()
-
 
     def SetupOutput(self, outList = ['scripts/OutputFgfs.xml', 'scripts/OutputLog.xml']):
         for outFile in outList:

@@ -6,9 +6,15 @@
 
  <generic>
 
-  <input>
+  <output>
     <binary_mode>true</binary_mode>
     <binary_footer>none</binary_footer>
+
+    <chunk>
+      <name>sim time</name>
+      <type>float</type>
+      <node>/sim/time/elapsed-sec</node>
+    </chunk>
 
     <chunk>
       <name>latitude</name>
@@ -81,7 +87,7 @@
       <type>float</type>
       <node>/surface-positions/flap-pos-norm</node>
     </chunk>
- </input>
+ </output>
 
  </generic>
 

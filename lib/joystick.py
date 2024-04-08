@@ -96,7 +96,7 @@ class Joystick():
 
     # reference: https://www.rcgroups.com/forums/showthread.php?375044-what-is-the-formula-for-the-expo-function
     def expo(self, x, val):
-        print(x, val, x * exp(abs(val*x))/exp(val))
+        # print(x, val, x * exp(abs(val*x))/exp(val))
         return x * exp(abs(val*x))/exp(val)
 
     def get_input_value(self, name):

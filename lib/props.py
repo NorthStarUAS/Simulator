@@ -389,6 +389,7 @@ vel_node = getNode("/velocity")
 att_node = getNode("/attitude")
 pos_node = getNode("/position")
 fcs_node = getNode("/fcs")
+ic_node = getNode("/initialize")
 
 # control_node = getNode("/control")
 # guidance_node = getNode("/guidance")
