@@ -78,7 +78,7 @@ class Joystick():
                 self.mapping["rudder"] = ["axis", i, 2, {"expo": 2}]
                 self.mapping["throttle"] = ["axis", i, 3]
                 self.mapping["elevator_trim_down"] = ["button", i, 4]
-                self.mapping["elevator_trim_up"] = ["button", i, 5]
+                self.mapping["elevator_trim_up"] = ["button", i, 9]
                 self.mapping["flaps_down"] = ["button", i, 15]
                 self.mapping["flaps_up"] = ["button", i, 10]
             elif name == "Logitech Extreme 3D pro":
@@ -118,6 +118,8 @@ class Joystick():
                     val = self.joys[joy_num]["hats"][element_num][sub_num]
                 elif source == "button":
                     val = self.joys[joy_num]["buttons"][element_num]
+                if name == "elevator_trim_up":
+                    print(mapping, val)
         return val
 
     def update(self):
@@ -134,6 +136,7 @@ class Joystick():
             # print(joy["axes"])
             for i in range(joy["num_buttons"]):
                 joy["buttons"][i] = handle.get_button(i)
+            print(joy["buttons"])
             for i in range(joy["num_hats"]):
                 joy["hats"][i] = handle.get_hat(i)
             # print(joy)
@@ -143,20 +146,18 @@ class Joystick():
         inceptor_node.setFloat("aileron", self.get_input_value("aileron"))
 
         trim_cmd = 0
-        trim_cmd -= self.get_input_value("elevator_trim_down")
-        trim_cmd += self.get_input_value("elevator_trim_up")
-        trim_cmd += self.get_input_value("elevator_trim")
+        trim_cmd += self.get_input_value("elevator_trim_down")
+        trim_cmd -= self.get_input_value("elevator_trim_up")
+        # trim_cmd += self.get_input_value("elevator_trim")
         self.elevator_trim += 0.001 * trim_cmd
         if self.elevator_trim < -0.25: self.elevator_trim = -0.25
         if self.elevator_trim > 0.25: self.elevator_trim = 0.25
         # print("elevator trim:", self.elevator_trim)
         inceptor_node.setFloat("elevator_trim", self.elevator_trim)
 
-        inceptor_node.setFloat("elevator", -self.get_input_value("elevator") + self.elevator_trim)
+        inceptor_node.setFloat("elevator", -self.get_input_value("elevator"))
 
-        inceptor_node.setFloat("rudder", self.get_input_value("rudder") + self.rudder_trim)
+        inceptor_node.setFloat("rudder", self.get_input_value("rudder"))
 
-        if self.get_input_value("flaps_down"):
-            inceptor_node.setFloat("flaps", 0.5)
-        if self.get_input_value("flaps_up"):
-            inceptor_node.setFloat("flaps", 0.0)
+        inceptor_node.setFloat("flaps_down",  self.get_input_value("flaps_down"))
+        inceptor_node.setFloat("flaps_up",  self.get_input_value("flaps_up"))

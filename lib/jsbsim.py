@@ -178,15 +178,26 @@ class JSBSimWrap:
 
     def RunSteps(self, steps, updateWind = None):
         # update control inputs
-        self.fdm["fcs/cmdAilL_ext_deg"] = control_flight_node.getFloat("aileron") * 12.5
-        self.fdm["fcs/cmdAilR_ext_deg"] = -control_flight_node.getFloat("aileron") * 12.5
-        elev_norm = control_flight_node.getFloat("elevator")
-        if elev_norm > 0:
-            elev_deg = elev_norm * 15
-        else:
-            elev_deg = elev_norm * 25
-        self.fdm['fcs/cmdElevL_ext_deg'] = elev_deg
-        self.fdm['fcs/cmdElevR_ext_deg'] = elev_deg
+        self.fdm['fcs/throttle-cmd-norm'] = control_engine_node.getFloat("throttle")
+        self.fdm['fcs/aileron-cmd-norm'] = control_flight_node.getFloat("aileron")
+        self.fdm['fcs/elevator-cmd-norm'] = control_flight_node.getFloat("elevator")
+        self.fdm['fcs/pitch-trim-cmd-norm'] = control_flight_node.getFloat("elevator_trim")
+        self.fdm['fcs/rudder-cmd-norm'] = -control_flight_node.getFloat("rudder")
+
+        # 3 position flap dance
+        flap_pos = self.fdm['fcs/flap-pos-norm']
+        if abs(flap_pos % 0.5) < 0.01:
+            if control_flight_node.getFloat("flaps_down"):
+                flap_pos = int((flap_pos + 0.5)*2) * 0.5
+                if flap_pos > 1.0: flap_pos = 1.0
+                print("flaps down:", flap_pos)
+                self.fdm['fcs/flap-cmd-norm'] = flap_pos
+            if control_flight_node.getFloat("flaps_up"):
+                flap_pos = int((flap_pos - 0.5)*2) * 0.5
+                if flap_pos < 0.0: flap_pos = 0.0
+                print("flaps up:", flap_pos)
+                self.fdm['fcs/flap-cmd-norm'] = flap_pos
+
 
         # honor visual system ground elevation if set
         vis_ground_m = pos_node.getFloat("visual_terrain_elevation_m")

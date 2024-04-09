@@ -48,6 +48,8 @@ def easy_fcs():
     control_engine_node.setFloat("throttle", inceptor_node.getFloat("throttle"))
     control_flight_node.setFloat("aileron", inceptor_node.getFloat("aileron"))
     control_flight_node.setFloat("elevator", inceptor_node.getFloat("elevator"))
+    control_flight_node.setFloat("elevator_trim", inceptor_node.getFloat("elevator_trim"))
+    control_flight_node.setFloat("rudder", inceptor_node.getFloat("rudder"))
 
 def update():
     joystick.update()
