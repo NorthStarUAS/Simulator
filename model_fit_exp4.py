@@ -41,14 +41,15 @@ if train_data.flight_format == "cirrus_csv":
 
     # flight controls
     inceptor_terms = [
-        "aileron",
-        "elevator",
-        "rudder",
+        # "aileron",
+        # "elevator",
+        # "rudder",
         "throttle",
     ]
 
     # sensors (directly sensed, or directly converted)
     inertial_terms = [
+        "one",
         "p", "q", "r",        # imu (body) rates
         "ax",                 # thrust - drag
         "ay",                 # side force
@@ -68,7 +69,7 @@ if train_data.flight_format == "cirrus_csv":
         # "alpha_dot",
         "alpha_deg",          # angle of attack
         "beta_deg",           # side slip angle
-        "qbar",
+        # "qbar",
         "1/qbar",
         "1/airspeed_mps",
         # "alpha_dot_term2",
@@ -78,10 +79,10 @@ if train_data.flight_format == "cirrus_csv":
     ]
 
     inceptor_airdata_terms = [
-        # "aileron*qbar", "aileron*qbar_1",
+        "aileron*qbar", # "aileron*qbar_1",
         # "abs(aileron)*qbar",
-        # "elevator*qbar", "elevator*qbar_1", "elevator*qbar_2", "elevator*qbar_3",
-        # "rudder*qbar", "rudder*qbar_1", "rudder*qbar_2", "rudder*qbar_3",
+        "elevator*qbar", # "elevator*qbar_1", "elevator*qbar_2", "elevator*qbar_3",
+        "rudder*qbar", # "rudder*qbar_1", "rudder*qbar_2", "rudder*qbar_3",
         # "abs(rudder)*qbar",
     ]
 
@@ -92,7 +93,9 @@ if train_data.flight_format == "cirrus_csv":
 
     # deterministic output states (do not include their own value in future estimates)
     output_states = [
-        "aileron",
+        # "aileron*qbar",
+        # "elevator*qbar",
+        "rudder*qbar",
         "q",
         "beta_deg",
         "q",
@@ -339,6 +342,12 @@ def parameter_rank_5(traindata, train_states, output_states, self_reference=Fals
         evalout_idx = [output_idx]
 
         remain_states = train_states.copy()
+
+        if True:
+            # add "one"
+            include_idx.append(train_states.index("one"))
+            remain_states.remove("one")
+
         if not self_reference:
             # ensure none of the output state history is included if we don't self reference
             remain_states.remove(os)

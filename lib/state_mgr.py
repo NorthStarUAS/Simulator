@@ -273,6 +273,11 @@ class StateManager():
         # rotate ned gravity vector into body frame
         self.g_body = quaternion.transform(self.ned2body, self.g_ned)
 
+        # tmpx = -sin(self.the_rad) * gravity
+        # print("g_body x:", self.g_body[0], "sin:", tmpx)
+        # tmpz = cos(self.phi_rad) * cos(self.the_rad) * gravity
+        # print("g_body z:", self.g_body[2], "cos*cos:", tmpz)
+
     # terms are direct combinations of measurable states
     def compute_terms(self):
         # qbar = 1/2 * V^2 * rho
@@ -409,7 +414,7 @@ class StateManager():
                 val = abs(self.accels[n][1])
             elif field == "az":
                 val = self.accels[n][2]
-            elif field == "K":
+            elif field == "one":
                 val = 1.0
             else:
                 raise Exception("Sorry, unknown field name requested:", field)

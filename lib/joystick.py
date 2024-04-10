@@ -118,8 +118,8 @@ class Joystick():
                     val = self.joys[joy_num]["hats"][element_num][sub_num]
                 elif source == "button":
                     val = self.joys[joy_num]["buttons"][element_num]
-                if name == "elevator_trim_up":
-                    print(mapping, val)
+                # if name == "elevator_trim_up":
+                #     print(mapping, val)
         return val
 
     def update(self):
@@ -136,7 +136,7 @@ class Joystick():
             # print(joy["axes"])
             for i in range(joy["num_buttons"]):
                 joy["buttons"][i] = handle.get_button(i)
-            print(joy["buttons"])
+            # print(joy["buttons"])
             for i in range(joy["num_hats"]):
                 joy["hats"][i] = handle.get_hat(i)
             # print(joy)
@@ -159,5 +159,6 @@ class Joystick():
 
         inceptor_node.setFloat("rudder", self.get_input_value("rudder"))
 
-        inceptor_node.setFloat("flaps_down",  self.get_input_value("flaps_down"))
-        inceptor_node.setFloat("flaps_up",  self.get_input_value("flaps_up"))
+        inceptor_node.setBool("flaps_down",  self.get_input_value("flaps_down"))
+        inceptor_node.setBool("flaps_up",  self.get_input_value("flaps_up"))
+        # print(inceptor_node.getBool("flaps_down"), inceptor_node.getBool("flaps_up"))

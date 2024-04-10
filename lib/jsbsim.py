@@ -42,7 +42,7 @@ class JSBSimWrap:
         self.fdm["ic/lat-geod-deg"] = 37.03
         self.fdm["ic/long-gc-deg"] = -113.52
         self.fdm["ic/terrain-elevation-ft"] = 2500
-        self.fdm["ic/h-agl-ft"] = 10000
+        self.fdm["ic/h-agl-ft"] = 5000
         self.fdm["propulsion/set-running"] = -1
 
         # self.fdm.disable_output() # Disable Output
@@ -186,16 +186,17 @@ class JSBSimWrap:
 
         # 3 position flap dance
         flap_pos = self.fdm['fcs/flap-pos-norm']
+        # print(flap_pos, abs(flap_pos % 0.5))
         if abs(flap_pos % 0.5) < 0.01:
-            if control_flight_node.getFloat("flaps_down"):
+            if control_flight_node.getBool("flaps_down"):
                 flap_pos = int((flap_pos + 0.5)*2) * 0.5
                 if flap_pos > 1.0: flap_pos = 1.0
-                print("flaps down:", flap_pos)
+                # print("flaps down:", flap_pos)
                 self.fdm['fcs/flap-cmd-norm'] = flap_pos
-            if control_flight_node.getFloat("flaps_up"):
+            if control_flight_node.getBool("flaps_up"):
                 flap_pos = int((flap_pos - 0.5)*2) * 0.5
                 if flap_pos < 0.0: flap_pos = 0.0
-                print("flaps up:", flap_pos)
+                # print("flaps up:", flap_pos)
                 self.fdm['fcs/flap-cmd-norm'] = flap_pos
 
 
