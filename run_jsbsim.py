@@ -128,9 +128,9 @@ def yaw_func(ref_beta):
     qbar = 0.5 * airspeed_mps**2 * rho
 
     r = 0  # stabilize ... we want the rudder command that gives us ref_beta and r = 0 simultaneously
-    rudder_cmd = (-51.718 - 103.900*ref_beta + 100.800*gbody_x + 1005.478*r - 105.357*ay) / qbar
+    yaw_cmd = (-51.718 - 103.900*ref_beta + 100.800*gbody_x + 1005.478*r - 105.357*ay) / qbar
 
-    return rudder_cmd
+    return yaw_cmd
 
 roll_controller = nota_pid("roll", roll_func, stick_scale=30*d2r, integral_gain=1.0, antiwindup=1.0, neutral_tolerance=0.01)
 pitch_controller = nota_pid("pitch", pitch_func, stick_scale=20*d2r, integral_gain=-1.0, antiwindup=1.0, neutral_tolerance=0.03)
