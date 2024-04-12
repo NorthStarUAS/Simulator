@@ -127,15 +127,15 @@ def yaw_func(ref_beta):
     rho = 1
     qbar = 0.5 * airspeed_mps**2 * rho
 
-    # r = 0  # stabilize ... we want the rudder command that gives us ref_beta and r = 0 simultaneously
-    r = vel_node.getFloat("r_rps")
+    r = 0  # stabilize ... we want the rudder command that gives us ref_beta and r = 0 simultaneously
+    # r = vel_node.getFloat("r_rps")
     yaw_cmd = (-51.718 - 103.900*ref_beta + 100.800*gbody_x - 1005.478*r - 105.357*ay) / qbar
 
     return yaw_cmd
 
-roll_controller = nota_pid("roll", roll_func, stick_scale=30*d2r, integral_gain=1.0, antiwindup=1.0, neutral_tolerance=0.01)
+roll_controller = nota_pid("roll", roll_func, stick_scale=30*d2r, integral_gain=1.0, antiwindup=1.0, neutral_tolerance=0.02)
 pitch_controller = nota_pid("pitch", pitch_func, stick_scale=20*d2r, integral_gain=-1.0, antiwindup=1.0, neutral_tolerance=0.03)
-yaw_controller = nota_pid("yaw", yaw_func, stick_scale=20, integral_gain=-0.01, antiwindup=20, neutral_tolerance=0.01)
+yaw_controller = nota_pid("yaw", yaw_func, stick_scale=20, integral_gain=-0.01, antiwindup=20, neutral_tolerance=0.02)
 
 def nota_fcs():
     beta_deg = aero_node.getFloat("beta_deg")
@@ -144,14 +144,23 @@ def nota_fcs():
     theta_deg = att_node.getFloat("theta_deg")
     p = vel_node.getFloat("p_rps")
     q = vel_node.getFloat("q_rps")
+    r = vel_node.getFloat("r_rps")
 
+    # primary flight control laws
     aileron_cmd = roll_controller.update(inceptor_node.getFloat("aileron"), phi_deg, p)
-    control_flight_node.setFloat("aileron", aileron_cmd)
-
     elevator_cmd = pitch_controller.update(-inceptor_node.getFloat("elevator"), theta_deg, q)
-    control_flight_node.setFloat("elevator", elevator_cmd)
-
     rudder_cmd = yaw_controller.update(-inceptor_node.getFloat("rudder"), 0, beta_deg)
+
+    # dampers
+    roll_damp_gain = 0.4
+    pitch_damp_gain = 0.6
+    yaw_damp_gain = 0.5
+    aileron_cmd -= p * roll_damp_gain
+    elevator_cmd += q * pitch_damp_gain
+    rudder_cmd -= r * yaw_damp_gain
+
+    control_flight_node.setFloat("aileron", aileron_cmd)
+    control_flight_node.setFloat("elevator", elevator_cmd)
     control_flight_node.setFloat("rudder", rudder_cmd)
 
     control_flight_node.setBool("flaps_down", inceptor_node.getBool("flaps_down"))
