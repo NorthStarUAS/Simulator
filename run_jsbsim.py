@@ -37,7 +37,7 @@ pvi = PVI()
 xp = XPlane()
 
 model = 'SR22T'
-pathJSB = os.path.join("/home/clolson/Projects/SVO_Simulator/simulation-python-jsbsim", "JSBSim")
+pathJSB = os.path.join("/Users/Cirrus/Projects/SVO_Simulator/simulation-python-jsbsim", "JSBSim")
 sim = JSBSimWrap(model, pathJSB)
 sim.SetupICprops()
 
@@ -127,8 +127,9 @@ def yaw_func(ref_beta):
     rho = 1
     qbar = 0.5 * airspeed_mps**2 * rho
 
-    r = 0  # stabilize ... we want the rudder command that gives us ref_beta and r = 0 simultaneously
-    yaw_cmd = (-51.718 - 103.900*ref_beta + 100.800*gbody_x + 1005.478*r - 105.357*ay) / qbar
+    # r = 0  # stabilize ... we want the rudder command that gives us ref_beta and r = 0 simultaneously
+    r = vel_node.getFloat("r_rps")
+    yaw_cmd = (-51.718 - 103.900*ref_beta + 100.800*gbody_x - 1005.478*r - 105.357*ay) / qbar
 
     return yaw_cmd
 
@@ -138,7 +139,7 @@ yaw_controller = nota_pid("yaw", yaw_func, stick_scale=20, integral_gain=-0.01, 
 
 def nota_fcs():
     beta_deg = aero_node.getFloat("beta_deg")
-    print("yaw beta:", beta_deg)
+    # print("yaw beta:", beta_deg)
     phi_deg = att_node.getFloat("phi_deg")
     theta_deg = att_node.getFloat("theta_deg")
     p = vel_node.getFloat("p_rps")
@@ -153,6 +154,9 @@ def nota_fcs():
     rudder_cmd = yaw_controller.update(-inceptor_node.getFloat("rudder"), 0, beta_deg)
     control_flight_node.setFloat("rudder", rudder_cmd)
 
+    control_flight_node.setBool("flaps_down", inceptor_node.getBool("flaps_down"))
+    control_flight_node.setBool("flaps_up", inceptor_node.getBool("flaps_up"))
+
     throttle_cmd = inceptor_node.getFloat("throttle")
     control_engine_node.setFloat("throttle", throttle_cmd)
 
@@ -162,9 +166,9 @@ def update():
     sim.RunSteps(4, updateWind=True)
     sim.PublishProps()
 
-    fgfs.send_to_fgfs()
+    # fgfs.send_to_fgfs()
     # pvi.update(state_mgr, 0, 0, 0, 0)
-    # xp.update(state_mgr)
+    xp.update()
 
 if args.realtime:
     sched = BackgroundScheduler()
