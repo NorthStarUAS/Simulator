@@ -71,7 +71,7 @@ class NotaPID():
     def update(self, rate_cmd, cur_val, cur_rate):
         if abs(rate_cmd) < self.tol:
             if not self.cmd_neutral:
-                print("set neutral:", self.name)
+                # print("set neutral:", self.name)
                 self.cmd_val = cur_val
                 self.cmd_neutral = True
         else:
@@ -101,7 +101,7 @@ class NotaFCS():
         self.yaw_stick_scale = 20
 
         # envelope protection
-        self.alpha_limit_deg = 12.0
+        self.alpha_limit_deg = 13.0
         self.bank_limit_deg = 60.0
 
         # dampers
@@ -122,7 +122,7 @@ class NotaFCS():
 
         self.alpha_deg = aero_node.getFloat("alpha_deg")
         self.beta_deg = aero_node.getFloat("beta_deg")
-        # print("alpha:", self.alpha_deg)
+        print("alpha:", self.alpha_deg)
         # print("yaw beta:", beta_deg)
         self.phi_deg = att_node.getFloat("phi_deg")
         self.theta_deg = att_node.getFloat("theta_deg")
