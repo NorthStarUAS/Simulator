@@ -45,7 +45,7 @@ if not args.no_trim: # fixme
     trimType = 1  # 1 = in air, 2 = on the ground
     sim.RunTrim(trimType=trimType, throttle=0.5, flap=0.0)
     sim.DispTrim()
-sim.SetTurb(turbSeverity=2, vWind20_mps=2.5, vWindHeading_deg=270) # Trim with wind, no turbulence
+sim.SetTurb(turbSeverity=1, vWind20_mps=2.5, vWindHeading_deg=270) # Trim with wind, no turbulence
 
 def easy_fcs():
     control_engine_node.setFloat("throttle", inceptor_node.getFloat("throttle"))
@@ -56,7 +56,7 @@ def easy_fcs():
     control_flight_node.setBool("flaps_down", inceptor_node.getBool("flaps_down"))
     control_flight_node.setBool("flaps_up", inceptor_node.getBool("flaps_up"))
 
-class nota_pid():
+class NotaPID():
     def __init__(self, name, func, integral_gain, antiwindup, neutral_tolerance):
         self.dt = 0.02
         self.name = name
@@ -90,117 +90,109 @@ class nota_pid():
         # print(self.name, "ref_val: %.2f" % ref_rate, "error sum: %.2f" % self.error_sum, "%s: %.2f" % (self.name, cmd))
         return cmd
 
-def roll_func(ref_p):
-    beta_deg = aero_node.getFloat("beta_deg")
-    airspeed_mps = vel_node.getFloat("vc_mps")
-    if airspeed_mps < 30: airspeed_mps = 30
-    ay = accel_node.getFloat("Ny") * gravity
-    rho = 1
-    qbar = 0.5 * airspeed_mps**2 * rho
+class NotaFCS():
+    def __init__(self):
+        # filtered state
+        self.airspeed_mps = 30
 
-    roll_cmd = (-73.594 + 2899.711*ref_p + 42.936*beta_deg + 3.394*airspeed_mps - 80.052*ay) / qbar
+        # stick -> rate command scaling
+        self.roll_stick_scale = 30 * d2r
+        self.pitch_stick_scale = 30 * d2r
+        self.yaw_stick_scale = 20
 
-    return roll_cmd
+        # envelope protection
+        self.alpha_limit_deg = 12.0
+        self.bank_limit_deg = 60.0
 
-def pitch_func(ref_q):
-    ay = accel_node.getFloat("Ny") * gravity
-    throttle_cmd = inceptor_node.getFloat("throttle")
-    phi_deg = att_node.getFloat("phi_deg")
-    theta_deg = att_node.getFloat("theta_deg")
-    gbody_z = cos(phi_deg*d2r) * cos(theta_deg*d2r) * gravity
-    az = accel_node.getFloat("Nz") * gravity
-    airspeed_mps = vel_node.getFloat("vc_mps")
-    if airspeed_mps < 30: airspeed_mps = 30
-    rho = 1
-    qbar = 0.5 * airspeed_mps**2 * rho
+        # dampers
+        self.roll_damp_gain = 0.4
+        self.pitch_damp_gain = 0.6
+        self.yaw_damp_gain = 0.5
 
-    pitch_cmd = (-292.128 - 1304.394*ref_q - 36.907*abs(ay) + 47.111*throttle_cmd - 10.242*gbody_z + 2.421*az) / qbar
+        self.roll_controller = NotaPID("roll", self.roll_func, integral_gain=1.0, antiwindup=0.25, neutral_tolerance=0.02)
+        self.pitch_controller = NotaPID("pitch", self.pitch_func, integral_gain=-1.0, antiwindup=0.5, neutral_tolerance=0.03)
+        self.yaw_controller = NotaPID("yaw", self.yaw_func, integral_gain=-0.01, antiwindup=10, neutral_tolerance=0.02)
 
-    return pitch_cmd
+    def update(self):
+        airspeed_mps = vel_node.getFloat("vc_mps")
+        if airspeed_mps < 30: airspeed_mps = 30
+        self.airspeed_mps = 0.99 * self.airspeed_mps + 0.01 * airspeed_mps
+        rho = 1
+        self.qbar = 0.5 * self.airspeed_mps**2 * rho
 
-def yaw_func(ref_beta):
-    theta_deg = att_node.getFloat("theta_deg")
-    gbody_x = -sin(theta_deg*d2r) * gravity
-    ay = accel_node.getFloat("Ny") * gravity
-    airspeed_mps = vel_node.getFloat("vc_mps")
-    if airspeed_mps < 30: airspeed_mps = 30
-    rho = 1
-    qbar = 0.5 * airspeed_mps**2 * rho
+        self.alpha_deg = aero_node.getFloat("alpha_deg")
+        self.beta_deg = aero_node.getFloat("beta_deg")
+        # print("alpha:", self.alpha_deg)
+        # print("yaw beta:", beta_deg)
+        self.phi_deg = att_node.getFloat("phi_deg")
+        self.theta_deg = att_node.getFloat("theta_deg")
+        self.p = vel_node.getFloat("p_rps")
+        self.q = vel_node.getFloat("q_rps")
+        self.r = vel_node.getFloat("r_rps")
+        self.ay = accel_node.getFloat("Ny") * gravity
+        self.az = accel_node.getFloat("Nz") * gravity
+        self.gbody_x = -sin(self.theta_deg*d2r) * gravity
+        self.gbody_z = cos(self.phi_deg*d2r) * cos(self.theta_deg*d2r) * gravity
 
-    r = 0  # stabilize ... we want the rudder command that gives us ref_beta and r = 0 simultaneously
-    # r = vel_node.getFloat("r_rps")
-    yaw_cmd = (-51.718 - 103.900*ref_beta + 100.800*gbody_x - 1005.478*r - 105.357*ay) / qbar
+        roll_cmd = inceptor_node.getFloat("aileron") * self.roll_stick_scale
+        pitch_cmd = -inceptor_node.getFloat("elevator") * self.pitch_stick_scale
+        yaw_cmd = -inceptor_node.getFloat("rudder") * self.yaw_stick_scale
 
-    return yaw_cmd
+        # envelope protection
+        max_q = (self.alpha_limit_deg - self.alpha_deg) * d2r * 2
+        if pitch_cmd > max_q:
+            pitch_cmd = max_q
 
-# stick -> rate command scaling
-roll_stick_scale = 30 * d2r
-pitch_stick_scale = 20 * d2r
-yaw_stick_scale = 20
+        max_p = (self.bank_limit_deg - self.phi_deg) * d2r * 0.5
+        min_p = (-self.bank_limit_deg - self.phi_deg) * d2r * 0.5
+        if roll_cmd > max_p:
+            roll_cmd = max_p
+        if roll_cmd < min_p:
+            roll_cmd = min_p
 
-# envelope protection
-alpha_limit_deg = 12.0
-bank_limit_deg = 60.0
+        # primary flight control laws
+        aileron_cmd = self.roll_controller.update(roll_cmd, self.phi_deg, self.p)
+        elevator_cmd = self.pitch_controller.update(pitch_cmd, self.theta_deg, self.q)
+        rudder_cmd = self.yaw_controller.update(yaw_cmd, 0, self.beta_deg)
 
-# dampers
-roll_damp_gain = 0.4
-pitch_damp_gain = 0.6
-yaw_damp_gain = 0.5
+        # dampers
+        aileron_cmd -= self.p * self.roll_damp_gain
+        elevator_cmd += self.q * self.pitch_damp_gain
+        rudder_cmd -= self.r * self.yaw_damp_gain
 
-roll_controller = nota_pid("roll", roll_func, integral_gain=1.0, antiwindup=0.25, neutral_tolerance=0.02)
-pitch_controller = nota_pid("pitch", pitch_func, integral_gain=-1.0, antiwindup=0.5, neutral_tolerance=0.03)
-yaw_controller = nota_pid("yaw", yaw_func, integral_gain=-0.01, antiwindup=10, neutral_tolerance=0.02)
+        control_flight_node.setFloat("aileron", aileron_cmd)
+        control_flight_node.setFloat("elevator", elevator_cmd)
+        control_flight_node.setFloat("rudder", rudder_cmd)
 
-def nota_fcs():
-    alpha_deg = aero_node.getFloat("alpha_deg")
-    beta_deg = aero_node.getFloat("beta_deg")
-    print("alpha:", alpha_deg)
-    # print("yaw beta:", beta_deg)
-    phi_deg = att_node.getFloat("phi_deg")
-    theta_deg = att_node.getFloat("theta_deg")
-    p = vel_node.getFloat("p_rps")
-    q = vel_node.getFloat("q_rps")
-    r = vel_node.getFloat("r_rps")
+        control_flight_node.setBool("flaps_down", inceptor_node.getBool("flaps_down"))
+        control_flight_node.setBool("flaps_up", inceptor_node.getBool("flaps_up"))
 
-    roll_cmd = inceptor_node.getFloat("aileron") * roll_stick_scale
-    pitch_cmd = -inceptor_node.getFloat("elevator") * pitch_stick_scale
-    yaw_cmd = -inceptor_node.getFloat("rudder") * yaw_stick_scale
+        throttle_cmd = inceptor_node.getFloat("throttle")
+        control_engine_node.setFloat("throttle", throttle_cmd)
 
-    # envelope protection
-    max_q = (alpha_limit_deg - alpha_deg) * d2r * 1
-    if pitch_cmd > max_q:
-        pitch_cmd = max_q
+    def roll_func(self, ref_p):
+        roll_cmd = (-73.594 + 2899.711*ref_p + 42.936*self.beta_deg + 3.394*self.airspeed_mps - 80.052*self.ay) / self.qbar
+        return roll_cmd
 
-    max_p = (bank_limit_deg - phi_deg) * d2r * 0.5
-    min_p = (-bank_limit_deg - phi_deg) * d2r * 0.5
-    if roll_cmd > max_p:
-        roll_cmd = max_p
-    if roll_cmd < min_p:
-        roll_cmd = min_p
+    def pitch_func(self, ref_q):
+        throttle_cmd = inceptor_node.getFloat("throttle")
 
-    # primary flight control laws
-    aileron_cmd = roll_controller.update(roll_cmd, phi_deg, p)
-    elevator_cmd = pitch_controller.update(pitch_cmd, theta_deg, q)
-    rudder_cmd = yaw_controller.update(yaw_cmd, 0, beta_deg)
+        pitch_cmd = (-292.128 - 1304.394*ref_q - 36.907*abs(self.ay) + 47.111*throttle_cmd - 10.242*self.gbody_z + 2.421*self.az) / self.qbar
 
-    # dampers
-    aileron_cmd -= p * roll_damp_gain
-    elevator_cmd += q * pitch_damp_gain
-    rudder_cmd -= r * yaw_damp_gain
+        return pitch_cmd
 
-    control_flight_node.setFloat("aileron", aileron_cmd)
-    control_flight_node.setFloat("elevator", elevator_cmd)
-    control_flight_node.setFloat("rudder", rudder_cmd)
+    def yaw_func(self, ref_beta):
+        r = 0  # stabilize ... we want the rudder command that gives us ref_beta and r = 0 simultaneously
+        # r = vel_node.getFloat("r_rps")
+        yaw_cmd = (-51.718 - 103.900*ref_beta + 100.800*self.gbody_x - 1005.478*r - 105.357*self.ay) / self.qbar
 
-    control_flight_node.setBool("flaps_down", inceptor_node.getBool("flaps_down"))
-    control_flight_node.setBool("flaps_up", inceptor_node.getBool("flaps_up"))
+        return yaw_cmd
 
-    throttle_cmd = inceptor_node.getFloat("throttle")
-    control_engine_node.setFloat("throttle", throttle_cmd)
+fcs = NotaFCS()
 
 def update():
     joystick.update()
-    nota_fcs()
+    fcs.update()
     sim.RunSteps(4, updateWind=True)
     sim.PublishProps()
 
