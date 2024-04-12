@@ -1,14 +1,14 @@
 from math import pi
+from lib.props import pos_node, vel_node, att_node, fcs_node
 
-import navpy
-from lib.constants import mps2kt, r2d
+# import navpy
+# from lib.constants import mps2kt, r2d
 
 from .XPlaneUdp import *
 
 # units
 ft2m = 0.3048
 m2ft = 1.0 / ft2m
-
 
 class XPlane():
     def __init__(self):
@@ -31,6 +31,9 @@ class XPlane():
         self.xp_port = None
         self.sock = None
 
+        self.prop_rotation_angle_deg = 0
+
+        print("Searching for x-plane on the LAN...")
         try:
             beacon = self.xp.FindIp()
             print(beacon)
@@ -45,12 +48,19 @@ class XPlane():
         else:
             print("XPlane found at:", self.xp_ip, self.xp_port)
 
+            self.msl_name = "sim/flightmodel/position/elevation"
+            self.agl_name = "sim/flightmodel/position/y_agl"
+            self.xp.AddDataRef(self.msl_name, freq=10)
+            self.xp.AddDataRef(self.agl_name, freq=10)
+
         if self.xp_ip is not None:
             self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
-    def update(self, state):
-        self.send(state)
-        # self.receive(state)
+    def update(self):
+        if self.xp_ip is None:
+            return
+        self.send()
+        self.receive()
 
     def send_data_ref(self, name, value):
         msg = struct.pack('<4sxf500s', b'DREF',
@@ -58,34 +68,58 @@ class XPlane():
                           name.encode('utf-8'))
         self.sock.sendto(msg, (self.xp_ip, self.xp_port))
 
-    def send(self, state):
+    def send(self):
+        # print("Hey, switch to xp.writeDataRef()!")
+
         if self.sock is not None:
-            lla = navpy.ned2lla(state.pos_ned, self.lat_deg, self.lon_deg, self.altitude_m)
+            # lla = navpy.ned2lla(state.pos_ned, self.lat_deg, self.lon_deg, self.altitude_m)
             # Drive the external MSFS visual system
-            lat_deg = lla[0]
-            lon_deg = lla[1]
-            alt_ft = lla[2] * m2ft
-            alt_m = lla[2]
-            phi_deg = state.phi_rad * r2d
-            the_deg = state.the_rad * r2d
-            psi_deg = state.psi_rad * r2d
-            # vtrue = state.airspeed_mps * mps2kt
-            vc =state.airspeed_mps * mps2kt
-            vd = state.vel_ned[2] *m2ft
-            # ail_norm = sim.fdm['fcs/right-aileron-pos-norm']
+            lat_deg = pos_node.getFloat("lat_geod_deg")
+            lon_deg = pos_node.getFloat("long_gc_deg")
+            alt_m = pos_node.getFloat("geod_alt_m")
+            alt_ft = alt_m * m2ft
+            phi_deg = att_node.getFloat("phi_deg")
+            the_deg = att_node.getFloat("theta_deg")
+            psi_deg = att_node.getFloat("psi_deg")
+            vc = vel_node.getFloat("vc_kts")
+            vd = vel_node.getFloat("vd_mps") * m2ft
+
+            # engine power (estimate/hack) // does not work :-(
+            self.send_data_ref("sim/operation/override/override_engine_forces", 1)
+            self.send_data_ref("sim/flightmodel/engine/ENGN_power", fcs_node.getFloat("posThrottle_nd")*100)
+
             # https://www.siminnovations.com/xplane/dataref/?name=sim%2Fcockpit&type=float&writable=y&units=&description=&submit=Search
+
+            # visible ailerons and flaps
+            self.send_data_ref("sim/operation/override/override_control_surfaces", 1)
+            self.send_data_ref("sim/flightmodel/controls/wing3l_ail1def", fcs_node.getFloat("posAil_deg"))
+            self.send_data_ref("sim/flightmodel/controls/wing3r_ail1def", -fcs_node.getFloat("posAil_deg"))
+            self.send_data_ref("sim/flightmodel/controls/wing2l_fla1def", fcs_node.getFloat("posFlap_deg"))
+            self.send_data_ref("sim/flightmodel/controls/wing2r_fla1def", fcs_node.getFloat("posFlap_deg"))
+
+            # not tested elevator/rudder ...
             # self.send_data_ref("sim/aircraft/parts/acf_elev", sim.fdm['fcs/left-aileron-pos-norm'])
             # self.send_data_ref("sim/flightmodel/controls/hstab1_elv1def", sim.fdm['fcs/elevator-pos-norm'])
             # self.send_data_ref("sim/flightmodel/controls/hstab1_elv2def", sim.fdm['fcs/elevator-pos-norm'])
             # self.send_data_ref("sim/flightmodel/controls/hstab2_elv1def", sim.fdm['fcs/elevator-pos-norm'])
             # self.send_data_ref("sim/flightmodel/controls/hstab2_elv2def", sim.fdm['fcs/elevator-pos-norm'])
-            # self.send_data_ref("sim/joystick/yoke_pitch_ratio", sim.fdm['fcs/elevator-pos-norm'])
-            # ele_norm = sim.fdm['fcs/elevator-pos-norm']
-            # rud_norm = sim.fdm['fcs/rudder-pos-norm']
+
+            # prop disk
+            self.send_data_ref("sim/flightmodel2/engines/prop_disc/override", 1)
+            self.send_data_ref("sim/flightmodel2/engines/prop_is_disc", 1)
+            self.prop_rotation_angle_deg = (self.prop_rotation_angle_deg - 19) % 360.0
+            self.send_data_ref("sim/flightmodel2/engines/prop_rotation_angle_deg[0]", self.prop_rotation_angle_deg)
+
+            # sound (sadly this is a readonly data ref in x-plane)
+            # print("engine rotation speed:", fcs_node.getFloat("posThrottle_nd")*2700*0.1072)
+
+            self.send_data_ref("sim/flightmodel2/engines/engine_rotation_speed_rad_sec",
+                               fcs_node.getFloat("posThrottle_nd")*2700*0.1072)
+
             #print(lat_rad, lon_rad, alt_ft, phi, the, psi)
-            self.send_data_ref("sim/cockpit/gyros/phi_ind_ahars_pilot_deg", state.phi_rad * r2d)
-            self.send_data_ref("sim/cockpit/gyros/the_ind_ahars_pilot_deg", state.the_rad * r2d)
-            self.send_data_ref("sim/cockpit/gyros/psi_ind_ahars_pilot_degm", state.psi_rad * r2d) # fixme: sending true, but calling it mag
+            self.send_data_ref("sim/cockpit/gyros/phi_ind_ahars_pilot_deg", phi_deg)
+            self.send_data_ref("sim/cockpit/gyros/the_ind_ahars_pilot_deg", the_deg)
+            self.send_data_ref("sim/cockpit/gyros/psi_ind_ahars_pilot_degm", psi_deg) # fixme: sending true, but calling it mag
             self.send_data_ref("sim/flightmodel/position/indicated_airspeed", vc)
             self.send_data_ref("sim/flightmodel/misc/h_ind", alt_ft)
             self.send_data_ref("sim/flightmodel/position/vh_ind_fpm", -vd*60)
@@ -99,41 +133,12 @@ class XPlane():
                   phi_deg)        # roll, degrees
             self.sock.sendto(msg, (self.xp_ip, self.xp_port))
 
-    def receive(self, sim):
-        if self.sc is not None:
-            while self.sc.receive(timeout_seconds=0.001):
-                pass  # catch up the queue
-            n = len(self.dd.simdata.changedsince(self.latest_recv))
-            if n:
-                # new state update received from sim
-                self.latest_recv = self.dd.simdata.latest()
-                time_sec = self.dd.simdata["Local Time"]
-                agl_ft = self.dd.simdata["Plane Alt Above Ground"]
-                alt_ft = sim.fdm['position/geod-alt-ft']
-                ground_elev_ft = alt_ft - (agl_ft + 0.25)
-                print("AGL (ft):", agl_ft, "Ground (ft):", ground_elev_ft)
-                if self.settle is None:
-                    self.settle = time_sec + 1
-                if time_sec > self.settle:
-                    sim.fdm["position/terrain-elevation-asl-ft"] = ground_elev_ft
-
-                # pos_node["longitude_deg"] = self.dd.simdata["Plane Longitude"] * r2d
-                # pos_node["latitude_deg"] = self.dd.simdata["Plane Latitude"] * r2d
-                # pos_node["altitude_m"] = self.dd.simdata["Plane Altitude"] * ft2m
-                # pos_node["altitude_agl_m"] = self.dd.simdata["Plane Alt Above Ground"] * ft2m
-                # vel_node["vn_mps"] = self.dd.simdata["Velocity World Z"] * ft2m
-                # vel_node["ve_mps"] = self.dd.simdata["Velocity World X"] * ft2m
-                # vel_node["vd_mps"] = -self.dd.simdata["Velocity World Y"] * ft2m
-                # orient_node["roll_deg"] = -self.dd.simdata["Plane Bank Degrees"] * r2d
-                # orient_node["pitch_deg"] = -self.dd.simdata["Plane Pitch Degrees"] * r2d
-                # orient_node["yaw_deg"] = self.dd.simdata["Plane Heading Degrees True"] * r2d
-                # imu_node["p_rps"] = -self.dd.simdata["Rotation Velocity Body Z"]
-                # imu_node["q_rps"] = -self.dd.simdata["Rotation Velocity Body X"]
-                # imu_node["r_rps"] = -self.dd.simdata["Rotation Velocity Body Y"]
-                # imu_node["ax_mps2"] = -self.dd.simdata["Acceleration Body Z"] * ft2m  # fixme: may not include "g"
-                # imu_node["ay_mps2"] = -self.dd.simdata["Acceleration Body X"] * ft2m
-                # imu_node["az_mps2"] = -self.dd.simdata["Acceleration Body Y"] * ft2m
-                # vel_node["airspeed_kt"] = self.dd.simdata["Airspeed Indicated"]
-                # airdata_node["airspeed_kt"] = self.dd.simdata["Airspeed Indicated"]
-                # airdata_node["temp_C"] = self.dd.simdata["Total Air Temperature"]
-                # airdata_node["ref_pressure_inhg"] = self.dd.simdata["Barometer Pressure"]
+    def receive(self):
+        values = self.xp.GetValues()
+        if self.msl_name in values and self.agl_name in values:
+            msl = values[self.msl_name]
+            agl = values[self.agl_name]
+            # print(values)
+            ground_elev_m = (msl - agl) - 4.7*ft2m
+            # print("AGL (ft):", agl*m2ft, "Ground (ft):", ground_elev_ft)
+            pos_node.setFloat("visual_terrain_elevation_m", ground_elev_m)

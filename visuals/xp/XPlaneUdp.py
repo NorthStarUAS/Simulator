@@ -31,6 +31,7 @@ class XPlaneUdp:
     # Open a UDP Socket to receive on Port 49000
     self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     self.socket.settimeout(3.0)
+    self.socket.setblocking(0)
     # list of requested datarefs with index number
     self.datarefidx = 0
     self.datarefs = {} # key = idx, value = dataref
@@ -120,6 +121,8 @@ class XPlaneUdp:
               value = 0.0
             retvalues[self.datarefs[idx]] = value
       self.xplaneValues.update(retvalues)
+    except BlockingIOError:
+      pass
     except:
       raise XPlaneTimeout
     return self.xplaneValues
@@ -199,10 +202,13 @@ class XPlaneUdp:
           else:
             print("XPlane Beacon Version not supported: {}.{}.{}".format(beacon_major_version, beacon_minor_version, application_host_id))
             raise XPlaneVersionNotSupported()
-
-      except socket.timeout:
+      except TimeoutError:
         print("XPlane IP not found.")
-        # raise XPlaneIpNotFound()
+      except Exception as error:
+        print("Other XPlane discovery error occured:")
+        print(type(error))
+        print(error)
+        print(error.args)
       finally:
         sock.close()
 
@@ -221,6 +227,7 @@ if __name__ == '__main__':
 
     xp.AddDataRef("sim/flightmodel/position/indicated_airspeed", freq=1)
     xp.AddDataRef("sim/flightmodel/position/latitude")
+    xp.AddDataRef("sim/flightmodel/position/longitude")
 
     while True:
       try:
