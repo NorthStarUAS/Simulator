@@ -56,11 +56,10 @@ def easy_fcs():
     control_flight_node.setBool("flaps_up", inceptor_node.getBool("flaps_up"))
 
 class nota_pid():
-    def __init__(self, name, func, stick_scale, integral_gain, antiwindup, neutral_tolerance):
+    def __init__(self, name, func, integral_gain, antiwindup, neutral_tolerance):
         self.dt = 0.02
         self.name = name
         self.func = func
-        self.stick_scale = stick_scale
         self.int_gain = integral_gain
         self.antiwindup = antiwindup
         self.tol = neutral_tolerance
@@ -68,8 +67,8 @@ class nota_pid():
         self.cmd_val = 0.0
         self.error_sum = 0.0
 
-    def update(self, inceptor, cur_val, cur_rate):
-        if abs(inceptor) < self.tol:
+    def update(self, rate_cmd, cur_val, cur_rate):
+        if abs(rate_cmd) < self.tol:
             if not self.cmd_neutral:
                 print("set neutral:", self.name)
                 self.cmd_val = cur_val
@@ -80,7 +79,7 @@ class nota_pid():
             ref_rate = (self.cmd_val - cur_val) * 0.05
             # print(self.name, ref_rate)
         else:
-            ref_rate = inceptor * self.stick_scale
+            ref_rate = rate_cmd
         # print(self.name, ref_rate)
         cmd = self.func(ref_rate)
         self.error_sum += (ref_rate - cur_rate) * self.dt
@@ -133,12 +132,27 @@ def yaw_func(ref_beta):
 
     return yaw_cmd
 
-roll_controller = nota_pid("roll", roll_func, stick_scale=30*d2r, integral_gain=1.0, antiwindup=1.0, neutral_tolerance=0.02)
-pitch_controller = nota_pid("pitch", pitch_func, stick_scale=20*d2r, integral_gain=-1.0, antiwindup=1.0, neutral_tolerance=0.03)
-yaw_controller = nota_pid("yaw", yaw_func, stick_scale=20, integral_gain=-0.01, antiwindup=20, neutral_tolerance=0.02)
+# stick -> rate command scaling
+roll_stick_scale = 30 * d2r
+pitch_stick_scale = 20 * d2r
+yaw_stick_scale = 20
+
+# envelope protection
+alpha_limit_deg = 12.0
+
+# dampers
+roll_damp_gain = 0.4
+pitch_damp_gain = 0.6
+yaw_damp_gain = 0.5
+
+roll_controller = nota_pid("roll", roll_func, integral_gain=1.0, antiwindup=0.25, neutral_tolerance=0.02)
+pitch_controller = nota_pid("pitch", pitch_func, integral_gain=-1.0, antiwindup=0.5, neutral_tolerance=0.03)
+yaw_controller = nota_pid("yaw", yaw_func, integral_gain=-0.01, antiwindup=10, neutral_tolerance=0.02)
 
 def nota_fcs():
+    alpha_deg = aero_node.getFloat("alpha_deg")
     beta_deg = aero_node.getFloat("beta_deg")
+    print("alpha:", alpha_deg)
     # print("yaw beta:", beta_deg)
     phi_deg = att_node.getFloat("phi_deg")
     theta_deg = att_node.getFloat("theta_deg")
@@ -146,15 +160,21 @@ def nota_fcs():
     q = vel_node.getFloat("q_rps")
     r = vel_node.getFloat("r_rps")
 
+    roll_cmd = inceptor_node.getFloat("aileron") * roll_stick_scale
+    pitch_cmd = -inceptor_node.getFloat("elevator") * pitch_stick_scale
+    yaw_cmd = -inceptor_node.getFloat("rudder") * yaw_stick_scale
+
+    # envelope protection
+    max_q = (alpha_limit_deg - alpha_deg) * d2r * 1
+    if pitch_cmd > max_q:
+        pitch_cmd = max_q
+
     # primary flight control laws
-    aileron_cmd = roll_controller.update(inceptor_node.getFloat("aileron"), phi_deg, p)
-    elevator_cmd = pitch_controller.update(-inceptor_node.getFloat("elevator"), theta_deg, q)
-    rudder_cmd = yaw_controller.update(-inceptor_node.getFloat("rudder"), 0, beta_deg)
+    aileron_cmd = roll_controller.update(roll_cmd, phi_deg, p)
+    elevator_cmd = pitch_controller.update(pitch_cmd, theta_deg, q)
+    rudder_cmd = yaw_controller.update(yaw_cmd, 0, beta_deg)
 
     # dampers
-    roll_damp_gain = 0.4
-    pitch_damp_gain = 0.6
-    yaw_damp_gain = 0.5
     aileron_cmd -= p * roll_damp_gain
     elevator_cmd += q * pitch_damp_gain
     rudder_cmd -= r * yaw_damp_gain
