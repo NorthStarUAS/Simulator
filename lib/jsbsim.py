@@ -42,7 +42,7 @@ class JSBSimWrap:
         self.fdm["ic/lat-geod-deg"] = 37.03
         self.fdm["ic/long-gc-deg"] = -113.52
         self.fdm["ic/terrain-elevation-ft"] = 2500
-        self.fdm["ic/h-agl-ft"] = 5000
+        self.fdm["ic/h-agl-ft"] = 2000
         self.fdm["propulsion/set-running"] = -1
 
         # self.fdm.disable_output() # Disable Output

@@ -69,7 +69,7 @@ class Joystick():
                 self.mapping["elevator_trim"] = ["hat", i, 0, 1]
             elif name == "TWCS Throttle":
                 self.mapping["throttle"] = ["axis", i, 2]
-                self.mapping["rudder"] = ["axis", i, 7, {"expo": 2}]
+                self.mapping["rudder"] = ["axis", i, 7, {"expo": 2.5}]
                 self.mapping["flaps_down"] = ["button", i, 4]
                 self.mapping["flaps_up"] = ["button", i, 3]
             elif name == "Thrustmaster T.16000M":
