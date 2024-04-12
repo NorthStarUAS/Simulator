@@ -105,9 +105,9 @@ def roll_func(ref_p):
 def pitch_func(ref_q):
     ay = accel_node.getFloat("Ny") * gravity
     throttle_cmd = inceptor_node.getFloat("throttle")
-    psi_deg = att_node.getFloat("phi_deg")
+    phi_deg = att_node.getFloat("phi_deg")
     theta_deg = att_node.getFloat("theta_deg")
-    gbody_z = cos(psi_deg*d2r) * cos(theta_deg*d2r) * gravity
+    gbody_z = cos(phi_deg*d2r) * cos(theta_deg*d2r) * gravity
     az = accel_node.getFloat("Nz") * gravity
     airspeed_mps = vel_node.getFloat("vc_mps")
     if airspeed_mps < 30: airspeed_mps = 30
