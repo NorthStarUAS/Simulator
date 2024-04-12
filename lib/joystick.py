@@ -90,6 +90,10 @@ class Joystick():
                 self.mapping["elevator_trim_up"] = ["button", i, 2]
                 self.mapping["flaps_down"] = ["button", i, 3]
                 self.mapping["flaps_up"] = ["button", i, 5]
+            elif name == "VPC Stick MT-50CM3":
+                self.mapping["aileron"] = ["axis", i, 0]
+                self.mapping["elevator"] = ["axis", i, 1]
+
 
         print("Joystick structures:", self.joys)
         print("Joystick mapping:", self.mapping)
