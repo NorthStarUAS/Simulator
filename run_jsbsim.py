@@ -45,6 +45,7 @@ if not args.no_trim: # fixme
     trimType = 1  # 1 = in air, 2 = on the ground
     sim.RunTrim(trimType=trimType, throttle=0.5, flap=0.0)
     sim.DispTrim()
+sim.SetTurb(turbSeverity=2, vWind20_mps=2.5, vWindHeading_deg=270) # Trim with wind, no turbulence
 
 def easy_fcs():
     control_engine_node.setFloat("throttle", inceptor_node.getFloat("throttle"))
@@ -139,6 +140,7 @@ yaw_stick_scale = 20
 
 # envelope protection
 alpha_limit_deg = 12.0
+bank_limit_deg = 60.0
 
 # dampers
 roll_damp_gain = 0.4
@@ -168,6 +170,13 @@ def nota_fcs():
     max_q = (alpha_limit_deg - alpha_deg) * d2r * 1
     if pitch_cmd > max_q:
         pitch_cmd = max_q
+
+    max_p = (bank_limit_deg - phi_deg) * d2r * 0.5
+    min_p = (-bank_limit_deg - phi_deg) * d2r * 0.5
+    if roll_cmd > max_p:
+        roll_cmd = max_p
+    if roll_cmd < min_p:
+        roll_cmd = min_p
 
     # primary flight control laws
     aileron_cmd = roll_controller.update(roll_cmd, phi_deg, p)
