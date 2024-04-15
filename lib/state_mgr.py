@@ -25,7 +25,7 @@ class StateManager():
         self.we_filt = 0
         self.wd_filt = 0
 
-        self.rho = 1        # atmospheric density = 1 atm!
+        self.rho = 1.225    # atmospheric density
         self.mass_kg = 1    # mass of aircraft = 1 aircraft would work!
         self.wing_area = 1  # wing area = 1 wing!  "S"
 

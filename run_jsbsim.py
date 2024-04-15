@@ -117,7 +117,7 @@ class NotaFCS():
         airspeed_mps = vel_node.getFloat("vc_mps")
         if airspeed_mps < 30: airspeed_mps = 30
         self.airspeed_mps = 0.99 * self.airspeed_mps + 0.01 * airspeed_mps
-        rho = 1
+        rho = 1.225
         self.qbar = 0.5 * self.airspeed_mps**2 * rho
 
         self.alpha_deg = aero_node.getFloat("alpha_deg")
