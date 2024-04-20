@@ -275,6 +275,8 @@ class StateManager():
 
         # tmpx = -sin(self.the_rad) * gravity
         # print("g_body x:", self.g_body[0], "sin:", tmpx)
+        # tmpy = cos(self.the_rad) * sin(self.phi_rad) * gravity
+        # print("g_body y:", self.g_body[1], "sin:", tmpy)
         # tmpz = cos(self.phi_rad) * cos(self.the_rad) * gravity
         # print("g_body z:", self.g_body[2], "cos*cos:", tmpz)
 
@@ -410,6 +412,16 @@ class StateManager():
                 val = self.accels[n][0]
             elif field == "ay":
                 val = self.accels[n][1]
+            elif field == "ay^2":
+                val = self.accels[n][1] * self.accels[n][1]
+            elif field == "ay*airspeed_mps":
+                val = self.accels[n][1] * self.airspeed_mps
+            elif field == "ay*qbar":
+                val = self.accels[n][1] * self.qbar
+            elif field == "ay/airspeed_mps":
+                val = self.accels[n][1] / self.airspeed_mps
+            elif field == "ay/qbar":
+                val = self.accels[n][1] / self.qbar
             elif field == "abs(ay)":
                 val = abs(self.accels[n][1])
             elif field == "az":
