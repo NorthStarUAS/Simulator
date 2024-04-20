@@ -23,7 +23,7 @@ from lib.traindata import TrainData
 
 # command line arguments
 parser = argparse.ArgumentParser(description="build full model")
-parser.add_argument("flight", help="flight data log")
+parser.add_argument("flight", metavar='flight_data_log', nargs='+', help="flight data log(s)")
 parser.add_argument("--write", required=True, help="write model file name")
 parser.add_argument("--vehicle", default="wing", choices=["wing", "quad"], help="vehicle type represented by data file")
 parser.add_argument("--invert-elevator", action='store_true', help="invert direction of elevator")
@@ -31,93 +31,89 @@ parser.add_argument("--invert-rudder", action='store_true', help="invert directi
 args = parser.parse_args()
 
 state_mgr = StateManager(args.vehicle)
-train_data = TrainData()
-train_data.load_flightdata(args.flight)
 
-if train_data.flight_format == "cirrus_csv":
-    # question 1: seem to get a better flaps up fit to airspeed (vs. qbar) but fails to converge for 50% flaps
-    # qbar only converges for both conditions
-    # question 2: would it be useful to have a gamma (flight path angle) parameter (may help asi)
+# question 1: seem to get a better flaps up fit to airspeed (vs. qbar) but fails to converge for 50% flaps
+# qbar only converges for both conditions
+# question 2: would it be useful to have a gamma (flight path angle) parameter (may help asi)
 
-    # flight controls
-    inceptor_terms = [
-        # "aileron",
-        # "elevator",
-        # "rudder",
-        "throttle",
-    ]
+# flight controls
+inceptor_terms = [
+    "aileron",
+    "elevator",
+    "rudder",
+    "throttle",
+]
 
-    # sensors (directly sensed, or directly converted)
-    inertial_terms = [
-        "one",
-        "p", "q", "r",        # imu (body) rates
-        "ax",                 # thrust - drag
-        "ay",                 # side force
-        "az",                 # lift
-        "bgx", "bgy", "bgz",  # gravity rotated into body frame
-        "abs(ay)", "abs(bgy)",
-        # "ax_1", "ax_2", "ax_3", "ax_4",
-        # "ay_1", "ay_2", "ay_3", "ay_4",
-        # "az_1", "az_2", "az_3", "az_4",
-        # "p_1", "p_2", "p_3", "p_4",
-        # "q_1", "q_2", "q_3", "q_4",
-        # "r_1", "r_2", "r_3", "r_4",
-    ]
+# sensors (directly sensed, or directly converted)
+inertial_terms = [
+    "one",
+    "p", "q", "r",        # imu (body) rates
+    "ax",                 # thrust - drag
+    "ay",                 # side force
+    "ay^2", "ay*airspeed_mps", "ay*qbar",
+    "az",                 # lift
+    "bgx", "bgy", "bgz",  # gravity rotated into body frame
+    "abs(ay)", "abs(bgy)",
+    # "ax_1", "ax_2", "ax_3", "ax_4",
+    # "ay_1", "ay_2", "ay_3", "ay_4",
+    # "az_1", "az_2", "az_3", "az_4",
+    # "p_1", "p_2", "p_3", "p_4",
+    # "q_1", "q_2", "q_3", "q_4",
+    # "r_1", "r_2", "r_3", "r_4",
+]
 
-    airdata_terms = [
-        "airspeed_mps",
-        # "alpha_dot",
-        "alpha_deg",          # angle of attack
-        "beta_deg",           # side slip angle
-        # "qbar",
-        "1/qbar",
-        "1/airspeed_mps",
-        # "alpha_dot_term2",
-        # "sin(alpha_deg)*qbar", "sin(alpha_deg)*qbar_1",
-        # "sin(beta_deg)*qbar", "sin(beta_deg)*qbar_1",
-        # "qbar/cos(beta_deg)",
-    ]
+airdata_terms = [
+    "airspeed_mps",
+    # "alpha_dot",
+    "alpha_deg",          # angle of attack
+    "beta_deg",           # side slip angle
+    "qbar",
+    "1/airspeed_mps",
+    "1/qbar",
+    # "alpha_dot_term2",
+    # "sin(alpha_deg)*qbar", "sin(alpha_deg)*qbar_1",
+    # "sin(beta_deg)*qbar", "sin(beta_deg)*qbar_1",
+    # "qbar/cos(beta_deg)",
+]
 
-    inceptor_airdata_terms = [
-        "aileron*qbar", # "aileron*qbar_1",
-        # "abs(aileron)*qbar",
-        "elevator*qbar", # "elevator*qbar_1", "elevator*qbar_2", "elevator*qbar_3",
-        "rudder*qbar", # "rudder*qbar_1", "rudder*qbar_2", "rudder*qbar_3",
-        # "abs(rudder)*qbar",
-    ]
+inceptor_airdata_terms = [
+    "aileron*qbar", # "aileron*qbar_1",
+    "abs(aileron)*qbar",
+    "elevator*qbar", # "elevator*qbar_1", "elevator*qbar_2", "elevator*qbar_3",
+    "rudder*qbar", # "rudder*qbar_1", "rudder*qbar_2", "rudder*qbar_3",
+    "abs(rudder)*qbar",
+]
 
-    inertial_airdata_terms = [
-        "Cl",
-        # "alpha_dot_term3",
-    ]
+inertial_airdata_terms = [
+    "Cl",
+    # "alpha_dot_term3",
+]
 
-    # deterministic output states (do not include their own value in future estimates)
-    output_states = [
-        # "aileron*qbar",
-        # "elevator*qbar",
-        "rudder*qbar",
-        "q",
-        "beta_deg",
-        "q",
-        # "alpha_deg",
-        "beta_deg",
-    ]
+# deterministic output states (do not include their own value in future estimates)
+output_states = [
+    "aileron*qbar",
+    # "elevator*qbar",
+    # "rudder*qbar",
+    # "q",
+    # "alpha_deg",
+    "beta_deg",
+]
 
-    # non-deterministic output states (may roll their current value into the next estimate)
-    output_states_2 = [
-        "airspeed_mps",
-        "p", "q", "r",
-        "ax", "ay", "az",
-    ]
+# non-deterministic output states (may roll their current value into the next estimate)
+output_states_2 = [
+    "airspeed_mps",
+    "p", "q", "r",
+    "ax", "ay", "az",
+]
 
-    # bins of unique flight conditions
-    conditions = [
-        { "flaps": 0 },
-        { "flaps": 0.5 }
-    ]
+# bins of unique flight conditions
+conditions = [
+    { "flaps": 0 },
+    { "flaps": 0.5 },
+    { "flaps": 1.0 },
+]
 
 train_states = inceptor_terms + inceptor_airdata_terms + inertial_terms + airdata_terms
-# train_states = inceptor_terms + inertial_terms + airdata_terms
 state_mgr.set_state_names(inceptor_terms, inertial_terms + airdata_terms, output_states)
 
 # previous state propagation
@@ -144,16 +140,16 @@ for i, s in enumerate(train_states):
         propagate.append( [src, dst] )
 print("Previous state propagation:", propagate)
 
-if train_data.flight_format == "cirrus_csv":
-    state_mgr.set_is_flying_thresholds(75*kt2mps, 65*kt2mps)
+state_mgr.set_is_flying_thresholds(75*kt2mps, 65*kt2mps)
 
-train_data.build(args.vehicle, args.invert_elevator, args.invert_rudder, state_mgr, conditions, train_states)
+train_data = TrainData()
+train_data.load_flightdata(args.flight, args.vehicle, args.invert_elevator, args.invert_rudder, state_mgr, conditions, train_states)
 
 print("Conditions report:")
 for i, cond in enumerate(conditions):
     print(i, cond)
-    print("  Number of states:", len(train_data.cond_list[i]["traindata_list"][0]))
-    print("  Input state vectors:", len(train_data.cond_list[i]["traindata_list"]))
+    print("  Number of states:", len(train_data.cond_list[i][0]))
+    print("  Input state vectors:", len(train_data.cond_list[i]))
 
 def solve(traindata, includes_idx, solutions_idx):
     srcdata = traindata[includes_idx,:]
@@ -334,111 +330,112 @@ def mass_solution_4(traindata, train_states, output_states, self_reference=False
         axs[1].legend()
     plt.show()
 
-def parameter_rank_5(traindata, train_states, output_states, self_reference=False):
+def parameter_rank_5(traindata, train_states, y_state, include_states, exclude_states, self_reference=False):
 
-    for os in output_states:
-        include_idx = []
-        output_idx = train_states.index(os)
-        evalout_idx = [output_idx]
+    include_idx = []
+    output_idx = train_states.index(y_state)
+    evalout_idx = [output_idx]
 
-        remain_states = train_states.copy()
+    # remain_states = train_states - exclude_states
+    remain_states = [x for x in train_states if x not in exclude_states]
 
-        if True:
-            # add "one"
-            include_idx.append(train_states.index("one"))
-            remain_states.remove("one")
+    for x in include_states:
+        include_idx.append(train_states.index(x))
+        if x in remain_states:
+            remain_states.remove(x)
 
-        if not self_reference:
-            # ensure none of the output state history is included if we don't self reference
-            remain_states.remove(os)
-            for i in range(1, 5):
-                os_prev = os + "_%d" % i
-                if os_prev in remain_states:
-                    remain_states.remove(os_prev)
+    if not self_reference:
+        # ensure none of the output state history is included if we don't self reference
+        if y_state in remain_states:
+            remain_states.remove(y_state)
+        for i in range(1, 5):
+            os_prev = y_state + "_%d" % i
+            if os_prev in remain_states:
+                remain_states.remove(os_prev)
+    else:
+        # ensure /all/ of the output state history is included if we self reference
+        include_idx.append(train_states.index(y_state))
+        remain_states.remove(y_state)
+        for i in range(1, 5):
+            os_prev = y_state + "_%d" % i
+            if os_prev in remain_states:
+                # print(os_prev, traindata[train_states.index(os_prev),:])
+                include_idx.append(train_states.index(os_prev))
+                remain_states.remove(os_prev)
+
+    # min_rms = np.std(traindata[output_idx,:])
+    min_rms = None
+
+    while len(remain_states):
+        for rs in remain_states:
+            print("evaluating:", rs)
+            r_idx = train_states.index(rs)
+            evalin_idx = include_idx + [r_idx]
+
+            A = solve(traindata, evalin_idx, evalout_idx)
+
+            # direct solution with all current states known, how well does our fit estimate the next state?
+            direct_est = A @ traindata[evalin_idx,:]
+            # print("direct_est:", direct_est.shape, direct_est)
+            direct_error = traindata[output_idx,1:] - direct_est[:,:-1]
+            # print("direct_error:", direct_error.shape, direct_error)
+            direct_rms = np.std(direct_error)
+            print("direct_rms:", direct_rms)
+            if min_rms is None or direct_rms < min_rms:
+                min_A = A
+                min_rms = direct_rms
+                min_idx = r_idx
+                min_est = direct_est
+                min_err = direct_error
+                min_evalin_idx = evalin_idx
+
+            print("ERROR Direct:", y_state, "->", rs, rms(direct_error), "%.3f%%" % (100 * rms(direct_error) / rms(traindata[output_idx,1:])))
+            # print("ERROR Sim:", output_states[i], rms(sim_error[i,:]), "%.3f%%" % (100 * rms(sim_error[i,:]) / rms(sim_est[i,:]) ))
+
+        print(rms(min_err), rms(traindata[output_idx,1:]))
+        print("Best next parameter:", train_states[min_idx], "rms val: %.05f" % min_rms,
+                "error = %.3f%%" % (100 * rms(min_err) / rms(traindata[output_idx,1:])))
+        include_idx.append(min_idx)
+        remain_states.remove(train_states[min_idx])
+
+        if self_reference:
+            sim_est = simulate(traindata, min_evalin_idx, evalout_idx, min_A)
+            sim_error = traindata[output_idx,1:] - sim_est[:,:-1]
+
+        terms = ""
+        for i, idx in enumerate(min_evalin_idx):
+            terms += "%.4f*" % min_A[0,i] + train_states[idx] + ", "
+        print(y_state, "=", terms)
+
+        fig, axs = plt.subplots(2, sharex=True)
+        fig.suptitle("Estimate for: " + y_state + " = " + terms)
+        axs[0].plot(traindata[output_idx,1:].T, label="original signal")
+        if self_reference:
+            axs[0].plot(sim_est[:,:-1].T, label="sim signal")
         else:
-            # ensure /all/ of the output state history is included if we self reference
-            include_idx.append(train_states.index(os))
-            remain_states.remove(os)
-            for i in range(1, 5):
-                os_prev = os + "_%d" % i
-                if os_prev in remain_states:
-                    # print(os_prev, traindata[train_states.index(os_prev),:])
-                    include_idx.append(train_states.index(os_prev))
-                    remain_states.remove(os_prev)
-
-        # min_rms = np.std(traindata[output_idx,:])
-        min_rms = None
-
-        while len(remain_states):
-            for rs in remain_states:
-                print("evaluating:", rs)
-                r_idx = train_states.index(rs)
-                evalin_idx = include_idx + [r_idx]
-
-                A = solve(traindata, evalin_idx, evalout_idx)
-
-                # direct solution with all current states known, how well does our fit estimate the next state?
-                direct_est = A @ traindata[evalin_idx,:]
-                # print("direct_est:", direct_est.shape, direct_est)
-                direct_error = traindata[output_idx,1:] - direct_est[:,:-1]
-                # print("direct_error:", direct_error.shape, direct_error)
-                direct_rms = np.std(direct_error)
-                print("direct_rms:", direct_rms)
-                if min_rms is None or direct_rms < min_rms:
-                    min_A = A
-                    min_rms = direct_rms
-                    min_idx = r_idx
-                    min_est = direct_est
-                    min_err = direct_error
-                    min_evalin_idx = evalin_idx
-
-                print("ERROR Direct:", os, "->", rs, rms(direct_error), "%.3f%%" % (100 * rms(direct_error) / rms(traindata[output_idx,1:])))
-                # print("ERROR Sim:", output_states[i], rms(sim_error[i,:]), "%.3f%%" % (100 * rms(sim_error[i,:]) / rms(sim_est[i,:]) ))
-
-            print(rms(min_err), rms(traindata[output_idx,1:]))
-            print("Best next parameter:", train_states[min_idx], "rms val: %.05f" % min_rms,
-                  "error = %.3f%%" % (100 * rms(min_err) / rms(traindata[output_idx,1:])))
-            include_idx.append(min_idx)
-            remain_states.remove(train_states[min_idx])
-
-            if self_reference:
-                sim_est = simulate(traindata, min_evalin_idx, evalout_idx, min_A)
-                sim_error = traindata[output_idx,1:] - sim_est[:,:-1]
-
-            terms = ""
-            for i, idx in enumerate(min_evalin_idx):
-                terms += "%.3f*" % min_A[0,i] + train_states[idx] + ", "
-            print(os, "=", terms)
-
-            fig, axs = plt.subplots(2, sharex=True)
-            fig.suptitle("Estimate for: " + os + " = " + terms)
-            axs[0].plot(traindata[output_idx,1:].T, label="original signal")
-            if self_reference:
-                axs[0].plot(sim_est[:,:-1].T, label="sim signal")
-            else:
-                axs[0].plot(min_est[:,:-1].T, label="fit signal")
-            axs[0].legend()
-            if self_reference:
-                axs[1].plot(sim_error[0,:].T, label="sim error")
-                y_mean = np.mean(sim_error[0,:])
-                y_std = np.std(sim_error[0,:])
-            else:
-                axs[1].plot(min_err.T, label="fit error")
-                y_mean = np.mean(min_err)
-                y_std = np.std(min_err)
-            print("  mean: %.4f" % y_mean, "std: %.4f" % y_std)
-            # print(len(min_est[:,:-1].T))
-            axs[1].hlines(y=y_mean-2*y_std, xmin=0, xmax=len(min_est[:,:-1].T), colors='green', linestyles='--')
-            axs[1].hlines(y=y_mean+2*y_std, xmin=0, xmax=len(min_est[:,:-1].T), colors='green', linestyles='--', label="2*stddev")
-            axs[1].legend()
-            plt.show()
+            axs[0].plot(min_est[:,:-1].T, label="fit signal")
+        axs[0].legend()
+        if self_reference:
+            axs[1].plot(sim_error[0,:].T, label="sim error")
+            y_mean = np.mean(sim_error[0,:])
+            y_std = np.std(sim_error[0,:])
+        else:
+            axs[1].plot(min_err.T, label="fit error")
+            y_mean = np.mean(min_err)
+            y_std = np.std(min_err)
+        print("  mean: %.4f" % y_mean, "std: %.4f" % y_std)
+        # print(len(min_est[:,:-1].T))
+        axs[1].hlines(y=y_mean-2*y_std, xmin=0, xmax=len(min_est[:,:-1].T), colors='green', linestyles='--')
+        axs[1].hlines(y=y_mean+2*y_std, xmin=0, xmax=len(min_est[:,:-1].T), colors='green', linestyles='--', label="2*stddev")
+        axs[1].legend()
+        plt.show()
 
 # evaluate each condition
 for i, cond in enumerate(conditions):
     print(i, cond)
     condition_dict = { "condition": cond }
-    traindata = np.array(train_data.cond_list[i]["traindata_list"]).T
-    coeff = np.array(train_data.cond_list[i]["coeff"])
+    traindata = train_data.cond_list[i]
+    # coeff = np.array(train_data.cond_list[i]["coeff"])
 
     if True:
         print("test pearson correlation coefficients:")
@@ -453,8 +450,11 @@ for i, cond in enumerate(conditions):
         mass_solution_4(traindata, train_states, output_states, self_reference=True)
 
     if True:
-        # reverse the data for doing NDI!
+        # reverse the data for doing model-based control
         traindata = np.fliplr(traindata)
 
     if True:
-        parameter_rank_5(traindata, train_states, output_states, self_reference=False)
+        y_state = "aileron*qbar"
+        include_states = ["one", "beta_deg", "p", "r", "bgy", "ax", "ay", "az", "throttle"]
+        exclude_states = inceptor_terms + inceptor_airdata_terms + ["q"]
+        parameter_rank_5(traindata, train_states, y_state, include_states, exclude_states, self_reference=False)
