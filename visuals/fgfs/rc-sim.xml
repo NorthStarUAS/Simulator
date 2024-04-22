@@ -6,7 +6,7 @@
 
  <generic>
 
-  <output>
+  <input>
     <binary_mode>true</binary_mode>
     <binary_footer>none</binary_footer>
 
@@ -59,6 +59,30 @@
     </chunk>
     
     <chunk>
+      <name>aileron</name>
+      <type>float</type>
+      <node>/controls/flight/aileron</node>
+    </chunk>
+    
+    <chunk>
+      <name>elevator</name>
+      <type>float</type>
+      <node>/controls/flight/elevator</node>
+    </chunk>
+    
+    <chunk>
+      <name>rudder</name>
+      <type>float</type>
+      <node>/controls/flight/rudder</node>
+    </chunk>
+    
+    <chunk>
+      <name>throttle</name>
+      <type>float</type>
+      <node>/controls/engines/engine/throttle</node>
+    </chunk>
+    
+    <chunk>
       <name>right aileron</name>
       <type>float</type>
       <node>/surface-positions/right-aileron-pos-norm</node>
@@ -87,7 +111,7 @@
       <type>float</type>
       <node>/surface-positions/flap-pos-norm</node>
     </chunk>
- </output>
+ </input>
 
  </generic>
 
