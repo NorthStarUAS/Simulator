@@ -330,7 +330,7 @@ def mass_solution_4(traindata, train_states, output_states, self_reference=False
         axs[1].legend()
     plt.show()
 
-def parameter_rank_5(traindata, train_states, y_state, include_states, exclude_states, self_reference=False):
+def parameter_find_5(traindata, train_states, y_state, include_states, exclude_states, self_reference=False):
 
     include_idx = []
     output_idx = train_states.index(y_state)
@@ -430,6 +430,68 @@ def parameter_rank_5(traindata, train_states, y_state, include_states, exclude_s
         axs[1].legend()
         plt.show()
 
+def parameter_fit_1(traindata, train_states, y_state, include_states, self_reference=False):
+
+    include_idx = []
+    output_idx = train_states.index(y_state)
+    evalout_idx = [output_idx]
+
+    for x in include_states:
+        include_idx.append(train_states.index(x))
+
+    A = solve(traindata, include_idx, evalout_idx)
+
+    # direct solution with all current states known, how well does our fit estimate the next state?
+    direct_est = A @ traindata[include_idx,:]
+    # print("direct_est:", direct_est.shape, direct_est)
+    direct_error = traindata[output_idx,1:] - direct_est[:,:-1]
+    # print("direct_error:", direct_error.shape, direct_error)
+    direct_rms = np.std(direct_error)
+    print("direct_rms:", direct_rms)
+
+    print("ERROR Direct:", y_state, "->", rms(direct_error), "%.3f%%" % (100 * rms(direct_error) / rms(traindata[output_idx,1:])))
+    # print("ERROR Sim:", output_states[i], rms(sim_error[i,:]), "%.3f%%" % (100 * rms(sim_error[i,:]) / rms(sim_est[i,:]) ))
+
+    if self_reference:
+        sim_est = simulate(traindata, include_idx, evalout_idx, A)
+        sim_error = traindata[output_idx,1:] - sim_est[:,:-1]
+
+    terms = ""
+    first = True
+    for i, idx in enumerate(include_idx):
+        if first:
+            terms += "%.4f*" % A[0,i] + train_states[idx]
+            first = False
+        else:
+            if A[0,i] < 0:
+                terms += " - %.4f*" % abs(A[0,i]) + train_states[idx]
+            else:
+                terms += " + %.4f*" % A[0,i] + train_states[idx]
+    print(y_state, "=", terms)
+
+    fig, axs = plt.subplots(2, sharex=True)
+    fig.suptitle("Estimate for: " + y_state + " = " + terms)
+    axs[0].plot(traindata[output_idx,1:].T, label="original signal")
+    if self_reference:
+        axs[0].plot(sim_est[:,:-1].T, label="sim signal")
+    else:
+        axs[0].plot(direct_est[:,:-1].T, label="fit signal")
+    axs[0].legend()
+    if self_reference:
+        axs[1].plot(sim_error[0,:].T, label="sim error")
+        y_mean = np.mean(sim_error[0,:])
+        y_std = np.std(sim_error[0,:])
+    else:
+        axs[1].plot(direct_error.T, label="fit error")
+        y_mean = np.mean(direct_error)
+        y_std = np.std(direct_error)
+    print("  mean: %.4f" % y_mean, "std: %.4f" % y_std)
+    # print(len(min_est[:,:-1].T))
+    axs[1].hlines(y=y_mean-2*y_std, xmin=0, xmax=len(direct_est[:,:-1].T), colors='green', linestyles='--')
+    axs[1].hlines(y=y_mean+2*y_std, xmin=0, xmax=len(direct_est[:,:-1].T), colors='green', linestyles='--', label="2*stddev")
+    axs[1].legend()
+    plt.show()
+
 # evaluate each condition
 for i, cond in enumerate(conditions):
     print(i, cond)
@@ -449,12 +511,68 @@ for i, cond in enumerate(conditions):
     if False:
         mass_solution_4(traindata, train_states, output_states, self_reference=True)
 
-    if True:
-        # reverse the data for doing model-based control
+    if False:
+        # Parameter predictions: these may be the things we want to control,
+        # this will find the most important "predictive" correlations, hopefully
+        # some external input (inceptor, control surface, etc.) parameters show
+        # up because those would be the external influences on the system.
+        #
+        # This section is informative to help understand the correlations in the
+        # system.
+        #
+        # Note: use "engineering judgement" to determine which states to include
+        # (seed) or exclude to test a fit with paramters you think should or
+        # shouldn't be included.  Or leave these blank to let the system find
+        # the best fit for you.
+        #
+        # Also specify if the estimation should be self referencing
+        # (incremental.)  A self referencing system can be a better fit, but is
+        # also non-deterministic.
+
+        # uncomment these one at a time
+        y_state = "p"
+        # y_state = "q"
+        # y_state = "beta_deg"
+
+        include_states = ["one"]
+        exclude_states = []
+
+        parameter_find_5(traindata, train_states, y_state, include_states, exclude_states, self_reference=False)
+
+    if False:
+        # Inverse parameter predictions.  This reverses the order of training
+        # data and 'predicts' what the previous control value should have been
+        # to get to the desired state now.
+        #
+        # Hopefully the thing we want to control with the input shows up in the fit!
+
+        # reverse the training data
         traindata = np.fliplr(traindata)
 
-    if True:
+        # uncomment these one at a time
         y_state = "aileron*qbar"
-        include_states = ["one", "beta_deg", "p", "r", "bgy", "ax", "ay", "az", "throttle"]
-        exclude_states = inceptor_terms + inceptor_airdata_terms + ["q"]
-        parameter_rank_5(traindata, train_states, y_state, include_states, exclude_states, self_reference=False)
+        # y_state = "elevator*qbar"
+        # y_state = "rudder*qbar"
+
+        include_states = ["one"]
+        exclude_states = inceptor_terms + inceptor_airdata_terms  # avoid self referencing
+
+        parameter_find_5(traindata, train_states, y_state, include_states, exclude_states, self_reference=False)
+
+    if True:
+        # Direct model fit.  Use the previous two sections to determine the
+        # relevants states, now go!
+
+        # reverse the training data because we want to fit to the previous input
+        # that gets us to the desired state in the next time step. (this is a
+        # nuanced thing, probably unnecessary over-engineering!)
+        traindata = np.fliplr(traindata)
+
+        include_states = ["one", "alpha_deg", "beta_deg", "p", "q", "r", "bgx", "bgy", "bgz", "abs(bgy)", "ax", "ay", "az", "abs(ay)", "throttle"]
+
+        # uncomment these one at a time to compute the final fit formula for each
+        # y_state = "aileron*qbar"
+        y_state = "elevator*qbar"
+        # y_state = "rudder*qbar"
+
+        parameter_fit_1(traindata, train_states, y_state, include_states, self_reference=False)
