@@ -98,9 +98,10 @@ class NotaPID():
 
 class NotaFCS():
     def __init__(self):
-        # filtered state
-        self.airspeed_mps = 30
-        self.vtrue_mps = 30
+        # filtered state (clamp to minimum of 25 mps because we need to divide
+        # by airspeed and qbar so this must be definitely positive.)
+        self.airspeed_mps = 25
+        self.vtrue_mps = 25
 
         # stick -> rate command scaling
         self.roll_stick_scale = 30 * d2r
@@ -119,7 +120,7 @@ class NotaFCS():
 
         self.roll_helper = NotaPID("roll", integral_gain=1.0, antiwindup=0.25, neutral_tolerance=0.02)
         self.pitch_helper = NotaPID("pitch", integral_gain=-4.0, antiwindup=0.5, neutral_tolerance=0.03)
-        self.yaw_helper = NotaPID("yaw", integral_gain=-0.01, antiwindup=10, neutral_tolerance=0.02)
+        self.yaw_helper = NotaPID("yaw", integral_gain=-0.01, antiwindup=0.25, neutral_tolerance=0.02)
 
         self.Ainv_lat = np.array(
             [[5775.381885098956, 82.77808579660751],
@@ -137,6 +138,7 @@ class NotaFCS():
         )
 
     def update(self):
+        # fetch and compute all the values needed by the control laws
         self.throttle_cmd = inceptor_node.getFloat("throttle")
 
         airspeed_mps = vel_node.getFloat("vc_mps")
@@ -145,7 +147,6 @@ class NotaFCS():
         vtrue_mps = vel_node.getFloat("vtrue_mps")
         if vtrue_mps < 30: vtrue_mps = 30
         self.vtrue_mps = 0.99 * self.vtrue_mps + 0.01 * vtrue_mps
-
         rho = 1.225
         self.qbar = 0.5 * self.airspeed_mps**2 * rho
 
@@ -162,7 +163,7 @@ class NotaFCS():
         self.gbody_z = cos(self.phi_deg*d2r) * cos(self.theta_deg*d2r) * gravity
         self.q_term1 = sin(self.phi_deg*d2r) * (sin(self.phi_deg*d2r) / cos(self.phi_deg*d2r)) / self.airspeed_mps
 
-        if True:
+        if False:
             # sensed directly (or from sim model)
             self.alpha_deg = aero_node.getFloat("alpha_deg")
             self.beta_deg = aero_node.getFloat("beta_deg")
@@ -171,7 +172,11 @@ class NotaFCS():
             self.alpha_deg = self.alpha_func()
             self.beta_deg = self.beta_func()
 
-        # presuming a steady state level turn, compute turn rate = func(velocity, bank angle)
+        # Feed forward steady state q and r basd on bank angle/turn rate.
+        # Presuming a steady state level turn, compute turn rate =
+        # func(velocity, bank angle).  This is the one feed forward term used in
+        # this set of control laws and it is purely physics based and
+        # works for all fixed wing aircraft.
         if abs(self.phi_deg) < 89:
             turn_rate_rps = tan(self.phi_deg*d2r) * -gravity / vtrue_mps
         else:
@@ -179,9 +184,9 @@ class NotaFCS():
         # compute a baseline q and r for the presumed steady state level turn, this is what we dampen towards
         baseline_q = sin(self.phi_deg*d2r) * turn_rate_rps
         baseline_r = cos(self.phi_deg*d2r) * turn_rate_rps
-
         # print("tr: %.3f" % turn_rate_rps, "q: %.3f %.3f" % (baseline_q, self.q), "r: %.3f %.3f" % (baseline_r, self.r))
 
+        # Pilot commands
         roll_rate_cmd = inceptor_node.getFloat("aileron") * self.roll_stick_scale
         pitch_rate_cmd = -inceptor_node.getFloat("elevator") * self.pitch_stick_scale
         beta_deg_cmd = -inceptor_node.getFloat("rudder") * self.yaw_stick_scale
@@ -193,22 +198,30 @@ class NotaFCS():
         max_p = (self.bank_limit_deg - self.phi_deg) * d2r * 0.5
         min_p = (-self.bank_limit_deg - self.phi_deg) * d2r * 0.5
 
-        # primary flight control laws
+        # Condition and limit the pilot requests
         ref_p = self.roll_helper.get_ref_value(roll_rate_cmd, 0, min_p, max_p, self.phi_deg)
         ref_q = self.pitch_helper.get_ref_value(pitch_rate_cmd, baseline_q, None, max_q, self.theta_deg)
         ref_beta = self.yaw_helper.get_ref_value(beta_deg_cmd, 0, None, None, 0)
 
-        # direct surface position control
+        # compute the direct surface position to achieve the command (these
+        # functions are fit from the original flight data and involve a matrix
+        # inversion that is precomputed and the result is static and never needs
+        # to be recomputed.)
         raw_aileron_cmd, raw_rudder_cmd = self.lat_func(ref_p, ref_beta)
         raw_elevator_cmd = self.lon_func(ref_q)
 
-        # integrators
+        # run the integrators.  Tip of the hat to imperfect models vs the real
+        # world.  The integrators suck up any difference between the model and
+        # the real aircraft. Imperfect models can be due to linear fit limits,
+        # change in aircraft weight and balance, change in atmospheric
+        # conditions, etc.
         aileron_int = self.roll_helper.integrator(ref_p, self.p)
         elevator_int = self.pitch_helper.integrator(ref_q, self.q)
         rudder_int = self.yaw_helper.integrator(ref_beta, self.beta_deg)
         print("integrators: %.2f %.2f %.2f" % (aileron_int, elevator_int, rudder_int))
 
-        # dampers
+        # dampers, these can be tuned to pilot preference for lighter finger tip
+        # flying vs heavy stable flying.
         aileron_damp = self.p * self.roll_damp_gain
         elevator_damp = (self.q - baseline_q) * self.pitch_damp_gain
         rudder_damp = (self.r - baseline_r) * self.yaw_damp_gain
@@ -217,9 +230,8 @@ class NotaFCS():
         aileron_cmd = raw_aileron_cmd + aileron_int - aileron_damp
         elevator_cmd = raw_elevator_cmd + elevator_int + elevator_damp
         rudder_cmd = raw_rudder_cmd + rudder_int - rudder_damp
-
-        print("inc_q: %.3f" % pitch_rate_cmd, "bl_q: %.3f" % baseline_q, "ref_q: %.3f" % ref_q,
-              "raw ele: %.3f" % raw_elevator_cmd, "final ele: %.3f" % elevator_cmd)
+        # print("inc_q: %.3f" % pitch_rate_cmd, "bl_q: %.3f" % baseline_q, "ref_q: %.3f" % ref_q,
+        #       "raw ele: %.3f" % raw_elevator_cmd, "final ele: %.3f" % elevator_cmd)
 
         control_flight_node.setFloat("aileron", aileron_cmd)
         control_flight_node.setFloat("elevator", elevator_cmd)
@@ -231,18 +243,21 @@ class NotaFCS():
         throttle_cmd = inceptor_node.getFloat("throttle")
         control_engine_node.setFloat("throttle", throttle_cmd)
 
+    # a simple alpha estimator fit from flight test data
     def alpha_func(self):
         p = 0 # roll rate shows up in our alpha measurement because the alpha vane is at the end of the wing, but let's zero it an ignore that.
         # alpha_deg = -6.519 + 14920.457/self.qbar - 0.331*self.az - 4.432*self.p + 0.243*self.ax + 0.164*self.ay + 3.577*self.q
         alpha_deg = -6.3792 + 14993.7058/self.qbar -0.3121*self.az - 4.3545*p + 5.3980*self.q + 0.2199*self.ax
         return alpha_deg
 
+    # a simple beta estimator fit from flight test data
     def beta_func(self):
         rudder_cmd = inceptor_node.getFloat("rudder")
         # beta_deg = 2.807 - 9.752*self.ay + 0.003*self.ay*self.qbar - 5399.632/self.qbar - 0.712*abs(self.ay)
         beta_deg = -0.3552 - 12.1898*rudder_cmd - 3.5411*self.ay + 7.1957*self.r + 0.0008*self.ay*self.qbar + 0.9769*self.throttle_cmd
         return beta_deg
 
+    # compute model-based aileron and rudder command to simultaneously achieve the reference roll rate and side slip angle.
     def lat_func(self, ref_p, ref_beta):
         x = np.array([ref_p, ref_beta])
         b = np.array([1, self.ay, self.gbody_y, 1/self.airspeed_mps])
@@ -250,6 +265,7 @@ class NotaFCS():
         print("lon y:", y)
         return y.tolist()
 
+    # compute model-based elevator command to achieve the reference pitch rate.
     def lon_func(self, ref_q):
         x = np.array([ref_q])
         b = np.array([1, 1/self.airspeed_mps, self.q_term1])
