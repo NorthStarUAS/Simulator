@@ -613,7 +613,8 @@ for i, cond in enumerate(conditions):
         # Todo: look if the p <- ay relationship is linear enough or if we need other ay * airspeed terms
         # same with q <- ay
 
-        include_states = ["aileron*qbar", "elevator*qbar", "rudder*qbar", "one", "ax", "ay", "az", "bgx", "bgy", "bgz", "abs(bgy)", "1/airspeed_mps", "airspeed_mps", "q_term1"]
+        # include_states = ["aileron*qbar", "elevator*qbar", "rudder*qbar", "one", "ax", "ay", "az", "bgx", "bgy", "bgz", "abs(bgy)", "1/airspeed_mps", "airspeed_mps", "q_term1"]
+        include_states = ["aileron*qbar", "elevator*qbar", "rudder*qbar", "one"]
 
         # y_state = "p"
         # y_state = "q"
