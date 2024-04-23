@@ -300,6 +300,9 @@ class StateManager():
         # alpha_dot_term3: contribution from gravity forces
         self.alpha_dot_term3 = gravity * (cos(self.alpha[0]) * cos(self.phi_rad) * cos(self.the_rad) + sin(self.alpha[0]) * sin(self.the_rad)) / (self.airspeed_mps * cos(self.beta[0]))
 
+        # q_term1: account for pitch bias in turns
+        self.q_term1 = sin(self.phi_rad) * (sin(self.phi_rad) / cos(self.phi_rad)) / self.airspeed_mps
+
     def gen_state_vector(self, state_list=None, params=None):
         result = []
         if state_list is None:
@@ -406,6 +409,8 @@ class StateManager():
                 val = self.gyros[n][0]
             elif field == "q":
                 val = self.gyros[n][1]
+            elif field == "q_term1":
+                val = self.q_term1
             elif field == "r":
                 val = self.gyros[n][2]
             elif field == "ax":

@@ -12,6 +12,7 @@ Engineering and Mechanics, UAV Lab.
 from apscheduler.schedulers.background import BackgroundScheduler   # pip install APScheduler (dnf install python3-APScheduler)
 import argparse
 from math import cos, sin, tan
+import numpy as np
 import os
 import time
 
@@ -121,6 +122,18 @@ class NotaFCS():
         self.pitch_controller = NotaPID("pitch", self.pitch_func, integral_gain=-4.0, antiwindup=0.5, neutral_tolerance=0.03)
         self.yaw_controller = NotaPID("yaw", self.yaw_func, integral_gain=-0.01, antiwindup=10, neutral_tolerance=0.02)
 
+        self.A_1 =  np.array(
+            [[  640.5491204237019, 7318.274338542231,  145.36316444343038],
+             [-5925.7563775981625, 8166.787947667861,   71.97155383929868],
+             [ -525.2920046924208, 2808.335317363771, -137.2025832944612]]
+        )
+
+        self.B = np.array(
+            [[-0.05693361893060279, -0.001295528867971077, -0.005711799151942839, 0.000905503147267076, -0.009470654619625466,  0.002075155854446521,  0.017540533979970362,  0.0017961339985038977,  4.634338692782735, 0.0016511736062629167, -10.000622489234617],
+             [-0.2618144176877694,   0.0025267035433311023, 0.008192753236485892, 0.004585894999890392,  0.023859996183603096, -0.0019562397939452947, 0.004690599025956665, -0.0027451715297843546,  7.65157976906464,  0.0033548602796592184,  11.862452693894255],
+             [ 1.267147891398938,   -0.06615263213349391,  -0.040798310823740226, 0.005928758316797655,  0.5826256649631434,   -0.1468643099012692,   -0.8535965934839992,   -0.04164329779085257, -286.101582481374,   -0.08068076777562076,   326.9646738668046]]
+        )
+
     def update(self):
         self.throttle_cmd = inceptor_node.getFloat("throttle")
 
@@ -145,6 +158,8 @@ class NotaFCS():
         self.gbody_x = -sin(self.theta_deg*d2r) * gravity
         self.gbody_y = sin(self.phi_deg*d2r) * cos(self.theta_deg*d2r) * gravity
         self.gbody_z = cos(self.phi_deg*d2r) * cos(self.theta_deg*d2r) * gravity
+        self.q_term1 = sin(self.phi_deg*d2r) * (sin(self.phi_deg*d2r) / cos(self.phi_deg*d2r)) / self.airspeed_mps
+
         if True:
             # sensed directly (or from sim model)
             self.alpha_deg = aero_node.getFloat("alpha_deg")
@@ -185,9 +200,10 @@ class NotaFCS():
         ref_beta = self.yaw_controller.get_ref_value(beta_deg_cmd, 0, None, None, 0)
 
         # direct surface position control
-        raw_aileron_cmd = self.roll_func(ref_p, ref_q, ref_beta)
-        raw_elevator_cmd = self.pitch_func(ref_p, ref_q, ref_beta)
-        raw_rudder_cmd = self.yaw_func(ref_p, ref_q, ref_beta)
+        # raw_aileron_cmd = self.roll_func(ref_p, ref_q, ref_beta)
+        # raw_elevator_cmd = self.pitch_func(ref_p, ref_q, ref_beta)
+        # raw_rudder_cmd = self.yaw_func(ref_p, ref_q, ref_beta)
+        raw_aileron_cmd, raw_elevator_cmd, raw_rudder_cmd = self.roll_it_all_together_func(ref_p, ref_q, ref_beta)
 
         # integrators
         aileron_int = self.roll_controller.integrator(ref_p, self.p)
@@ -246,6 +262,13 @@ class NotaFCS():
         # yaw_cmd = (-51.718 - 103.900*ref_beta + 100.800*self.gbody_x - 1005.478*r - 105.357*self.ay) / self.qbar
         yaw_cmd = (-495.2686 + 27.9346*self.alpha_deg - 98.6537*ref_beta - 1.5749*ref_p - 72.1812*ref_q + 1995.3476*r + 92.9930*self.gbody_x + 15.1753*self.gbody_y - 28.5866*self.gbody_z + 12.1165*abs(self.gbody_y) - 7.5128*self.ax - 6.4226*self.ay + 1.6634*self.az - 2.9201*abs(self.ay) + 173.3109*self.throttle_cmd) / self.qbar
         return yaw_cmd
+
+    def roll_it_all_together_func(self, ref_p, ref_q, ref_beta):
+        x = np.array([ref_p, ref_q, ref_beta])
+        b = np.array([1, self.ax, self.ay, self.az, self.gbody_x, self.gbody_y, self.gbody_z, abs(self.gbody_y), 1/self.airspeed_mps, self.airspeed_mps, self.q_term1])
+        y = (self.A_1 * x - self.B * b) / self.qbar
+        print("y:", y)
+        return y.tolist()
 
 fcs = NotaFCS()
 

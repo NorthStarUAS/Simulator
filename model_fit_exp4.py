@@ -54,6 +54,7 @@ inertial_terms = [
     "az",                 # lift
     "bgx", "bgy", "bgz",  # gravity rotated into body frame
     "abs(ay)", "abs(bgy)",
+    "q_term1",            # pitch bias in level turn
     # "ax_1", "ax_2", "ax_3", "ax_4",
     # "ay_1", "ay_2", "ay_3", "ay_4",
     # "az_1", "az_2", "az_3", "az_4",
@@ -404,6 +405,7 @@ def parameter_find_5(traindata, train_states, y_state, include_states, exclude_s
 
         terms = ""
         for i, idx in enumerate(min_evalin_idx):
+            print(str(min_A[0,i]))
             terms += "%.4f*" % min_A[0,i] + train_states[idx] + ", "
         print(y_state, "=", terms)
 
@@ -430,66 +432,62 @@ def parameter_find_5(traindata, train_states, y_state, include_states, exclude_s
         axs[1].legend()
         plt.show()
 
-def parameter_fit_1(traindata, train_states, y_state, include_states, self_reference=False):
+def parameter_fit_1(traindata, train_states, input_states, output_states, self_reference=False):
 
-    include_idx = []
-    output_idx = train_states.index(y_state)
-    evalout_idx = [output_idx]
+    input_idx = []
+    output_idx = []
 
-    for x in include_states:
-        include_idx.append(train_states.index(x))
+    for x in input_states:
+        input_idx.append(train_states.index(x))
+    for x in output_states:
+        output_idx.append(train_states.index(x))
 
-    A = solve(traindata, include_idx, evalout_idx)
+    A = solve(traindata, input_idx, output_idx)
 
     # direct solution with all current states known, how well does our fit estimate the next state?
-    direct_est = A @ traindata[include_idx,:]
-    # print("direct_est:", direct_est.shape, direct_est)
-    direct_error = traindata[output_idx,1:] - direct_est[:,:-1]
-    # print("direct_error:", direct_error.shape, direct_error)
-    direct_rms = np.std(direct_error)
-    print("direct_rms:", direct_rms)
+    est = A @ traindata[input_idx,:]
+    # print("est:", est.shape, direct_est)
+    for i in range(len(output_idx)):
+        idx = output_idx[i]
+        error = traindata[idx,1:] - est[i,:-1]
+        # print("direct_error:", direct_error.shape, direct_error)
+        # rms(error) = np.std(error)
+        rms_perc = 100 * rms(error) / rms(traindata[idx,1:])
+        print(output_states[i], "rms: %.4f" % rms(error), "%.2f%%" % rms_perc)
 
-    print("ERROR Direct:", y_state, "->", rms(direct_error), "%.3f%%" % (100 * rms(direct_error) / rms(traindata[output_idx,1:])))
-    # print("ERROR Sim:", output_states[i], rms(sim_error[i,:]), "%.3f%%" % (100 * rms(sim_error[i,:]) / rms(sim_est[i,:]) ))
-
-    if self_reference:
-        sim_est = simulate(traindata, include_idx, evalout_idx, A)
-        sim_error = traindata[output_idx,1:] - sim_est[:,:-1]
-
-    terms = ""
-    first = True
-    for i, idx in enumerate(include_idx):
-        if first:
-            terms += "%.4f*" % A[0,i] + train_states[idx]
-            first = False
-        else:
-            if A[0,i] < 0:
-                terms += " - %.4f*" % abs(A[0,i]) + train_states[idx]
+    for i in range(len(output_idx)):
+        terms = ""
+        first = True
+        for j, idx in enumerate(input_idx):
+            if first:
+                terms += "%.4f*" % A[i,j] + train_states[idx]
+                first = False
             else:
-                terms += " + %.4f*" % A[0,i] + train_states[idx]
-    print(y_state, "=", terms)
+                if A[i,j] < 0:
+                    terms += " - %.4f*" % abs(A[i,j]) + train_states[idx]
+                else:
+                    terms += " + %.4f*" % A[i,j] + train_states[idx]
+        print(output_states[i], "=", terms)
 
-    fig, axs = plt.subplots(2, sharex=True)
-    fig.suptitle("Estimate for: " + y_state + " = " + terms)
-    axs[0].plot(traindata[output_idx,1:].T, label="original signal")
-    if self_reference:
-        axs[0].plot(sim_est[:,:-1].T, label="sim signal")
-    else:
-        axs[0].plot(direct_est[:,:-1].T, label="fit signal")
-    axs[0].legend()
-    if self_reference:
-        axs[1].plot(sim_error[0,:].T, label="sim error")
-        y_mean = np.mean(sim_error[0,:])
-        y_std = np.std(sim_error[0,:])
-    else:
-        axs[1].plot(direct_error.T, label="fit error")
-        y_mean = np.mean(direct_error)
-        y_std = np.std(direct_error)
-    print("  mean: %.4f" % y_mean, "std: %.4f" % y_std)
-    # print(len(min_est[:,:-1].T))
-    axs[1].hlines(y=y_mean-2*y_std, xmin=0, xmax=len(direct_est[:,:-1].T), colors='green', linestyles='--')
-    axs[1].hlines(y=y_mean+2*y_std, xmin=0, xmax=len(direct_est[:,:-1].T), colors='green', linestyles='--', label="2*stddev")
-    axs[1].legend()
+    print("A:\n", A[:3,:3].tolist())
+    print("A-1:\n", np.linalg.inv(A[:3,:3]).tolist())
+    print("B:\n", A[:3,3:].tolist())
+
+    for i in range(len(output_states)):
+        error = traindata[idx,1:] - est[i,:-1]
+        fig, axs = plt.subplots(2, sharex=True)
+        fig.suptitle("Estimate for: " + output_states[i] + " = " + terms)
+        axs[0].plot(traindata[output_idx[i],1:].T, label="original signal")
+        axs[0].plot(est[i,:-1].T, label="fit signal")
+        axs[0].legend()
+        axs[1].plot(error.T, label="fit error")
+        y_mean = np.mean(error)
+        y_std = np.std(error)
+        print("  mean: %.4f" % y_mean, "std: %.4f" % y_std)
+        # print(len(min_est[:,:-1].T))
+        axs[1].hlines(y=y_mean-2*y_std, xmin=0, xmax=len(est[i,:-1].T), colors='green', linestyles='--')
+        axs[1].hlines(y=y_mean+2*y_std, xmin=0, xmax=len(est[i,:-1].T), colors='green', linestyles='--', label="2*stddev")
+        axs[1].legend()
     plt.show()
 
 # evaluate each condition
@@ -529,13 +527,17 @@ for i, cond in enumerate(conditions):
         # (incremental.)  A self referencing system can be a better fit, but is
         # also non-deterministic.
 
-        # uncomment these one at a time
-        y_state = "p"
-        # y_state = "q"
-        # y_state = "beta_deg"
+        # include terms in a way that acknowledges rudder/aileron, roll/yaw
+        # rates, and beta are coupled, but pitch is independent(-ish)
 
-        include_states = ["one"]
-        exclude_states = []
+        # enable these one at a time
+        # y_state = "p"
+        # y_state = "q"
+        y_state = "beta_deg"
+        include_states = ["aileron*qbar", "elevator*qbar", "rudder*qbar"]
+
+        # exclude states
+        exclude_states = ["p", "q", "r", "beta_deg"] + inceptor_terms + inceptor_airdata_terms  # avoid self referencing
 
         parameter_find_5(traindata, train_states, y_state, include_states, exclude_states, self_reference=False)
 
@@ -559,9 +561,12 @@ for i, cond in enumerate(conditions):
 
         parameter_find_5(traindata, train_states, y_state, include_states, exclude_states, self_reference=False)
 
-    if True:
+    if False:
         # Direct model fit.  Use the previous two sections to determine the
-        # relevants states, now go!
+        # relevants states, now go!  But stop!  This computes these terms
+        # independently, so there could be doubling up of effects, really nead
+        # to solve 3 simultaneous equations at the end, not 3 separate
+        # equations!
 
         # reverse the training data because we want to fit to the previous input
         # that gets us to the desired state in the next time step. (this is a
@@ -576,3 +581,42 @@ for i, cond in enumerate(conditions):
         # y_state = "rudder*qbar"
 
         parameter_fit_1(traindata, train_states, y_state, include_states, self_reference=False)
+
+    if True:
+        # Direct model fit to p, q, beta.  Use the previous two sections to
+        # determine the relevants states, now go!
+        #
+        # This leaves us with equations for p, q, and beta based on 3 variables
+        # (ail, ele, rud).  In the control laws we'll fill in desired values for
+        # p, q, and beta.  We'll leave the control surface positions as
+        # unknowns.  We can evaluate/sum/collapse the remaining terms into a
+        # single vector [b1, b2, b3] because we know the current state values.
+        #
+        # This gives us:
+        #
+        #   [ p    ]   [ a11 a12 a13 ] [ ail*qbar ]   [ b1 ]
+        #   [ q    ] = [ a21 a22 a23 ]*[ ele*qbar ] + [ b2 ]
+        #   [ beta ]   [ a31 a32 a33 ] [ rud*qbar ]   [ b3 ]
+        #
+        #   [ p    ]   [     ] [ ail*qbar ]   [ b1 ]
+        #   [ q    ] = [  A  ]*[ ele*qbar ] + [ b2 ]
+        #   [ beta ]   [     ] [ rud*qbar ]   [ b3 ]
+        #
+        #   [       ] [ p    ]   [ b1 ]   [ ail*qbar ]
+        #   [  A-1  ]*[ q    ] - [ b2 ] = [ ele*qbar ]
+        #   [       ] [ beta ]   [ b3 ]   [ rud*qbar ]
+        #
+        # Todo: decide weather to divide by qbar at the beginning or end to
+        # compute ail/ele/rud positions ... mathematically equivalent, but are
+        # there numerical implications?
+
+        # Todo: look if the p <- ay relationship is linear enough or if we need other ay * airspeed terms
+        # same with q <- ay
+
+        include_states = ["aileron*qbar", "elevator*qbar", "rudder*qbar", "one", "ax", "ay", "az", "bgx", "bgy", "bgz", "abs(bgy)", "1/airspeed_mps", "airspeed_mps", "q_term1"]
+
+        # y_state = "p"
+        # y_state = "q"
+        # y_state = "beta_deg"
+        output_states = ["p", "q", "beta_deg"]
+        parameter_fit_1(traindata, train_states, include_states, output_states, self_reference=False)
