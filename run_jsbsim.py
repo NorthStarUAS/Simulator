@@ -59,10 +59,9 @@ def direct_fcs():
     control_flight_node.setBool("flaps_up", inceptor_node.getBool("flaps_up"))
 
 class NotaPID():
-    def __init__(self, name, func, integral_gain, antiwindup, neutral_tolerance):
+    def __init__(self, name, integral_gain, antiwindup, neutral_tolerance):
         self.dt = 0.02
         self.name = name
-        self.func = func
         self.int_gain = integral_gain
         self.antiwindup = antiwindup
         self.tol = neutral_tolerance
@@ -91,11 +90,11 @@ class NotaPID():
         return ref_val
 
     def integrator(self, ref_val, cur_val):
-        self.error_sum += (ref_val - cur_val) * self.dt
+        self.error_sum += self.int_gain * (ref_val - cur_val) * self.dt
         if self.error_sum < -self.antiwindup: self.error_sum = -self.antiwindup
         if self.error_sum > self.antiwindup: self.error_sum = self.antiwindup
         # print(self.name, "ref_val: %.2f" % ref_val, "error sum: %.2f" % self.error_sum, "%s: %.2f" % (self.name, self.error_sum * self.int_gain))
-        return self.error_sum * self.int_gain
+        return self.error_sum
 
 class NotaFCS():
     def __init__(self):
@@ -118,27 +117,24 @@ class NotaFCS():
         self.pitch_damp_gain = 1.0
         self.yaw_damp_gain = 5.0
 
-        self.roll_controller = NotaPID("roll", self.roll_func, integral_gain=1.0, antiwindup=0.25, neutral_tolerance=0.02)
-        self.pitch_controller = NotaPID("pitch", self.pitch_func, integral_gain=-4.0, antiwindup=0.5, neutral_tolerance=0.03)
-        self.yaw_controller = NotaPID("yaw", self.yaw_func, integral_gain=-0.01, antiwindup=10, neutral_tolerance=0.02)
+        self.roll_helper = NotaPID("roll", integral_gain=1.0, antiwindup=0.25, neutral_tolerance=0.02)
+        self.pitch_helper = NotaPID("pitch", integral_gain=-4.0, antiwindup=0.5, neutral_tolerance=0.03)
+        self.yaw_helper = NotaPID("yaw", integral_gain=-0.01, antiwindup=10, neutral_tolerance=0.02)
 
-        # self.A_1 =  np.array(
-        #     [[  640.5491204237019, 7318.274338542231,  145.36316444343038],
-        #      [-5925.7563775981625, 8166.787947667861,   71.97155383929868],
-        #      [ -525.2920046924208, 2808.335317363771, -137.2025832944612]]
-        # )
-        # self.B = np.array(
-        #     [[-0.05693361893060279, -0.001295528867971077, -0.005711799151942839, 0.000905503147267076, -0.009470654619625466,  0.002075155854446521,  0.017540533979970362,  0.0017961339985038977,  4.634338692782735, 0.0016511736062629167, -10.000622489234617],
-        #      [-0.2618144176877694,   0.0025267035433311023, 0.008192753236485892, 0.004585894999890392,  0.023859996183603096, -0.0019562397939452947, 0.004690599025956665, -0.0027451715297843546,  7.65157976906464,  0.0033548602796592184,  11.862452693894255],
-        #      [ 1.267147891398938,   -0.06615263213349391,  -0.040798310823740226, 0.005928758316797655,  0.5826256649631434,   -0.1468643099012692,   -0.8535965934839992,   -0.04164329779085257, -286.101582481374,   -0.08068076777562076,   326.9646738668046]]
-        # )
-
-        self.A_1 = np.array(
-            [[6707.315699530375, -589.5361961591931, 41.00516350888945],
-             [-1839.8356136452803, -3187.152050399838, 95.73071173204652],
-             [4385.893555319259, -902.3216631561293, -255.76278557926886]]
+        self.Ainv_lat = np.array(
+            [[5775.381885098956, 82.77808579660751],
+             [3174.049921950911, -208.26398785983227]]
         )
-        self.B = np.array([[-0.03735303047385279], [-0.058541155490085754], [0.026501542519104537]])
+        self.B_lat = np.array(
+            [[-0.005241737213195004, -0.005865478300975062, 0.0022233286464520595, -1.4980540274253145],
+             [-1.1302438460613164, 0.059599793907393415, -0.17246330454816164, 62.39945825500266]]
+        )
+        self.Ainv_lon = np.array(
+            [[-2916.4286901639866]]
+        )
+        self.B_lon = np.array(
+            [[-0.022590773981529783, -2.4757330979504637, 1.2706001552602082]]
+        )
 
     def update(self):
         self.throttle_cmd = inceptor_node.getFloat("throttle")
@@ -180,7 +176,7 @@ class NotaFCS():
             turn_rate_rps = tan(self.phi_deg*d2r) * -gravity / vtrue_mps
         else:
             turn_rate_rps = 0
-        # copmute a baseline q and r for the presumed steady state level turn, this is what we dampen towards
+        # compute a baseline q and r for the presumed steady state level turn, this is what we dampen towards
         baseline_q = sin(self.phi_deg*d2r) * turn_rate_rps
         baseline_r = cos(self.phi_deg*d2r) * turn_rate_rps
 
@@ -198,23 +194,18 @@ class NotaFCS():
         min_p = (-self.bank_limit_deg - self.phi_deg) * d2r * 0.5
 
         # primary flight control laws
-        # aileron_cmd = self.roll_controller.update(roll_rate_cmd, 0, min_p, max_p, self.phi_deg, self.p)
-        # elevator_cmd = self.pitch_controller.update(pitch_rate_cmd, baseline_q, None, max_q, self.theta_deg, self.q)
-        # rudder_cmd = self.yaw_controller.update(beta_deg_cmd, 0, None, None, 0, self.beta_deg)
-        ref_p = self.roll_controller.get_ref_value(roll_rate_cmd, 0, min_p, max_p, self.phi_deg)
-        ref_q = self.pitch_controller.get_ref_value(pitch_rate_cmd, baseline_q, None, max_q, self.theta_deg)
-        ref_beta = self.yaw_controller.get_ref_value(beta_deg_cmd, 0, None, None, 0)
+        ref_p = self.roll_helper.get_ref_value(roll_rate_cmd, 0, min_p, max_p, self.phi_deg)
+        ref_q = self.pitch_helper.get_ref_value(pitch_rate_cmd, baseline_q, None, max_q, self.theta_deg)
+        ref_beta = self.yaw_helper.get_ref_value(beta_deg_cmd, 0, None, None, 0)
 
         # direct surface position control
-        # raw_aileron_cmd = self.roll_func(ref_p, ref_q, ref_beta)
-        # raw_elevator_cmd = self.pitch_func(ref_p, ref_q, ref_beta)
-        # raw_rudder_cmd = self.yaw_func(ref_p, ref_q, ref_beta)
-        raw_aileron_cmd, raw_elevator_cmd, raw_rudder_cmd = self.roll_it_all_together_func(ref_p, ref_q, ref_beta)
+        raw_aileron_cmd, raw_rudder_cmd = self.lat_func(ref_p, ref_beta)
+        raw_elevator_cmd = self.lon_func(ref_q)
 
         # integrators
-        aileron_int = self.roll_controller.integrator(ref_p, self.p)
-        elevator_int = self.pitch_controller.integrator(ref_q, self.q)
-        rudder_int = self.yaw_controller.integrator(ref_beta, self.beta_deg)
+        aileron_int = self.roll_helper.integrator(ref_p, self.p)
+        elevator_int = self.pitch_helper.integrator(ref_q, self.q)
+        rudder_int = self.yaw_helper.integrator(ref_beta, self.beta_deg)
         print("integrators: %.2f %.2f %.2f" % (aileron_int, elevator_int, rudder_int))
 
         # dampers
@@ -252,30 +243,19 @@ class NotaFCS():
         beta_deg = -0.3552 - 12.1898*rudder_cmd - 3.5411*self.ay + 7.1957*self.r + 0.0008*self.ay*self.qbar + 0.9769*self.throttle_cmd
         return beta_deg
 
-    def roll_func(self, ref_p, ref_q, ref_beta):
-        # roll_cmd = (-73.594 + 2899.711*ref_p + 42.936*self.beta_deg + 3.394*self.airspeed_mps - 80.052*self.ay) / self.qbar
-        roll_cmd = (328.3374 - 24.4623*self.alpha_deg + 73.0825*ref_beta + 1549.7883*ref_p + 289.0764*ref_q + 594.0779*self.r + 43.4224*self.gbody_x + 14.4835*self.gbody_y + 14.1115*self.gbody_z - 6.7697*abs(self.gbody_y) + 3.4586*self.ax + 3.8059*self.ay - 3.0352*self.az + 1.9924*abs(self.ay) - 94.2333*self.throttle_cmd) / self.qbar
-        return roll_cmd
-
-    def pitch_func(self, ref_p, ref_q, ref_beta):
-        # pitch_cmd = (-292.128 - 1304.394*ref_q - 36.907*abs(self.ay) + 47.111*self.throttle_cmd - 10.242*self.gbody_z + 2.421*self.az) / self.qbar
-        pitch_cmd = (-510.0228 - 15.2499*self.alpha_deg - 3.8565*ref_beta - 30.3212*ref_p - 5.4334*ref_q + 77.0022*self.r + 2.1043*self.gbody_x + 0.0880*self.gbody_y - 31.3148*self.gbody_z - 7.4353*abs(self.gbody_y) - 2.3501*self.ax - 4.0020*self.ay + 0.6556*self.az - 0.2947*abs(self.ay) + 60.1885*self.throttle_cmd) / self.qbar
-        return pitch_cmd
-
-    def yaw_func(self, ref_p, ref_q, ref_beta):
-        r = 0  # stabilize ... we want the rudder command that gives us ref_beta and r = 0 simultaneously
-        # r = vel_node.getFloat("r_rps")
-        # yaw_cmd = (-51.718 - 103.900*ref_beta + 100.800*self.gbody_x - 1005.478*r - 105.357*self.ay) / self.qbar
-        yaw_cmd = (-495.2686 + 27.9346*self.alpha_deg - 98.6537*ref_beta - 1.5749*ref_p - 72.1812*ref_q + 1995.3476*r + 92.9930*self.gbody_x + 15.1753*self.gbody_y - 28.5866*self.gbody_z + 12.1165*abs(self.gbody_y) - 7.5128*self.ax - 6.4226*self.ay + 1.6634*self.az - 2.9201*abs(self.ay) + 173.3109*self.throttle_cmd) / self.qbar
-        return yaw_cmd
-
-    def roll_it_all_together_func(self, ref_p, ref_q, ref_beta):
-        x = np.array([ref_p, ref_q, ref_beta])
-        # b = np.array([1, self.ax, self.ay, self.az, self.gbody_x, self.gbody_y, self.gbody_z, abs(self.gbody_y), 1/self.airspeed_mps, self.airspeed_mps, self.q_term1])
-        b = np.array([1])
-        y = (self.A_1 * x - self.B * b) / self.qbar
-        print("y:", y)
+    def lat_func(self, ref_p, ref_beta):
+        x = np.array([ref_p, ref_beta])
+        b = np.array([1, self.ay, self.gbody_y, 1/self.airspeed_mps])
+        y = (self.Ainv_lat @ x - self.B_lat @ b) / self.qbar
+        print("lon y:", y)
         return y.tolist()
+
+    def lon_func(self, ref_q):
+        x = np.array([ref_q])
+        b = np.array([1, 1/self.airspeed_mps, self.q_term1])
+        y = (self.Ainv_lon @ x - self.B_lon @ b) / self.qbar
+        print("lat y:", y)
+        return y[0]
 
 fcs = NotaFCS()
 

@@ -434,6 +434,8 @@ def parameter_find_5(traindata, train_states, y_state, include_states, exclude_s
 
 def parameter_fit_1(traindata, train_states, input_states, output_states, self_reference=False):
 
+    n = len(output_states)
+
     input_idx = []
     output_idx = []
 
@@ -447,7 +449,7 @@ def parameter_fit_1(traindata, train_states, input_states, output_states, self_r
     # direct solution with all current states known, how well does our fit estimate the next state?
     est = A @ traindata[input_idx,:]
     # print("est:", est.shape, direct_est)
-    for i in range(len(output_idx)):
+    for i in range(n):
         idx = output_idx[i]
         error = traindata[idx,1:] - est[i,:-1]
         # print("direct_error:", direct_error.shape, direct_error)
@@ -455,7 +457,7 @@ def parameter_fit_1(traindata, train_states, input_states, output_states, self_r
         rms_perc = 100 * rms(error) / rms(traindata[idx,1:])
         print(output_states[i], "rms: %.4f" % rms(error), "%.2f%%" % rms_perc)
 
-    for i in range(len(output_idx)):
+    for i in range(n):
         terms = ""
         first = True
         for j, idx in enumerate(input_idx):
@@ -469,11 +471,11 @@ def parameter_fit_1(traindata, train_states, input_states, output_states, self_r
                     terms += " + %.4f*" % A[i,j] + train_states[idx]
         print(output_states[i], "=", terms)
 
-    print("A:\n", A[:3,:3].tolist())
-    print("A-1:\n", np.linalg.inv(A[:3,:3]).tolist())
-    print("B:\n", A[:3,3:].tolist())
+    print("A:\n", A[:n,:n].tolist())
+    print("A-1:\n", np.linalg.inv(A[:n,:n]).tolist())
+    print("B:\n", A[:n,n:].tolist())
 
-    for i in range(len(output_states)):
+    for i in range(n):
         error = traindata[idx,1:] - est[i,:-1]
         fig, axs = plt.subplots(2, sharex=True)
         fig.suptitle("Estimate for: " + output_states[i] + " = " + terms)
@@ -613,11 +615,14 @@ for i, cond in enumerate(conditions):
         # Todo: look if the p <- ay relationship is linear enough or if we need other ay * airspeed terms
         # same with q <- ay
 
-        # include_states = ["aileron*qbar", "elevator*qbar", "rudder*qbar", "one", "ax", "ay", "az", "bgx", "bgy", "bgz", "abs(bgy)", "1/airspeed_mps", "airspeed_mps", "q_term1"]
-        include_states = ["aileron*qbar", "elevator*qbar", "rudder*qbar", "one"]
+        # Todo: separate lateral and longitudinal controls ... they cross couple
+        # in the data, but we don't want them cross coupled in the control laws.
 
-        # y_state = "p"
-        # y_state = "q"
-        # y_state = "beta_deg"
-        output_states = ["p", "q", "beta_deg"]
+        # include_states = ["aileron*qbar", "elevator*qbar", "rudder*qbar", "one", "ax", "ay", "az", "bgx", "bgy", "bgz", "abs(bgy)", "1/airspeed_mps", "airspeed_mps", "q_term1"]
+        include_states = ["aileron*qbar", "rudder*qbar", "one", "ay", "bgy", "1/airspeed_mps"]
+        output_states = ["p", "beta_deg"]
+        parameter_fit_1(traindata, train_states, include_states, output_states, self_reference=False)
+
+        include_states = ["elevator*qbar", "one", "1/airspeed_mps", "q_term1"]
+        output_states = ["q"]
         parameter_fit_1(traindata, train_states, include_states, output_states, self_reference=False)
