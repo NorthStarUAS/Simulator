@@ -596,29 +596,35 @@ for i, cond in enumerate(conditions):
         #
         # This gives us:
         #
-        #   [ p    ]   [ a11 a12 a13 ] [ ail*qbar ]   [ b1 ]
-        #   [ q    ] = [ a21 a22 a23 ]*[ ele*qbar ] + [ b2 ]
-        #   [ beta ]   [ a31 a32 a33 ] [ rud*qbar ]   [ b3 ]
+        #   [ p    ]   [ a11 a12 a13 ] [ ail*qbar ]   [ b11 b12 ... b1n ] [ p1  ]
+        #   [ q    ] = [ a21 a22 a23 ]*[ ele*qbar ] + [ b21 b22 ... b2n ]*[ p2  ]
+        #   [ beta ]   [ a31 a32 a33 ] [ rud*qbar ]   [ b31 b32 ... b3n ] [ ... ]
+        #                                                                 [ pn  ]
         #
-        #   [ p    ]   [     ] [ ail*qbar ]   [ b1 ]
-        #   [ q    ] = [  A  ]*[ ele*qbar ] + [ b2 ]
-        #   [ beta ]   [     ] [ rud*qbar ]   [ b3 ]
+        #   [ p    ]   [     ] [ ail*qbar ]   [     ] [ p1  ]
+        #   [ q    ] = [  A  ]*[ ele*qbar ] + [  B  ]*[ p2  ]
+        #   [ beta ]   [     ] [ rud*qbar ]   [     ] [ ... ]
+        #                                             [ pn  ]
         #
         #   [       ] [ p    ]   [ b1 ]   [ ail*qbar ]
         #   [  A-1  ]*[ q    ] - [ b2 ] = [ ele*qbar ]
         #   [       ] [ beta ]   [ b3 ]   [ rud*qbar ]
         #
-        # Todo: decide weather to divide by qbar at the beginning or end to
-        # compute ail/ele/rud positions ... mathematically equivalent, but are
-        # there numerical implications?
 
         # Todo: look if the p <- ay relationship is linear enough or if we need other ay * airspeed terms
         # same with q <- ay
 
-        # Todo: separate lateral and longitudinal controls ... they cross couple
-        # in the data, but we don't want them cross coupled in the control laws.
+        # Note 1: from a cool perspective we can combine all the terms into a
+        # single solution, but there is too much cross coupling in our flight
+        # test data leading to weird correlations in the solution.  It makes
+        # more practical sense to separate the lateral and longitudinal axes ...
+        # Even so, there is a /lot/ of cross coupling between aileron and rudder
+        # and we may not actually want a pure system in the end.
 
-        # include_states = ["aileron*qbar", "elevator*qbar", "rudder*qbar", "one", "ax", "ay", "az", "bgx", "bgy", "bgz", "abs(bgy)", "1/airspeed_mps", "airspeed_mps", "q_term1"]
+        # Note 2: sometimes simpler is better ... fewer terms means less of a
+        # good model fit, but more terms can introduce unpredictability (or
+        # unexpectability)
+
         include_states = ["aileron*qbar", "rudder*qbar", "one", "ay", "bgy", "1/airspeed_mps"]
         output_states = ["p", "beta_deg"]
         parameter_fit_1(traindata, train_states, include_states, output_states, self_reference=False)
