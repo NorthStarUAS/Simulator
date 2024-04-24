@@ -11,7 +11,7 @@ Engineering and Mechanics, UAV Lab.
 
 from apscheduler.schedulers.background import BackgroundScheduler   # pip install APScheduler (dnf install python3-APScheduler)
 import argparse
-from math import cos, sin, tan
+from math import cos, exp, sin, tan
 import numpy as np
 import os
 import time
@@ -71,8 +71,8 @@ class NotaPID():
         self.hold_cmd = 0.0
         self.error_sum = 0.0
 
-    def get_ref_value(self, input_cmd, ff_cmd, min_val, max_val, cur_val, is_flying):
-        if not is_flying:
+    def get_ref_value(self, input_cmd, ff_cmd, min_val, max_val, cur_val, flying_confidence):
+        if flying_confidence < 0.1:
             self.hold_cmd = cur_val
         if abs(input_cmd) < self.tol:
             if not self.cmd_neutral:
@@ -86,7 +86,8 @@ class NotaPID():
         if self.hold_cmd > self.max_hold:
             self.hold_cmd = self.max_hold
         if self.cmd_neutral:
-            ref_val = (self.hold_cmd - cur_val) * 0.05 + ff_cmd
+            error = (self.hold_cmd - cur_val) * flying_confidence
+            ref_val = error * 0.05 + ff_cmd
             # print(self.name, ref_rate)
         else:
             ref_val = input_cmd + ff_cmd
@@ -97,15 +98,12 @@ class NotaPID():
             ref_val = min_val
         return ref_val
 
-    def integrator(self, ref_val, cur_val, is_flying=False):
-        if is_flying:
-            self.error_sum += self.int_gain * (ref_val - cur_val) * self.dt
-            if self.error_sum < -self.antiwindup: self.error_sum = -self.antiwindup
-            if self.error_sum > self.antiwindup: self.error_sum = self.antiwindup
-            # print(self.name, "ref_val: %.2f" % ref_val, "error sum: %.2f" % self.error_sum, "%s: %.2f" % (self.name, self.error_sum * self.int_gain))
-        else:
-            fade_sec = 2
-            self.error_sum *= (fade_sec - self.dt) / fade_sec
+    def integrator(self, ref_val, cur_val, flying_confidence=0.0):
+        cutoff = self.antiwindup * flying_confidence
+        self.error_sum += self.int_gain * (ref_val - cur_val) * self.dt
+        if self.error_sum < -cutoff: self.error_sum = -cutoff
+        if self.error_sum > cutoff: self.error_sum = cutoff
+        # print(self.name, "ref_val: %.2f" % ref_val, "error sum: %.2f" % self.error_sum, "%s: %.2f" % (self.name, self.error_sum * self.int_gain))
         return self.error_sum
 
 # Issue 1: life is good through take off roll and rotation, but when speed
@@ -128,7 +126,7 @@ class NotaFCS():
         # flying vs on ground detection
         self.on_ground_for_sure_mps = 30
         self.flying_for_sure_mps = 40
-        self.is_flying = False
+        self.flying_confidence = 0.0  # range from 0 to 1 representing level of confidence we are on ground(0) vs flying(1)
 
         # envelope protection
         self.alpha_limit_deg = 13.0
@@ -185,14 +183,16 @@ class NotaFCS():
         self.gbody_z = cos(self.phi_deg*d2r) * cos(self.theta_deg*d2r) * gravity
         self.q_term1 = sin(self.phi_deg*d2r) * (sin(self.phi_deg*d2r) / cos(self.phi_deg*d2r)) / self.airspeed_mps
 
-        # flying?
-        if self.airspeed_mps < self.on_ground_for_sure_mps:
-            self.is_flying = False
-        if self.airspeed_mps > self.flying_for_sure_mps:
-            self.is_flying = True
-        print("flying:", "%.1f" % self.airspeed_mps, self.is_flying)
+        # flying?  Let's use a sigmoid function between min/max threshold and
+        # compute a 0 - 1 likelihood.
+        diff = self.flying_for_sure_mps - self.on_ground_for_sure_mps
+        mid = self.on_ground_for_sure_mps + diff * 0.5
+        # sigmoid function of [-5 to 5]
+        x = 10 * (self.airspeed_mps - self.on_ground_for_sure_mps) / diff - 5
+        self.flying_confidence = exp(x) / (1 + exp(x))
+        print("flying:", "%.1f" % self.airspeed_mps, self.flying_confidence)
 
-        if self.is_flying:
+        if self.flying_confidence > 0.5:
             if True:
                 # sensed directly (or from sim model)
                 self.alpha_deg = aero_node.getFloat("alpha_deg")
@@ -205,7 +205,7 @@ class NotaFCS():
             self.alpha_deg = self.theta_deg
             self.beta_deg = 0
 
-        if self.is_flying:
+        if self.flying_confidence > 0.5:
             # Feed forward steady state q and r basd on bank angle/turn rate.
             # Presuming a steady state level turn, compute turn rate =
             # func(velocity, bank angle).  This is the one feed forward term used in
@@ -241,9 +241,9 @@ class NotaFCS():
         min_p = (-self.bank_limit_deg - self.phi_deg) * d2r * 0.5
 
         # Condition and limit the pilot requests
-        ref_p = self.roll_helper.get_ref_value(roll_rate_cmd, 0, min_p, max_p, self.phi_deg, self.is_flying)
-        ref_q = self.pitch_helper.get_ref_value(pitch_rate_cmd, baseline_q, None, max_q, self.theta_deg, self.is_flying)
-        ref_beta = self.yaw_helper.get_ref_value(beta_deg_cmd, 0, None, None, 0, self.is_flying)
+        ref_p = self.roll_helper.get_ref_value(roll_rate_cmd, 0, min_p, max_p, self.phi_deg, self.flying_confidence)
+        ref_q = self.pitch_helper.get_ref_value(pitch_rate_cmd, baseline_q, None, max_q, self.theta_deg, self.flying_confidence)
+        ref_beta = self.yaw_helper.get_ref_value(beta_deg_cmd, 0, None, None, 0, self.flying_confidence)
 
         # compute the direct surface position to achieve the command (these
         # functions are fit from the original flight data and involve a matrix
@@ -257,9 +257,9 @@ class NotaFCS():
         # the real aircraft. Imperfect models can be due to linear fit limits,
         # change in aircraft weight and balance, change in atmospheric
         # conditions, etc.
-        aileron_int = self.roll_helper.integrator(ref_p, self.p, self.is_flying)
-        elevator_int = self.pitch_helper.integrator(ref_q, self.q, self.is_flying)
-        rudder_int = self.yaw_helper.integrator(ref_beta, self.beta_deg, self.is_flying)
+        aileron_int = self.roll_helper.integrator(ref_p, self.p, self.flying_confidence)
+        elevator_int = self.pitch_helper.integrator(ref_q, self.q, self.flying_confidence)
+        rudder_int = self.yaw_helper.integrator(ref_beta, self.beta_deg, self.flying_confidence)
         print("integrators: %.2f %.2f %.2f" % (aileron_int, elevator_int, rudder_int))
 
         # dampers, these can be tuned to pilot preference for lighter finger tip
