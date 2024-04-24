@@ -72,7 +72,7 @@ class NotaPID():
         self.error_sum = 0.0
 
     def get_ref_value(self, input_cmd, ff_cmd, min_val, max_val, cur_val, flying_confidence):
-        if flying_confidence < 0.1:
+        if flying_confidence < 0.01:
             self.hold_cmd = cur_val
         if abs(input_cmd) < self.tol:
             if not self.cmd_neutral:
@@ -105,11 +105,6 @@ class NotaPID():
         if self.error_sum > cutoff: self.error_sum = cutoff
         # print(self.name, "ref_val: %.2f" % ref_val, "error sum: %.2f" % self.error_sum, "%s: %.2f" % (self.name, self.error_sum * self.int_gain))
         return self.error_sum
-
-# Issue 1: life is good through take off roll and rotation, but when speed
-# threshold trips and integrators turn on, that stick back pressure for holding
-# the nose up turns into a real rate command and the nose pitches up fast and
-# pilot has to push back and then center the stick.
 
 class NotaFCS():
     def __init__(self):
