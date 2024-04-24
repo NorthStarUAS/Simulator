@@ -39,10 +39,19 @@ class JSBSimWrap:
     def SetupICprops(self):
         # Load IC file
         self.fdm["ic/vt-kts"] = 120
-        self.fdm["ic/lat-geod-deg"] = 37.03
-        self.fdm["ic/long-gc-deg"] = -113.52
-        self.fdm["ic/terrain-elevation-ft"] = 2500
-        self.fdm["ic/h-agl-ft"] = 15000
+        if False:
+            # St George, UT
+            self.fdm["ic/lat-geod-deg"] = 37.03
+            self.fdm["ic/long-gc-deg"] = -113.52
+            self.fdm["ic/terrain-elevation-ft"] = 2500
+            self.fdm["ic/h-agl-ft"] = 15000
+        if True:
+            # Duluth, MN
+            self.fdm["ic/lat-geod-deg"] = 46.866
+            self.fdm["ic/long-gc-deg"] = -92.168
+            self.fdm["ic/terrain-elevation-ft"] = 1414
+            self.fdm["ic/h-agl-ft"] = 1000
+            self.fdm['ic/psi-true-deg'] = -135
         self.fdm["propulsion/set-running"] = -1
 
         # self.fdm.disable_output() # Disable Output
