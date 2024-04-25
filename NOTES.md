@@ -1,3 +1,7 @@
+# good site Chris found
+
+https://aircraftflightmechanics.com/NotesIntroduction.html
+
 # Random Notes and Thoughts
 
 Caution: this is anevolving project.  Much of the information could be outdated.
