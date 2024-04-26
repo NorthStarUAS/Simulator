@@ -44,11 +44,14 @@ Next we derive a simple function to predict the required aileron deflection to
 achieve a desired roll rate.
 
 Side note: when flight data is used in this way, "small" details like units
-conversions, aero coefficients, weight, balance, wing span, moments of inertia,
-etc. all collapse into a single coefficient and are baked into the result. This
-means the result is only valid for the specific airplane as configured on the
-day it was flown.  This maybe unsatisfying to purists for sure!!!  However, for
-the purposes of flight control, I will assert it is usually "close enough".
+conversions, aero coefficients, aircraft weight and balance, wing span, moments
+of inertia, etc. all collapse into a single coefficient and are baked into the
+final result. This means the result is most accurate for the specific airplane
+as configured on the day and conditions the data was collected.  This may be
+unsatisfying to purists for sure who are expecting a much more detailed model
+that includes all the classic terms in their correct units!!! However, for the
+purposes of flight control, I will assert a far simpler model is usually "close
+enough".
 
 * $\rho = 1.225$ $(kg/m^3)$ (air density)
 * $v =$ airspeed $(m/s)$
@@ -258,6 +261,16 @@ $$
 So what have we done here?  We have derived directly from flight test data
 formulas to simultantiously set aileron and rudder position to achieve the
 specified roll rate $p$ and yaw rate $r$.
+
+## Example 3: Additional Terms for Model Fit Improvement
+
+TBD - we can build a model with additional terms like acceleromters, bank angle,
+alpha/beta, etc.  Even combinations of terms with sin(), cos(), etc.  This is
+relatively straight forward.  On the front end we add extra columns to our least
+squares data/coefficient matrices.  And on the back end in the flight controller
+while flying, these extra terms can be evaluated with current state data and
+they all collapse into a single number so runtime solution is still quite simple
+and easy to compute.
 
 ## Additional Refinements
 
