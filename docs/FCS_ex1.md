@@ -40,13 +40,23 @@ solve it and what quality solution you can expect in the end.
 
 ## Example 1: Simple proof of concept -- Roll control
 
+Next we derive a simple function to predict the required aileron deflection to
+achieve a desired roll rate.
+
+Side note: when flight data is used in this way, "small" details like units
+conversions, aero coefficients, weight, balance, wing span, moments of inertia,
+etc. all collapse into a single coefficient and are baked into the result. This
+means the result is only valid for the specific airplane as configured on the
+day it was flown.  This maybe unsatisfying to purists for sure!!!  However, for
+the purposes of flight control, I will assert it is usually "close enough".
+
 * $rho = 1.225$ $(kg/m^3)$ (air density)
-* $v =$ airspeed $(mps)$
+* $v =$ airspeed $(m/s)$
 * $\bar{q} = 0.5 * v^2 * rho$ (dynamic pressure)
 * $\delta_{ail}$ = aileron deflection (range normalized from -1 to 1)
 * $\delta_{rud}$ = rudder deflection (range normalized from -1 to 1)
-* $p$ = roll rate (rad/sec)
-* $r$ = yaw rate (rad/sec)
+* $p$ = roll rate (rad/s)
+* $r$ = yaw rate (rad/s)
 
 Very approximately the control surface effectiveness scales linearly with
 dynamic pressure $(\bar{q})$ so we build this into our fit.
@@ -72,23 +82,23 @@ $$
 
 Now let's plug in some real world numbers to see what we get:
 
-* We want to command a +5 deg/sec roll rate (0.08726 rad/sec)
-* We are currently flying at 50 mps (about 100 kts)
+* We want to command a +5 deg/s roll rate (0.08726 rad/s)
+* We are currently flying at 50 m/s (about 100 kts)
 
 $$
 (7949.1*0.08726 + 247.9) / (1.225*0.5*50*50) = 0.61489
 $$
 
-This means to achieve a 5 deg/sec roll rate, we need to command the ailerons to
+This means to achieve a 5 deg/s roll rate, we need to command the ailerons to
 a position of 0.61 on a normalized range of [-1, 1].  If our true aileron
 deflection range is +/- 10 degrees, then a 6.1 degree deflection gives us our 5
-deg/sec roll rate.
+deg/s roll rate.
 
-* At 75 mps (approx. 150 kts) the computed deflection is only 0.27 (2.7 degrees
+* At 75 m/s (approx. 150 kts) the computed deflection is only 0.27 (2.7 degrees
   in our example.)  This is because as airspeed increases, dynamic pressure
   increases (by velocity squared!) and so the aileron can generate the same
   amount of force with less deflection.
-* At 35 mps (approx. 70 kts) the computed deflection is 1.25 (out of range!
+* At 35 m/s (approx. 70 kts) the computed deflection is 1.25 (out of range!
   beyond our hard stop.)  This means we would go to full deflection, but not be
   able to fully achieve the commanded roll rate.  Usually this is ok, the
   airplane still flies like an airplane and the pilot (or autopilot!) just has
