@@ -26,6 +26,7 @@ class TrainData():
                 self.cond_list = self.session["cond_list"]
                 self.train_states = self.session["train_states"]
                 self.file_list = self.session["file_list"]
+                self.dt = self.session["dt"]
                 return "cached"
 
         print("file set or train state changed, so need to rebuild session data ...")
@@ -72,6 +73,7 @@ class TrainData():
             print("imu dt:", imu_dt)
             print("max airspeed in flight:", max_airspeed )
 
+            self.dt = imu_dt
             state_mgr.set_dt(imu_dt)
 
             print("Parsing flight data log:")
@@ -236,7 +238,8 @@ class TrainData():
         print("Saving a hickle (hdf5/pickle) cache of this session data...")
         session = {}
         session["flight_format"] = self.flight_format
+        session["file_list"] = self.file_list
         session["cond_list"] = self.cond_list
         session["train_states"] = self.train_states
-        session["file_list"] = self.file_list
+        session["dt"] = imu_dt
         hickle.dump(session, self.session_file, mode='w')
