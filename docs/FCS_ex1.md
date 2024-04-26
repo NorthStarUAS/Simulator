@@ -18,8 +18,8 @@ pushes against the rate the error is changing.  It is very much like a damping
 term.
 
 What if the proportoinal term in the PID (which is stable but wrong!) could be
-replaced with a term that computes the correct output location directly?
-Instead of fishing around to find the correct place to drive the output to zero,
+replaced with a term that computes the correct output location directly? Instead
+of fishing around to find the correct place to drive the output to zero,
 couldn't we just model the system and directly compute the correct output?
 
 What follows is one "simple" way to do this.
@@ -34,7 +34,9 @@ attitude (roll, pitch, yaw), and airspeed.
 
 ## Requirement: Domain knowledge and engineering judgement
 
-Every situation and use case is different, so good judgement and knowledge of your domain is important.  How you setup the problem greatly influences how you solve it and what quality solution you can expect in the end.
+Every situation and use case is different, so good judgement and knowledge of
+your domain is important.  How you setup the problem greatly influences how you
+solve it and what quality solution you can expect in the end.
 
 ## Example 1: Simple proof of concept -- Roll control
 
@@ -46,9 +48,11 @@ Every situation and use case is different, so good judgement and knowledge of yo
 * $p$ = roll rate (rad/sec)
 * $r$ = yaw rate (rad/sec)
 
-Very approximately the control surface effectiveness scales linearly with dynamic pressure $(\bar{q})$ so we build this into our fit.
+Very approximately the control surface effectiveness scales linearly with
+dynamic pressure $(\bar{q})$ so we build this into our fit.
 
-Given some flight test data, do a least squares fit of roll command $(\delta_{ail}*\bar{q})$ vs. roll rate $(p)$ and the result is:
+Given some flight test data, do a least squares fit of roll command
+$(\delta_{ail}*\bar{q})$ vs. roll rate $(p)$ and the result is:
 
 $$
 p = 0.0001258 * \delta_{ail}*\bar{q} - 0.03119
@@ -80,8 +84,10 @@ a position of 0.61 on a normalized range of [-1, 1].  If our true aileron
 deflection range is +/- 10 degrees, then a 6.1 degree deflection gives us our 5
 deg/sec roll rate.
 
-* At 75 mps (approx. 150 kts) the computed deflection is only 0.27 (2.7
-  degrees in our example.)  This is because as airspeed increases, dynamic pressure increases (by velocity squared!) and so the aileron can generate the same amount of force with less deflection.
+* At 75 mps (approx. 150 kts) the computed deflection is only 0.27 (2.7 degrees
+  in our example.)  This is because as airspeed increases, dynamic pressure
+  increases (by velocity squared!) and so the aileron can generate the same
+  amount of force with less deflection.
 * At 35 mps (approx. 70 kts) the computed deflection is 1.25 (out of range!
   beyond our hard stop.)  This means we would go to full deflection, but not be
   able to fully achieve the commanded roll rate.  Usually this is ok, the
@@ -112,8 +118,8 @@ correct value quicker.
   additional up elevator deflection to maintain a steady pitch angle.  We can
   add a feed forward term based on bank angle that pre-adds in the correct
   amount to compensate for the bank.  The feed forward term can be derived from
-  experimentatal data collection, or often just by trial and error ... the engineer simply makes it
-  bigger or smaller until the system feels about right.
+  experimentatal data collection, or often just by trial and error ... the
+  engineer simply makes it bigger or smaller until the system feels about right.
 
 * Gain scheduling. For example as dynamic pressure increases, the amount of
   control surface deflection required to achieve some goal rotation rate
@@ -129,9 +135,14 @@ correct value quicker.
   amount of filtering (smoothing vs. phase loss) is another set of parameters to
   adjust.
 
-The end result is that PID controller can have a myriad of knobs to tune that each affect the performance of the system in different ways and tuning can become quite complex!
+The end result is that PID controller can have a myriad of knobs to tune that
+each affect the performance of the system in different ways and tuning can
+become quite complex!
 
-Now go back to the previous section and look at the formula we derived directly from the flight test data.  Can you see that a model-based approach is doing the equivalent of directly computing the feed forward term, and simultaneously computing the correct scaling for airspeed.
+Now go back to the previous section and look at the formula we derived directly
+from the flight test data.  Can you see that a model-based approach is doing the
+equivalent of directly computing the feed forward term, and simultaneously
+computing the correct scaling for airspeed.
 
 ## Hybrid Model-Based Controller
 
@@ -154,26 +165,44 @@ on.
 
 ## Example 2: Coupled Roll/Yaw control
 
-Many (most?) aircraft, especially those with dihedral have significant coupling between the roll and yaw axes.  In other words, aileron deflection not only affects roll, but it can also influence yaw.  And likewise, rudder input not only affects yaw, but also affects roll.  In many aircraft aileron and rudder both have significant influce on both roll and yaw.  Often the roll and yaw controllers are developed and tuned independently which is usually fine.  However, here is a little example of one way to deal with two inputs and two outputs simultaneously.
+Many (most?) aircraft, especially those with dihedral have significant coupling
+between the roll and yaw axes.  In other words, aileron deflection not only
+affects roll, but it can also influence yaw.  And likewise, rudder input not
+only affects yaw, but also affects roll.  In many aircraft aileron and rudder
+both have significant influce on both roll and yaw.  Often the roll and yaw
+controllers are developed and tuned independently which is usually fine.
+However, here is a little example of one way to deal with two inputs and two
+outputs simultaneously.
 
-Let's go back up and grab our simple formula for roll rate $p$ as a function of aileron deflection and $\bar{q}$.
+Let's go back up and grab our simple formula for roll rate $p$ as a function of
+aileron deflection and $\bar{q}$.
 
 $$
 p = 0.0001258 * \delta_{ail}*\bar{q} - 0.03119
 $$
 
 Let's refit roll rate $p$ as a function of both aileron and rudder inputs.  And
-while we are at it, let's fit yaw rate also as a function of both aileron and rudder inputs.  Here is the result (you can see how the fit coefficients change as we add terms):
+while we are at it, let's fit yaw rate also as a function of both aileron and
+rudder inputs.  Here is the result (you can see how the fit coefficients change
+as we add terms):
 
 $$
 p = 0.0001343*\delta_{ail}*\bar{q} + 0.00001223*\delta_{rud}*\bar{q} - 0.0312 \\
 r = 0.0000513*\delta_{ail}*\bar{q} + 0.00009179*\delta_{rud}*\bar{q} - 0.0007
 $$
 
-At any given time, we will know what values we *want* for $p$ and $r$.  We know the value of $\bar{q}$.  Thus we have 2 equations with 2 unknowns.  We can solve this with some basic algebra, or we could turn this into matrix form!
+At any given time, we will know what values we *want* for $p$ and $r$.  We know
+the value of $\bar{q}$.  Thus we have 2 equations with 2 unknowns.  We can solve
+this with some basic algebra, or we could turn this into matrix form!
 
 $$
-\begin{bmatrix}p\\r\end{bmatrix} = \begin{bmatrix}0.0001343 & 0.00001223\\0.0000513 & 0.00009179\end{bmatrix} \cdot \begin{bmatrix}\delta_{ail}*\bar{q} \\\delta_{rud}*\bar{q}\end{bmatrix} + \begin{bmatrix}-0.0312 \\-0.0007\end{bmatrix}
+\begin{bmatrix}p\\r\end{bmatrix}
+=
+\begin{bmatrix}0.0001343 & 0.00001223\\0.0000513 & 0.00009179\end{bmatrix}
+\cdot
+\begin{bmatrix}\delta_{ail}*\bar{q} \\\delta_{rud}*\bar{q}\end{bmatrix}
++
+\begin{bmatrix}-0.0312 \\-0.0007\end{bmatrix}
 $$
 
 We can solve this by inverting the 2x2 matrix.
@@ -189,21 +218,31 @@ $$
 Rearranging terms:
 
 $$
-A^{-1}\cdot\begin{bmatrix}p\\r\end{bmatrix} - \begin{bmatrix}-0.0312 \\-0.0007\end{bmatrix} = \begin{bmatrix}\delta_{ail}*\bar{q} \\\delta_{rud}*\bar{q}\end{bmatrix}
+A^{-1}
+\cdot
+\begin{bmatrix}p\\r\end{bmatrix}
+-
+\begin{bmatrix}-0.0312 \\-0.0007\end{bmatrix}
+=
+\begin{bmatrix}\delta_{ail}*\bar{q} \\\delta_{rud}*\bar{q}\end{bmatrix}
 $$
 
 Let's write this out as individual equations:
 
 $$
-\delta_{ail}*\bar{q} = 7844.94*p - 1045.10*r + 0.0312 \\
-\delta_{rud}*\bar{q} = -4384.25*p + 11478.98*r + 0.0007
+\begin{align*}
+\delta_{ail}*\bar{q} &= 7844.94*p - 1045.10*r + 0.0312 \\
+\delta_{rud}*\bar{q} &= -4384.25*p + 11478.98*r + 0.0007
+\end{align*}
 $$
 
 And finally:
 
 $$
-\delta_{ail} = (7844.94*p - 1045.10*r + 0.0312) / \bar{q} \\
-\delta_{rud} = (-4384.25*p + 11478.98*r + 0.0007) / \bar{q}
+\begin{align*}
+\delta_{ail} &= (7844.94*p - 1045.10*r + 0.0312) / \bar{q} \\
+\delta_{rud} &= (-4384.25*p + 11478.98*r + 0.0007) / \bar{q}
+\end{align*}
 $$
 
 So what have we done here?  We have derived directly from flight test data
@@ -212,7 +251,8 @@ specified roll rate $p$ and yaw rate $r$.
 
 ## Additional Refinements
 
-These are simple models so not perfect.  There is much more work we can do to make this even better.
+These are simple models so not perfect.  There is much more work we can do to
+make this even better.
 
 * We can add more terms. For example: side force ($accel_y$) and ($1/airspeed$)
   can be useful terms to help our model fit even more accurately.  Caution on
@@ -226,7 +266,8 @@ These are simple models so not perfect.  There is much more work we can do to ma
   model-based output.  This sucks up any remaining error just like the integral
   term in a PID.
 * If we know the range of our model error, we can limit the authority (range) of
-  the total integral term to something less than full deflection and allow the [auto] pilot to overcome the max possible integral windup.
+  the total integral term to something less than full deflection and allow the
+  [auto] pilot to overcome the max possible integral windup.
 
 ## Cautions (!) and Things to Think About (?)
 
