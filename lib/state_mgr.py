@@ -40,9 +40,9 @@ class StateManager():
         self.time = 0
         self.gyros = [np.zeros(3)]*num  # list maintains some past state
         self.accels = [np.zeros(3)]*num  # list maintains some past state
-        self.airspeed_mps = 0
+        self.vc_mps = 0       # calibrated airspeed
         self.alpha = [0]*num  # list maintains some past state
-        self.beta = [0]*num  # list maintains some past state
+        self.beta = [0]*num   # list maintains some past state
         self.vel_ned = np.array( [0.0, 0.0, 0.0] )
         self.gs_mps = 0
         self.phi_rad = 0
@@ -67,7 +67,6 @@ class StateManager():
         self.g_ned = np.array( [0.0, 0.0, gravity] )
         self.g_body = np.array( [0.0, 0.0, 0.0] )
         self.vel_body = np.array( [0.0, 0.0, 0.0] )
-
 
     def set_state_names(self, input_states, internal_states, output_states):
         self.input_states = input_states
@@ -125,18 +124,18 @@ class StateManager():
     def set_motors(self, motors):
         self.motors = motors.copy()
 
-    def set_airdata(self, airspeed_mps, alpha_rad=None, beta_rad=None):
-        self.airspeed_mps = airspeed_mps
-        self.vel_body[0] = airspeed_mps
+    def set_airdata(self, vc_mps, alpha_rad=None, beta_rad=None):
+        self.vc_mps = vc_mps
+        self.vel_body[0] = vc_mps
         if alpha_rad is not None:
             self.have_alpha = True
             self.alpha = [alpha_rad] + self.alpha[:num]
             self.alpha_dot = (self.alpha[0] - self.alpha[1]) / self.dt
-            self.vel_body[2] = airspeed_mps * sin(alpha_rad)
+            self.vel_body[2] = vc_mps * sin(alpha_rad)
         self.beta_prev1 = self.beta
         if beta_rad is not None:
             self.beta = [beta_rad] + self.beta[:num]
-            self.vel_body[1] = airspeed_mps * sin(beta_rad)
+            self.vel_body[1] = vc_mps * sin(beta_rad)
         # print("rudder:", self.rudder, "beta:", self.beta, "vby:", self.vel_body[1])
         # print("alpha:", self.alpha*r2d, "v_body:", self.vel_body)
 
@@ -195,7 +194,7 @@ class StateManager():
     def update_airdata(self, alpha_rad, beta_rad):
         # self.accels[0] = ax_mps2
         self.vel_body[0] += (self.accels[0] - self.g_body[0])  * self.dt
-        self.airspeed_mps = self.vel_body[0]
+        self.vc_mps = self.vel_body[0]
         self.compute_qbar()
         self.alpha = [alpha_rad] + self.alpha[:num]
         self.alpha_dot = (self.alpha - self.alpha_prev1) / self.dt
@@ -213,7 +212,7 @@ class StateManager():
     def update_airdata_from_accels(self):
         # todo: use observed min/max range from model
 
-        self.airspeed_mps = self.vel_body[0]
+        self.vc_mps = self.vel_body[0]
         self.compute_qbar()
 
         # try to clamp side/vertical velocities from getting crazy
@@ -237,10 +236,10 @@ class StateManager():
     def is_flying(self):
         if self.vehicle == "wing":
             # test if we are flying?
-            if not self.flying and self.gs_mps > self.airborne_thresh_mps*0.7 and self.airspeed_mps > self.airborne_thresh_mps:
+            if not self.flying and self.gs_mps > self.airborne_thresh_mps*0.7 and self.vc_mps > self.airborne_thresh_mps:
                 print("Start flying @ %.2f" % self.time)
                 self.flying = True
-            elif self.flying and self.gs_mps < self.airborne_thresh_mps*1.2 and self.airspeed_mps < self.land_thresh_mps:
+            elif self.flying and self.gs_mps < self.airborne_thresh_mps*1.2 and self.vc_mps < self.land_thresh_mps:
                 print("Stop flying @ %.2f" % self.time)
                 self.flying = False
         elif self.vehicle == "quad":
@@ -283,7 +282,7 @@ class StateManager():
     # terms are direct combinations of measurable states
     def compute_terms(self):
         # qbar = 1/2 * V^2 * rho
-        self.qbar = 0.5 * self.airspeed_mps**2 * self.rho
+        self.qbar = 0.5 * self.vc_mps**2 * self.rho
 
         # Cl coefficient of lift (varies as a function of alpha)
         lift = -self.accels[0][2] * self.mass_kg  # actual measured force
@@ -295,13 +294,13 @@ class StateManager():
             self.Cl_raw = 0
 
         # alpha_dot term2: contribution from aerodynamic lift
-        self.alpha_dot_term2 = (self.qbar * self.wing_area) / (self.mass_kg * self.airspeed_mps * cos(self.beta[0]))
+        self.alpha_dot_term2 = (self.qbar * self.wing_area) / (self.mass_kg * self.vc_mps * cos(self.beta[0]))
 
         # alpha_dot_term3: contribution from gravity forces
-        self.alpha_dot_term3 = gravity * (cos(self.alpha[0]) * cos(self.phi_rad) * cos(self.the_rad) + sin(self.alpha[0]) * sin(self.the_rad)) / (self.airspeed_mps * cos(self.beta[0]))
+        self.alpha_dot_term3 = gravity * (cos(self.alpha[0]) * cos(self.phi_rad) * cos(self.the_rad) + sin(self.alpha[0]) * sin(self.the_rad)) / (self.vc_mps * cos(self.beta[0]))
 
         # q_term1: account for pitch bias in turns
-        self.q_term1 = sin(self.phi_rad) * (sin(self.phi_rad) / cos(self.phi_rad)) / self.airspeed_mps
+        self.q_term1 = sin(self.phi_rad) * (sin(self.phi_rad) / cos(self.phi_rad)) / self.vc_mps
 
     def gen_state_vector(self, state_list=None, params=None):
         result = []
@@ -325,14 +324,20 @@ class StateManager():
                 val = self.rudder[n]
             elif field == "flaps":
                 val = self.flaps
+            elif field == "aileron*vc_mps":
+                val = self.aileron[n] * self.vc_mps
             elif field == "aileron*qbar":
                 val = self.aileron[n] * self.qbar
             elif field == "abs(aileron)*qbar":
                 val = abs(self.aileron[n]) * self.qbar
+            elif field == "elevator*vc_mps":
+                val = self.elevator[n] * self.vc_mps
             elif field == "elevator*qbar":
                 val = self.elevator[n] * self.qbar
             elif field == "abs(elevator)*qbar":
                 val = abs(self.elevator[n]) * self.qbar
+            elif field == "rudder*vc_mps":
+                val = self.rudder[n] * self.vc_mps
             elif field == "rudder*qbar":
                 val = self.rudder[n] * self.qbar
             elif field == "abs(rudder)*qbar":
@@ -371,11 +376,11 @@ class StateManager():
                 val = abs(self.a_body[1])
             elif field == "baz":
                 val = self.a_body[2]
-            elif field == "airspeed_mps":
-                val = self.airspeed_mps
-            elif field == "1/airspeed_mps":
-                if self.airspeed_mps != 0:
-                    val = 1 / self.airspeed_mps
+            elif field == "vc_mps":
+                val = self.vc_mps
+            elif field == "1/vc_mps":
+                if self.vc_mps != 0:
+                    val = 1 / self.vc_mps
                 else:
                     val = 0
             elif field == "qbar":
@@ -419,12 +424,12 @@ class StateManager():
                 val = self.accels[n][1]
             elif field == "ay^2":
                 val = self.accels[n][1] * self.accels[n][1]
-            elif field == "ay*airspeed_mps":
-                val = self.accels[n][1] * self.airspeed_mps
+            elif field == "ay*vc_mps":
+                val = self.accels[n][1] * self.vc_mps
             elif field == "ay*qbar":
                 val = self.accels[n][1] * self.qbar
-            elif field == "ay/airspeed_mps":
-                val = self.accels[n][1] / self.airspeed_mps
+            elif field == "ay/vc_mps":
+                val = self.accels[n][1] / self.vc_mps
             elif field == "ay/qbar":
                 val = self.accels[n][1] / self.qbar
             elif field == "abs(ay)":

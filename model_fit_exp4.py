@@ -50,7 +50,7 @@ inertial_terms = [
     "p", "q", "r",        # imu (body) rates
     "ax",                 # thrust - drag
     "ay",                 # side force
-    "ay^2", "ay*airspeed_mps", "ay*qbar",
+    "ay^2", "ay*vc_mps", "ay*qbar",
     "az",                 # lift
     "bgx", "bgy", "bgz",  # gravity rotated into body frame
     "abs(ay)", "abs(bgy)",
@@ -64,12 +64,12 @@ inertial_terms = [
 ]
 
 airdata_terms = [
-    "airspeed_mps",
+    "vc_mps",
     # "alpha_dot",
     "alpha_deg",          # angle of attack
     "beta_deg",           # side slip angle
     "qbar",
-    "1/airspeed_mps",
+    "1/vc_mps",
     "1/qbar",
     # "alpha_dot_term2",
     # "sin(alpha_deg)*qbar", "sin(alpha_deg)*qbar_1",
@@ -78,10 +78,10 @@ airdata_terms = [
 ]
 
 inceptor_airdata_terms = [
-    "aileron*qbar", # "aileron*qbar_1",
+    "aileron*qbar", "aileron*vc_mps", # "aileron*qbar_1",
     "abs(aileron)*qbar",
-    "elevator*qbar", # "elevator*qbar_1", "elevator*qbar_2", "elevator*qbar_3",
-    "rudder*qbar", # "rudder*qbar_1", "rudder*qbar_2", "rudder*qbar_3",
+    "elevator*qbar", "elevator*vc_mps", # "elevator*qbar_1", "elevator*qbar_2", "elevator*qbar_3",
+    "rudder*qbar", "rudder*vc_mps", # "rudder*qbar_1", "rudder*qbar_2", "rudder*qbar_3",
     "abs(rudder)*qbar",
 ]
 
@@ -102,7 +102,7 @@ output_states = [
 
 # non-deterministic output states (may roll their current value into the next estimate)
 output_states_2 = [
-    "airspeed_mps",
+    "vc_mps",
     "p", "q", "r",
     "ax", "ay", "az",
 ]
@@ -532,7 +532,7 @@ for i, cond in enumerate(conditions):
     if False and False:
         mass_solution_4(traindata, train_states, output_states, self_reference=True)
 
-    if False:
+    if True:
         # Parameter predictions: these may be the things we want to control,
         # this will find the most important "predictive" correlations, hopefully
         # some external input (inceptor, control surface, etc.) parameters show
@@ -554,16 +554,18 @@ for i, cond in enumerate(conditions):
         # rates, and beta are coupled, but pitch is independent(-ish)
 
         # enable these one at a time
-        # y_state = "p"
+        y_state = "p"
         # y_state = "beta_deg"
         # include_states = ["aileron*qbar", "rudder*qbar", "one"]
+        include_states = []
 
         # notice that rudder deflection leads to significant pitch down moment in decrab ... do we want to factor that in some how?
-        y_state = "q"
-        include_states = ["elevator*qbar", "one"]
+        # y_state = "q"
+        # include_states = ["elevator*qbar", "one"]
 
         # exclude states
         exclude_states = ["p", "q", "r", "beta_deg"] + inceptor_terms + inceptor_airdata_terms  # avoid self referencing
+        exclude_states = ["p", "q", "r", "beta_deg"]
 
         parameter_find_5(traindata, train_states, y_state, include_states, exclude_states, self_reference=False)
 
@@ -654,10 +656,10 @@ for i, cond in enumerate(conditions):
         output_states = ["p", "r"]
         parameter_fit_1(traindata, train_states, include_states, output_states, self_reference=False)
 
-        # include_states = ["aileron*qbar", "rudder*qbar", "one", "ay", "bgy", "airspeed_mps", "1/airspeed_mps"]
+        # include_states = ["aileron*qbar", "rudder*qbar", "one", "ay", "bgy", "vc_mps", "1/vc_mps"]
         # output_states = ["p", "beta_deg"]
         # parameter_fit_1(traindata, train_states, include_states, output_states, self_reference=False)
 
-        # include_states = ["elevator*qbar", "one", "ay", "abs(ay)", "bgy", "airspeed_mps", "1/airspeed_mps"]
+        # include_states = ["elevator*qbar", "one", "ay", "abs(ay)", "bgy", "vc_mps", "1/vc_mps"]
         # output_states = ["q"]
         parameter_fit_1(traindata, train_states, include_states, output_states, self_reference=False)
