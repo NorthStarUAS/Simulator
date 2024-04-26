@@ -152,6 +152,25 @@ for i, cond in enumerate(conditions):
     print("  Number of states:", len(train_data.cond_list[i][0]))
     print("  Input state vectors:", len(train_data.cond_list[i]))
 
+# signal smoothing experiment
+from scipy import signal
+def do_filter(traindata, dt):
+    print("filter...", dt)
+    cutoff_freq = 0.5
+    b, a = signal.butter(4, cutoff_freq, 'low', fs=(1/dt), output='sos', analog=False)
+    print(b,a)
+    for i in range(len(traindata)):
+        print(i)
+        x = traindata[i,:]
+        print(x.shape)
+        print("nan:", np.isnan(x).any())
+        print("inf:", np.isinf(x).any())
+        # need to use filtfilt here to avoid phase loss
+        # filt = signal.filtfilt(b, a, x, method="gust")
+        filt = signal.sosfilt((b, a), x)
+        traindata[i,:] = filt
+        print(filt)
+
 def solve(traindata, includes_idx, solutions_idx):
     srcdata = traindata[includes_idx,:]
     soldata = traindata[solutions_idx,:]
@@ -495,9 +514,8 @@ def parameter_fit_1(traindata, train_states, input_states, output_states, self_r
 # evaluate each condition
 for i, cond in enumerate(conditions):
     print(i, cond)
-    condition_dict = { "condition": cond }
     traindata = train_data.cond_list[i]
-    # coeff = np.array(train_data.cond_list[i]["coeff"])
+    dt = train_data.dt
 
     if True:
         print("test pearson correlation coefficients:")
@@ -505,10 +523,13 @@ for i, cond in enumerate(conditions):
         corr = np.corrcoef(traindata)
         print("corr:\n", corr)
 
+    if True:
+        do_filter(traindata, dt)
+
     # sysid = SystemIdentification(args.vehicle)
     # train_data.cond_list[i]["sysid"] = sysid
 
-    if False:
+    if False and False:
         mass_solution_4(traindata, train_states, output_states, self_reference=True)
 
     if False:
@@ -534,16 +555,19 @@ for i, cond in enumerate(conditions):
 
         # enable these one at a time
         # y_state = "p"
-        # y_state = "q"
-        y_state = "beta_deg"
-        include_states = ["aileron*qbar", "elevator*qbar", "rudder*qbar"]
+        # y_state = "beta_deg"
+        # include_states = ["aileron*qbar", "rudder*qbar", "one"]
+
+        # notice that rudder deflection leads to significant pitch down moment in decrab ... do we want to factor that in some how?
+        y_state = "q"
+        include_states = ["elevator*qbar", "one"]
 
         # exclude states
         exclude_states = ["p", "q", "r", "beta_deg"] + inceptor_terms + inceptor_airdata_terms  # avoid self referencing
 
         parameter_find_5(traindata, train_states, y_state, include_states, exclude_states, self_reference=False)
 
-    if False:
+    if False and False:
         # Inverse parameter predictions.  This reverses the order of training
         # data and 'predicts' what the previous control value should have been
         # to get to the desired state now.
@@ -563,7 +587,7 @@ for i, cond in enumerate(conditions):
 
         parameter_find_5(traindata, train_states, y_state, include_states, exclude_states, self_reference=False)
 
-    if False:
+    if False and False:
         # Direct model fit.  Use the previous two sections to determine the
         # relevants states, now go!  But stop!  This computes these terms
         # independently, so there could be doubling up of effects, really nead
@@ -625,10 +649,15 @@ for i, cond in enumerate(conditions):
         # good model fit, but more terms can introduce unpredictability (or
         # unexpectability)
 
-        include_states = ["aileron*qbar", "rudder*qbar", "one", "ay", "bgy", "1/airspeed_mps"]
-        output_states = ["p", "beta_deg"]
+        # example
+        include_states = ["aileron*qbar", "rudder*qbar", "one"]
+        output_states = ["p", "r"]
         parameter_fit_1(traindata, train_states, include_states, output_states, self_reference=False)
 
-        include_states = ["elevator*qbar", "one", "1/airspeed_mps", "q_term1"]
-        output_states = ["q"]
+        # include_states = ["aileron*qbar", "rudder*qbar", "one", "ay", "bgy", "airspeed_mps", "1/airspeed_mps"]
+        # output_states = ["p", "beta_deg"]
+        # parameter_fit_1(traindata, train_states, include_states, output_states, self_reference=False)
+
+        # include_states = ["elevator*qbar", "one", "ay", "abs(ay)", "bgy", "airspeed_mps", "1/airspeed_mps"]
+        # output_states = ["q"]
         parameter_fit_1(traindata, train_states, include_states, output_states, self_reference=False)
