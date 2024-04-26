@@ -46,18 +46,19 @@ Every situation and use case is different, so good judgement and knowledge of yo
 
 Very approximately the control surface effectiveness scales linearly with dynamic pressure $(qbar)$ so we build this into our fit.
 
-Given some flight test data, do a least squares fit of roll command $(aileron*qbar)$ vs. roll rate $(p)$:
+Given some flight test data, do a least squares fit of roll command $(aileron*qbar)$ vs. roll rate $(p)$ and the result is:
 
 * $p = 0.0001258 * aileron*qbar - 0.03119$
 
-It is quite easy to rearrange this equation to compute an aileron command that gives us a requested roll rate:
+Let's rearrange this equation to compute an aileron command that gives us a
+requested roll rate:
 
 * $0.0001258 * aileron*qbar = p + 0.03119$
 * $aileron*qbar = 7949.1*(p + 0.03119)$
 * $aileron*qbar = 7949.1*p + 247.9$
 * $aileron = (7949.1*p + 247.9) / qbar$
 
-Let's plug in some real world numbers to see what we get:
+Now let's plug in some real world numbers to see what we get:
 
 * We want to command a +5 deg/sec roll rate (0.08726 rad/sec)
 * We are currently flying at 50 mps (about 100 kts)
@@ -80,12 +81,21 @@ So from raw flight test data we can directly derive a simple function that
 estimates the required aileron command to produce a specified roll rate given
 the current airspeed!  We can skip PID's and PID tuning entirely!  (Well, let's
 not get hasty, reality adds complication, but at a very simplistic level, yes!)
+
 Is this a perfect fit across the entire flight envelope?  Definitely it is not,
 but it's a good 1st order approximation and is actually flyable.
 
 ## Back to PID's for a moment
 
-As I said before, PID controllers are error-based ... the output (control surface command) is computed from the error between the reference and input values.  We provide the reference (goal) value and the current (input) value.  The PID computes the error (ref - input) and everything it does follows from that.  It finds the output value that produces zero error (i.e. we have achieved the goal.)  This works (and often works really well), but people have discovered ways to make them work even better.  If we can give the PID controller hints of what to do, then the error term will be smaller and it can converge to the correct value quicker.
+As I said before, PID controllers are error-based ... the output (control
+surface command) is computed from the error between the reference and input
+values.  We provide the reference (goal) value and the current (input) value.
+The PID computes the error (ref - input) and everything it does follows from
+that.  It finds the output value that produces zero error (i.e. we have achieved
+the goal.)  This works, and often works really well, but people have discovered
+ways to make them work even better.  If we can give the PID controller hints of
+what to do, then the error term will be smaller and it can converge to the
+correct value quicker.
 
 * Feed forward terms.  For example, we know that in a bank the aircraft needs
   additional up elevator deflection to maintain a steady pitch angle.  We can
@@ -181,7 +191,9 @@ aileron = (7844.94*p - 1045.10*r + 0.0312) / qbar \\
 rudder = (-4384.25*p + 11478.98*r + 0.0007) / qbar
 $$
 
-So what have we done here?  We have derived directly from flight test data formulas to set aileron and rudder position to achieve the specified roll rate $p$ and yaw rate $r$.
+So what have we done here?  We have derived directly from flight test data
+formulas to simultantiously set aileron and rudder position to achieve the
+specified roll rate $p$ and yaw rate $r$.
 
 ## Additional Refinements
 
@@ -200,3 +212,28 @@ These are simple models so not perfect.  There is much more work we can do to ma
   term in a PID.
 * If we know the range of our model error, we can limit the authority (range) of
   the total integral term to something less than full deflection and allow the [auto] pilot to overcome the max possible integral windup.
+
+## Cautions (!) and Things to Think About (?)
+
+* It is important to make sure the A matrix is invertable (but this is done
+  offline when the controller model is build, the model matrix is static and
+  doesn't change in flight.)
+* In the more complicated example above: what if we don't like the balance of
+  aileron and rudder actuation.  In a PID we have knobs to turn, but in a
+  model-based approach there is nothing to tune so we must live with the model
+  as it is fit to the data.
+* It is possible to extend this to include elevator and throttle and have 4
+  equations with 4 unknowns.  Do we want to do that?  Maybe?  But more likely
+  not.  Even though the actual aircraft may have cross coupling between the
+  lateral and longitudinal axes, if we build that into the controller the result
+  could be some amount of roll and yaw when all we wanted was pitch.  In theory
+  with perfect data and a perfect fit, all this would be accounted for, but the
+  reality is our data is not perfect, our fit is not perfect, and we could match
+  high frequency correlations in the data that we don't want to convey to our
+  flight controller.
+* Speaking of frequencies ... all of this is done in the time domain!  But
+  controls people love to do everything in the frequency domain.
+* Speaking of unwanted high frequency correlations and coupling, I have
+  experimented with low pass filtering /all/ the input data to fit to the lower
+  frequency trends.  I don't have a solid theoretical basis for doing this, but
+  it seems to work well.
