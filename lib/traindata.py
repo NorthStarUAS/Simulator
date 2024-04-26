@@ -34,6 +34,10 @@ class TrainData():
         self.file_list = file_list
         self.train_states = train_states
 
+        # condition data collectors
+        for i in range(len(conditions)):
+            self.cond_list.append( [] )
+
         for file in file_list:
             data, self.flight_format = flight_loader.load(file)
 
@@ -80,7 +84,7 @@ class TrainData():
             actpt = {}
             airpt = {}
             navpt = {}
-            g = np.array( [ 0, 0, -9.81 ] )
+            # g = np.array( [ 0, 0, -9.81 ] )
 
             wn = 0
             we = 0
@@ -102,10 +106,6 @@ class TrainData():
                 from lib.wind2 import Wind2
                 w2 = Wind2()
                 pitot_scale, psi_bias, wn_interp, we_interp = w2.estimate( flight_interp.IterateGroup(data), imu_dt )
-
-            # condition data collectors
-            for i in range(len(conditions)):
-                self.cond_list.append( [] )
 
             # iterate through the flight data log (a sequence of time samples of all the measured states)
             iter = flight_interp.IterateGroup(data)
