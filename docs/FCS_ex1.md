@@ -50,13 +50,13 @@ means the result is only valid for the specific airplane as configured on the
 day it was flown.  This maybe unsatisfying to purists for sure!!!  However, for
 the purposes of flight control, I will assert it is usually "close enough".
 
-* $rho = 1.225$ $(kg/m^3)$ (air density)
+* $\rho = 1.225$ $(kg/m^3)$ (air density)
 * $v =$ airspeed $(m/s)$
-* $\bar{q} = 0.5 \cdot v^2 \cdot rho$ (dynamic pressure)
+* $\bar{q} = 0.5 \cdot v^2 \cdot \rho$ (dynamic pressure)
 * $\delta_{ail}$ = aileron deflection (range normalized from -1 to 1)
 * $\delta_{rud}$ = rudder deflection (range normalized from -1 to 1)
-* $p$ = roll rate (rad/s)
-* $r$ = yaw rate (rad/s)
+* $p$ = roll rate $(rad/s)$
+* $r$ = yaw rate $(rad/s)$
 
 Very approximately the control surface effectiveness scales linearly with
 dynamic pressure $(\bar{q})$ so we build this into our fit.
@@ -89,14 +89,14 @@ $$
 (7949.1 \cdot 0.08726 + 247.9) / (1.225 \cdot 0.5 \cdot 50 \cdot 50) = 0.61489
 $$
 
-This means to achieve a 5 deg/s roll rate, we need to command the ailerons to
+This means to achieve a +5 deg/s roll rate, we need to command the ailerons to
 a position of 0.61 on a normalized range of [-1, 1].  If our true aileron
-deflection range is +/- 10 degrees, then a 6.1 degree deflection gives us our 5
+deflection range is +/- 10 degrees, then a +6.1 degree deflection gives us our +5
 deg/s roll rate.
 
 * At 75 m/s (approx. 150 kts) the computed deflection is only 0.27 (2.7 degrees
   in our example.)  This is because as airspeed increases, dynamic pressure
-  increases (by velocity squared!) and so the aileron can generate the same
+  increases (by velocity squared) and so the aileron can generate the same
   amount of force with less deflection.
 * At 35 m/s (approx. 70 kts) the computed deflection is 1.25 (out of range!
   beyond our hard stop.)  This means we would go to full deflection, but not be
@@ -294,12 +294,16 @@ make this even better.
   lateral and longitudinal axes, if we build that into the controller the result
   could be some amount of roll and yaw when all we wanted was pitch.  In theory
   with perfect data and a perfect fit, all this would be accounted for, but the
-  reality is our data is not perfect, our fit is not perfect, and we could match
-  high frequency correlations in the data that we don't want to convey to our
-  flight controller.
+  reality is our data is not perfect, our fit is not perfect, and unwanted high
+  frequency correlations in the data could creep in that we don't want to convey
+  to our flight controller output.
 * Speaking of frequencies ... all of this is done in the time domain!  But
   controls people love to do everything in the frequency domain.
 * Speaking of unwanted high frequency correlations and coupling, I have
   experimented with low pass filtering /all/ the input data to fit to the lower
   frequency trends.  I don't have a solid theoretical basis for doing this, but
-  it seems to work well.
+  it seems to work well.  The logic here is that we want to move the (output)
+  control surface directly to the correct steady state location for our
+  requested input.  High frequency correlations may get in the way of that and
+  drive the outputs needlessly.  Short period oscillations can be addressed by
+  the separate damping terms.
