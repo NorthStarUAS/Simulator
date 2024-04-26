@@ -40,28 +40,39 @@ Every situation and use case is different, so good judgement and knowledge of yo
 
 * $rho = 1.225$ $(kg/m^3)$ (air density)
 * $v =$ airspeed $(mps)$
-* $qbar = 0.5 * v^2 * rho$ (dynamic pressure)
-* $aileron$ = aileron deflection (range normalized from -1 to 1)
-* $p$ = roll rate (radians per second)
+* $\bar{q} = 0.5 * v^2 * rho$ (dynamic pressure)
+* $\delta_{ail}$ = aileron deflection (range normalized from -1 to 1)
+* $\delta_{rud}$ = rudder deflection (range normalized from -1 to 1)
+* $p$ = roll rate (rad/sec)
+* $r$ = yaw rate (rad/sec)
 
-Very approximately the control surface effectiveness scales linearly with dynamic pressure $(qbar)$ so we build this into our fit.
+Very approximately the control surface effectiveness scales linearly with dynamic pressure $(\bar{q})$ so we build this into our fit.
 
-Given some flight test data, do a least squares fit of roll command $(aileron*qbar)$ vs. roll rate $(p)$:
+Given some flight test data, do a least squares fit of roll command $(\delta_{ail}*\bar{q})$ vs. roll rate $(p)$:
 
-* $p = 0.0001258 * aileron*qbar - 0.03119$
+$$
+p = 0.0001258 * \delta_{ail}*\bar{q} - 0.03119
+$$
 
 It is quite easy to rearrange this equation to compute an aileron command that gives us a requested roll rate:
 
-* $0.0001258 * aileron*qbar = p + 0.03119$
-* $aileron*qbar = 7949.1*(p + 0.03119)$
-* $aileron*qbar = 7949.1*p + 247.9$
-* $aileron = (7949.1*p + 247.9) / qbar$
+$$
+\begin{align*}
+0.0001258 * \delta_{ail}*\bar{q} &= p + 0.03119 \\
+\delta_{ail}*\bar{q} &= 7949.1*(p + 0.03119) \\
+\delta_{ail}*\bar{q} &= 7949.1*p + 247.9 \\
+\delta_{ail} &= (7949.1*p + 247.9) / \bar{q}
+\end{align*}
+$$
 
 Let's plug in some real world numbers to see what we get:
 
 * We want to command a +5 deg/sec roll rate (0.08726 rad/sec)
 * We are currently flying at 50 mps (about 100 kts)
-* $(7949.1*0.08726 + 247.9) / (1.225*0.5*50*50) = 0.61489$
+
+$$
+(7949.1*0.08726 + 247.9) / (1.225*0.5*50*50) = 0.61489
+$$
 
 This means to achieve a 5 deg/sec roll rate, we need to command the ailerons to
 a position of 0.61 on a normalized range of [-1, 1].  If our true aileron
@@ -135,20 +146,24 @@ on.
 
 Many (most?) aircraft, especially those with dihedral have significant coupling between the roll and yaw axes.  In other words, aileron deflection not only affects roll, but it can also influence yaw.  And likewise, rudder input not only affects yaw, but also affects roll.  In many aircraft aileron and rudder both have significant influce on both roll and yaw.  Often the roll and yaw controllers are developed and tuned independently which is usually fine.  However, here is a little example of one way to deal with two inputs and two outputs simultaneously.
 
-Let's go back up and grab our simple formula for roll rate $p$ as a function of aileron deflection and $qbar$.
+Let's go back up and grab our simple formula for roll rate $p$ as a function of aileron deflection and $\bar{q}$.
 
-* $p = 0.0001258 * aileron*qbar - 0.03119$
+$$
+p = 0.0001258 * \delta_{ail}*\bar{q} - 0.03119
+$$
 
 Let's refit roll rate $p$ as a function of both aileron and rudder inputs.  And
 while we are at it, let's fit yaw rate also as a function of both aileron and rudder inputs.  Here is the result (you can see how the fit coefficients change as we add terms):
 
-* $p = 0.0001343*aileron*qbar + 0.00001223*rudder*qbar - 0.0312$
-* $r = 0.0000513*aileron*qbar + 0.00009179*rudder*qbar - 0.0007$
+$$
+p = 0.0001343*\delta_{ail}*\bar{q} + 0.00001223*\delta_{rud}*\bar{q} - 0.0312 \\
+r = 0.0000513*\delta_{ail}*\bar{q} + 0.00009179*\delta_{rud}*\bar{q} - 0.0007
+$$
 
-At any given time, we will know what values we *want* for $p$ and $r$.  We know the value of qbar.  Thus we have 2 equations with 2 unknowns.  We can solve this with some basic algebra, or we could turn this into matrix form!
+At any given time, we will know what values we *want* for $p$ and $r$.  We know the value of $\bar{q}$.  Thus we have 2 equations with 2 unknowns.  We can solve this with some basic algebra, or we could turn this into matrix form!
 
 $$
-\begin{bmatrix}p\\r\end{bmatrix} = \begin{bmatrix}0.0001343 & 0.00001223\\0.0000513 & 0.00009179\end{bmatrix} \cdot \begin{bmatrix}aileron*qbar \\rudder*qbar\end{bmatrix} + \begin{bmatrix}-0.0312 \\-0.0007\end{bmatrix}
+\begin{bmatrix}p\\r\end{bmatrix} = \begin{bmatrix}0.0001343 & 0.00001223\\0.0000513 & 0.00009179\end{bmatrix} \cdot \begin{bmatrix}\delta_{ail}*\bar{q} \\\delta_{rud}*\bar{q}\end{bmatrix} + \begin{bmatrix}-0.0312 \\-0.0007\end{bmatrix}
 $$
 
 We can solve this by inverting the 2x2 matrix.
@@ -164,21 +179,21 @@ $$
 Rearranging terms:
 
 $$
-A^{-1}\cdot\begin{bmatrix}p\\r\end{bmatrix} - \begin{bmatrix}-0.0312 \\-0.0007\end{bmatrix} = \begin{bmatrix}aileron*qbar \\rudder*qbar\end{bmatrix}
+A^{-1}\cdot\begin{bmatrix}p\\r\end{bmatrix} - \begin{bmatrix}-0.0312 \\-0.0007\end{bmatrix} = \begin{bmatrix}\delta_{ail}*\bar{q} \\\delta_{rud}*\bar{q}\end{bmatrix}
 $$
 
 Let's write this out as individual equations:
 
 $$
-aileron*qbar = 7844.94*p - 1045.10*r + 0.0312 \\
-rudder*qbar = -4384.25*p + 11478.98*r + 0.0007
+\delta_{ail}*\bar{q} = 7844.94*p - 1045.10*r + 0.0312 \\
+\delta_{rud}*\bar{q} = -4384.25*p + 11478.98*r + 0.0007
 $$
 
 And finally:
 
 $$
-aileron = (7844.94*p - 1045.10*r + 0.0312) / qbar \\
-rudder = (-4384.25*p + 11478.98*r + 0.0007) / qbar
+\delta_{ail} = (7844.94*p - 1045.10*r + 0.0312) / \bar{q} \\
+\delta_{rud} = (-4384.25*p + 11478.98*r + 0.0007) / \bar{q}
 $$
 
 So what have we done here?  We have derived directly from flight test data formulas to set aileron and rudder position to achieve the specified roll rate $p$ and yaw rate $r$.
