@@ -52,7 +52,7 @@ the purposes of flight control, I will assert it is usually "close enough".
 
 * $rho = 1.225$ $(kg/m^3)$ (air density)
 * $v =$ airspeed $(m/s)$
-* $\bar{q} = 0.5 * v^2 * rho$ (dynamic pressure)
+* $\bar{q} = 0.5 \cdot v^2 \cdot rho$ (dynamic pressure)
 * $\delta_{ail}$ = aileron deflection (range normalized from -1 to 1)
 * $\delta_{rud}$ = rudder deflection (range normalized from -1 to 1)
 * $p$ = roll rate (rad/s)
@@ -62,10 +62,10 @@ Very approximately the control surface effectiveness scales linearly with
 dynamic pressure $(\bar{q})$ so we build this into our fit.
 
 Given some flight test data, do a least squares fit of roll command
-$(\delta_{ail}*\bar{q})$ vs. roll rate $(p)$ and the result is:
+$(\delta_{ail} \cdot \bar{q})$ vs. roll rate $(p)$ and the result is:
 
 $$
-p = 0.0001258 * \delta_{ail}*\bar{q} - 0.03119
+p = 0.0001258 \cdot \delta_{ail} \cdot \bar{q} - 0.03119
 $$
 
 Let's rearrange this equation to compute an aileron command that gives us a
@@ -73,10 +73,10 @@ requested roll rate:
 
 $$
 \begin{align*}
-0.0001258 * \delta_{ail}*\bar{q} &= p + 0.03119 \\
-\delta_{ail}*\bar{q} &= 7949.1*(p + 0.03119) \\
-\delta_{ail}*\bar{q} &= 7949.1*p + 247.9 \\
-\delta_{ail} &= (7949.1*p + 247.9) / \bar{q}
+0.0001258 \cdot \delta_{ail} \cdot \bar{q} &= p + 0.03119 \\
+\delta_{ail} \cdot \bar{q} &= 7949.1 \cdot (p + 0.03119) \\
+\delta_{ail} \cdot \bar{q} &= 7949.1 \cdot p + 247.9 \\
+\delta_{ail} &= (7949.1 \cdot p + 247.9) / \bar{q}
 \end{align*}
 $$
 
@@ -86,7 +86,7 @@ Now let's plug in some real world numbers to see what we get:
 * We are currently flying at 50 m/s (about 100 kts)
 
 $$
-(7949.1*0.08726 + 247.9) / (1.225*0.5*50*50) = 0.61489
+(7949.1 \cdot 0.08726 + 247.9) / (1.225 \cdot 0.5 \cdot 50 \cdot 50) = 0.61489
 $$
 
 This means to achieve a 5 deg/s roll rate, we need to command the ailerons to
@@ -188,7 +188,7 @@ Let's go back up and grab our simple formula for roll rate $p$ as a function of
 aileron deflection and $\bar{q}$.
 
 $$
-p = 0.0001258 * \delta_{ail}*\bar{q} - 0.03119
+p = 0.0001258 \cdot \delta_{ail} \cdot \bar{q} - 0.03119
 $$
 
 Let's refit roll rate $p$ as a function of both aileron and rudder inputs.  And
@@ -197,8 +197,8 @@ rudder inputs.  Here is the result (you can see how the fit coefficients change
 as we add terms):
 
 $$
-p = 0.0001343*\delta_{ail}*\bar{q} + 0.00001223*\delta_{rud}*\bar{q} - 0.0312 \\
-r = 0.0000513*\delta_{ail}*\bar{q} + 0.00009179*\delta_{rud}*\bar{q} - 0.0007
+p = 0.0001343 \cdot \delta_{ail} \cdot \bar{q} + 0.00001223 \cdot \delta_{rud} \cdot \bar{q} - 0.0312 \\
+r = 0.0000513 \cdot \delta_{ail} \cdot \bar{q} + 0.00009179 \cdot \delta_{rud} \cdot \bar{q} - 0.0007
 $$
 
 At any given time, we will know what values we *want* for $p$ and $r$.  We know
@@ -210,7 +210,7 @@ $$
 =
 \begin{bmatrix}0.0001343 & 0.00001223\\0.0000513 & 0.00009179\end{bmatrix}
 \cdot
-\begin{bmatrix}\delta_{ail}*\bar{q} \\\delta_{rud}*\bar{q}\end{bmatrix}
+\begin{bmatrix}\delta_{ail} \cdot \bar{q} \\\delta_{rud} \cdot \bar{q}\end{bmatrix}
 +
 \begin{bmatrix}-0.0312 \\-0.0007\end{bmatrix}
 $$
@@ -234,15 +234,15 @@ A^{-1}
 -
 \begin{bmatrix}-0.0312 \\-0.0007\end{bmatrix}
 =
-\begin{bmatrix}\delta_{ail}*\bar{q} \\\delta_{rud}*\bar{q}\end{bmatrix}
+\begin{bmatrix}\delta_{ail} \cdot \bar{q} \\\delta_{rud} \cdot \bar{q}\end{bmatrix}
 $$
 
 Let's write this out as individual equations:
 
 $$
 \begin{align*}
-\delta_{ail}*\bar{q} &= 7844.94*p - 1045.10*r + 0.0312 \\
-\delta_{rud}*\bar{q} &= -4384.25*p + 11478.98*r + 0.0007
+\delta_{ail} \cdot \bar{q} &= 7844.94 \cdot p - 1045.10 \cdot r + 0.0312 \\
+\delta_{rud} \cdot \bar{q} &= -4384.25 \cdot p + 11478.98 \cdot r + 0.0007
 \end{align*}
 $$
 
@@ -250,8 +250,8 @@ And finally:
 
 $$
 \begin{align*}
-\delta_{ail} &= (7844.94*p - 1045.10*r + 0.0312) / \bar{q} \\
-\delta_{rud} &= (-4384.25*p + 11478.98*r + 0.0007) / \bar{q}
+\delta_{ail} &= (7844.94 \cdot p - 1045.10 \cdot r + 0.0312) / \bar{q} \\
+\delta_{rud} &= (-4384.25 \cdot p + 11478.98 \cdot r + 0.0007) / \bar{q}
 \end{align*}
 $$
 
