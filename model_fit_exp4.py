@@ -467,6 +467,11 @@ def parameter_fit_1(traindata, train_states, input_states, output_states, self_r
 
     # direct solution with all current states known, how well does our fit estimate the next state?
     est = A @ traindata[input_idx,:]
+
+    print("A:\n", A[:n,:n].tolist())
+    print("A-1:\n", np.linalg.inv(A[:n,:n]).tolist())
+    print("B:\n", A[:n,n:].tolist())
+
     # print("est:", est.shape, direct_est)
     for i in range(n):
         idx = output_idx[i]
@@ -476,7 +481,6 @@ def parameter_fit_1(traindata, train_states, input_states, output_states, self_r
         rms_perc = 100 * rms(error) / rms(traindata[idx,1:])
         print(output_states[i], "rms: %.4f" % rms(error), "%.2f%%" % rms_perc)
 
-    for i in range(n):
         terms = ""
         first = True
         for j, idx in enumerate(input_idx):
@@ -490,12 +494,6 @@ def parameter_fit_1(traindata, train_states, input_states, output_states, self_r
                     terms += " + %.4f*" % A[i,j] + train_states[idx]
         print(output_states[i], "=", terms)
 
-    print("A:\n", A[:n,:n].tolist())
-    print("A-1:\n", np.linalg.inv(A[:n,:n]).tolist())
-    print("B:\n", A[:n,n:].tolist())
-
-    for i in range(n):
-        error = traindata[idx,1:] - est[i,:-1]
         fig, axs = plt.subplots(2, sharex=True)
         fig.suptitle("Estimate for: " + output_states[i] + " = " + terms)
         axs[0].plot(traindata[output_idx[i],1:].T, label="original signal")
@@ -509,6 +507,7 @@ def parameter_fit_1(traindata, train_states, input_states, output_states, self_r
         axs[1].hlines(y=y_mean-2*y_std, xmin=0, xmax=len(est[i,:-1].T), colors='green', linestyles='--')
         axs[1].hlines(y=y_mean+2*y_std, xmin=0, xmax=len(est[i,:-1].T), colors='green', linestyles='--', label="2*stddev")
         axs[1].legend()
+
     plt.show()
 
 # evaluate each condition
@@ -532,40 +531,49 @@ for i, cond in enumerate(conditions):
     if False and False:
         mass_solution_4(traindata, train_states, output_states, self_reference=True)
 
-    if True:
-        # Parameter predictions: these may be the things we want to control,
-        # this will find the most important "predictive" correlations, hopefully
-        # some external input (inceptor, control surface, etc.) parameters show
-        # up because those would be the external influences on the system.
+    if False:
+        # Parameter predictionive correlation: these are the things we want to
+        # control, this will find the most important "predictive" correlations,
+        # hopefully some external input (inceptor, control surface, etc.)
+        # parameters show up because those would be the external influences on
+        # the system that the control laws would ultimate manipulate to achieve
+        # the desired result.
         #
-        # This section is informative to help understand the correlations in the
-        # system.
+        # This section is informative to help understand the dominant
+        # correlations in the system.
         #
         # Note: use "engineering judgement" to determine which states to include
         # (seed) or exclude to test a fit with paramters you think should or
         # shouldn't be included.  Or leave these blank to let the system find
-        # the best fit for you.
+        # the best fit for you.  There may be correlations (between lateral and
+        # longitudinal axes) that we expressly want to avoid building into the
+        # flight control laws.
         #
-        # Also specify if the estimation should be self referencing
+        # Also we can specify if the estimation should be self referencing
         # (incremental.)  A self referencing system can be a better fit, but is
         # also non-deterministic.
 
-        # include terms in a way that acknowledges rudder/aileron, roll/yaw
-        # rates, and beta are coupled, but pitch is independent(-ish)
+        # Notes: include terms in a way that acknowledges rudder/aileron,
+        # roll/yaw rates, and beta are coupled, but pitch is independent(-ish)
+        #
+        # ax, az, bgx, and bgz are longitudinal terms so we probably don't want
+        # them included in our lateral controller, even if there is a
+        # clear correlation in the flight data.
 
-        # enable these one at a time
+        # enable these one at a time (decide if we are building the controller around yaw rate or beta_deg)
         y_state = "p"
+        y_state = "r"
         # y_state = "beta_deg"
-        # include_states = ["aileron*qbar", "rudder*qbar", "one"]
-        include_states = []
+        include_states = ["aileron*qbar", "rudder*qbar", "one"]
+        # include_states = []
 
         # notice that rudder deflection leads to significant pitch down moment in decrab ... do we want to factor that in some how?
         # y_state = "q"
         # include_states = ["elevator*qbar", "one"]
 
         # exclude states
-        exclude_states = ["p", "q", "r", "beta_deg"] + inceptor_terms + inceptor_airdata_terms  # avoid self referencing
-        exclude_states = ["p", "q", "r", "beta_deg"]
+        exclude_states = ["p", "q", "r"] + inceptor_terms + inceptor_airdata_terms  # avoid self referencing
+        # exclude_states = ["p", "q", "r", "beta_deg"]
 
         parameter_find_5(traindata, train_states, y_state, include_states, exclude_states, self_reference=False)
 
@@ -651,15 +659,26 @@ for i, cond in enumerate(conditions):
         # good model fit, but more terms can introduce unpredictability (or
         # unexpectability)
 
-        # example
-        include_states = ["aileron*qbar", "rudder*qbar", "one"]
-        output_states = ["p", "r"]
-        parameter_fit_1(traindata, train_states, include_states, output_states, self_reference=False)
+        # test (3x3)
+        # include_states = ["aileron*qbar", "elevator*qbar", "rudder*qbar", "one", "ay", "bgy", "vc_mps", "1/vc_mps"]
+        # output_states = ["p", "q", "r"]
 
+        # example
+        # include_states = ["aileron*qbar", "rudder*qbar", "one"]
+        # output_states = ["p", "r"]
+        # parameter_fit_1(traindata, train_states, include_states, output_states, self_reference=False)
+
+        # pbeta
         # include_states = ["aileron*qbar", "rudder*qbar", "one", "ay", "bgy", "vc_mps", "1/vc_mps"]
         # output_states = ["p", "beta_deg"]
         # parameter_fit_1(traindata, train_states, include_states, output_states, self_reference=False)
 
-        # include_states = ["elevator*qbar", "one", "ay", "abs(ay)", "bgy", "vc_mps", "1/vc_mps"]
-        # output_states = ["q"]
+        # pr
+        # include_states = ["aileron*qbar", "rudder*qbar", "one", "ay", "bgy", "vc_mps", "1/vc_mps", "beta_deg"]
+        # output_states = ["p", "r"]
+        # parameter_fit_1(traindata, train_states, include_states, output_states, self_reference=False)
+
+        # q
+        include_states = ["elevator*qbar", "one", "ay", "abs(ay)", "bgy", "vc_mps", "1/vc_mps"]
+        output_states = ["q"]
         parameter_fit_1(traindata, train_states, include_states, output_states, self_reference=False)
