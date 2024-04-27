@@ -75,12 +75,12 @@ Let's rearrange this equation to compute an aileron command that gives us a
 requested roll rate:
 
 $$
-\begin{align*}
+\begin{aligned}
 0.0001258 \cdot \delta_{ail} \cdot \bar{q} &= p + 0.03119 \\
 \delta_{ail} \cdot \bar{q} &= 7949.1 \cdot (p + 0.03119) \\
 \delta_{ail} \cdot \bar{q} &= 7949.1 \cdot p + 247.9 \\
 \delta_{ail} &= (7949.1 \cdot p + 247.9) / \bar{q}
-\end{align*}
+\end{aligned}
 $$
 
 Now let's plug in some real world numbers to see what we get:
@@ -200,8 +200,10 @@ rudder inputs.  Here is the result (you can see how the fit coefficients change
 as we add terms):
 
 $$
-p = 0.0001343 \cdot \delta_{ail} \cdot \bar{q} + 0.00001223 \cdot \delta_{rud} \cdot \bar{q} - 0.0312 \\
-r = 0.0000513 \cdot \delta_{ail} \cdot \bar{q} + 0.00009179 \cdot \delta_{rud} \cdot \bar{q} - 0.0007
+\begin{aligned}
+p &= 0.0001343 \cdot \delta_{ail} \cdot \bar{q} + 0.00001223 \cdot \delta_{rud} \cdot \bar{q} - 0.0312 \\
+r &= 0.0000513 \cdot \delta_{ail} \cdot \bar{q} + 0.00009179 \cdot \delta_{rud} \cdot \bar{q} - 0.0007
+\end{aligned}
 $$
 
 At any given time, we will know what values we *want* for $p$ and $r$.  We know
@@ -243,19 +245,19 @@ $$
 Let's write this out as individual equations:
 
 $$
-\begin{align*}
+\begin{aligned}
 \delta_{ail} \cdot \bar{q} &= 7844.94 \cdot p - 1045.10 \cdot r + 0.0312 \\
 \delta_{rud} \cdot \bar{q} &= -4384.25 \cdot p + 11478.98 \cdot r + 0.0007
-\end{align*}
+\end{aligned}
 $$
 
 And finally:
 
 $$
-\begin{align*}
+\begin{aligned}
 \delta_{ail} &= (7844.94 \cdot p - 1045.10 \cdot r + 0.0312) / \bar{q} \\
 \delta_{rud} &= (-4384.25 \cdot p + 11478.98 \cdot r + 0.0007) / \bar{q}
-\end{align*}
+\end{aligned}
 $$
 
 So what have we done here?  We have derived directly from flight test data
