@@ -129,28 +129,13 @@ class NotaFCS():
         self.vne_mps = 80
 
         # dampers
-        self.roll_damp_gain = 1.0
-        self.pitch_damp_gain = 1.0
-        self.yaw_damp_gain = 5.0
+        self.roll_damp_gain = 1500.0
+        self.pitch_damp_gain = 1500.0
+        self.yaw_damp_gain = 6000.0
 
         self.roll_helper = NotaPID("roll", -45, 45, integral_gain=1.0, antiwindup=0.25, neutral_tolerance=0.02)
         self.pitch_helper = NotaPID("pitch", -15, 15, integral_gain=-4.0, antiwindup=0.5, neutral_tolerance=0.03)
         self.yaw_helper = NotaPID("yaw", -10, 10, integral_gain=-0.01, antiwindup=0.25, neutral_tolerance=0.02)
-
-        self.Ainv_lat = np.array(
-            [[5775.381885098956, 82.77808579660751],
-             [3174.049921950911, -208.26398785983227]]
-        )
-        self.B_lat = np.array(
-            [[-0.005241737213195004, -0.005865478300975062, 0.0022233286464520595, -1.4980540274253145],
-             [-1.1302438460613164, 0.059599793907393415, -0.17246330454816164, 62.39945825500266]]
-        )
-        self.Ainv_lon = np.array(
-            [[-2916.4286901639866]]
-        )
-        self.B_lon = np.array(
-            [[-0.022590773981529783, -2.4757330979504637, 1.2706001552602082]]
-        )
 
     def update(self):
         # fetch and compute all the values needed by the control laws
@@ -185,7 +170,7 @@ class NotaFCS():
         # sigmoid function of [-5 to 5]
         x = 10 * (self.airspeed_mps - self.on_ground_for_sure_mps) / diff - 5
         self.flying_confidence = exp(x) / (1 + exp(x))
-        print("flying:", "%.1f" % self.airspeed_mps, self.flying_confidence)
+        print("flying:", "%.1f %.0f%%" % (self.airspeed_mps, 100*self.flying_confidence))
 
         if self.flying_confidence > 0.5:
             if True:
@@ -200,23 +185,20 @@ class NotaFCS():
             self.alpha_deg = self.theta_deg
             self.beta_deg = 0
 
-        if self.flying_confidence > 0.5:
-            # Feed forward steady state q and r basd on bank angle/turn rate.
-            # Presuming a steady state level turn, compute turn rate =
-            # func(velocity, bank angle).  This is the one feed forward term used in
-            # this set of control laws and it is purely physics based and
-            # works for all fixed wing aircraft.
-            if abs(self.phi_deg) < 89:
-                turn_rate_rps = tan(self.phi_deg*d2r) * -gravity / vtrue_mps
-            else:
-                turn_rate_rps = 0
-            # compute a baseline q and r for the presumed steady state level turn, this is what we dampen towards
-            baseline_q = sin(self.phi_deg*d2r) * turn_rate_rps
-            baseline_r = cos(self.phi_deg*d2r) * turn_rate_rps
-            # print("tr: %.3f" % turn_rate_rps, "q: %.3f %.3f" % (baseline_q, self.q), "r: %.3f %.3f" % (baseline_r, self.r))
+        # Feed forward steady state q and r basd on bank angle/turn rate.
+        # Presuming a steady state level turn, compute turn rate =
+        # func(velocity, bank angle).  This is the one feed forward term used in
+        # this set of control laws and it is purely physics based and works for
+        # all fixed wing aircraft.
+        if abs(self.phi_deg) < 89:
+            turn_rate_rps = tan(self.phi_deg*d2r) * -gravity / vtrue_mps
         else:
-            baseline_q = 0
-            baseline_r = 0
+            turn_rate_rps = 0
+        # compute a baseline q and r for the presumed steady state level turn,
+        # this is what we dampen towards
+        baseline_q = sin(self.phi_deg*d2r) * turn_rate_rps
+        baseline_r = cos(self.phi_deg*d2r) * turn_rate_rps
+        # print("tr: %.3f" % turn_rate_rps, "q: %.3f %.3f" % (baseline_q, self.q), "r: %.3f %.3f" % (baseline_r, self.r))
 
         # Pilot commands
         roll_rate_cmd = inceptor_node.getFloat("aileron") * self.roll_stick_scale
@@ -259,9 +241,9 @@ class NotaFCS():
 
         # dampers, these can be tuned to pilot preference for lighter finger tip
         # flying vs heavy stable flying.
-        aileron_damp = self.p * self.roll_damp_gain
-        elevator_damp = (self.q - baseline_q) * self.pitch_damp_gain
-        rudder_damp = (self.r - baseline_r) * self.yaw_damp_gain
+        aileron_damp = self.p * self.roll_damp_gain / self.qbar
+        elevator_damp = (self.q - baseline_q) * self.pitch_damp_gain / self.qbar
+        rudder_damp = (self.r - baseline_r) * self.yaw_damp_gain / self.qbar
 
         # final output command
         aileron_cmd = raw_aileron_cmd + aileron_int - aileron_damp
@@ -295,17 +277,31 @@ class NotaFCS():
         return beta_deg
 
     # compute model-based aileron and rudder command to simultaneously achieve the reference roll rate and side slip angle.
+    Ainv_lat = np.array(
+        [[5223.997719570232, 86.53137102359369],
+         [3112.870284450966, -187.8833840322353]]
+    )
+    B_lat = np.array(
+        [[-0.3279732547932126, -0.006061380767969274, 0.0017838077680168345, 0.002582130232044947,   8.229002177507066],
+         [11.381920691905997,   0.06423929309132188, -0.1514805151401035,   -0.10031783139998209, -318.79044889415076]]
+    )
     def lat_func(self, ref_p, ref_beta):
         x = np.array([ref_p, ref_beta])
-        b = np.array([1, self.ay, self.gbody_y, 1/self.airspeed_mps])
+        b = np.array([1, self.ay, self.gbody_y, self.airspeed_mps, 1/self.airspeed_mps])
         y = (self.Ainv_lat @ x - self.B_lat @ b) / self.qbar
         print("lon y:", y)
         return y.tolist()
 
     # compute model-based elevator command to achieve the reference pitch rate.
+    Ainv_lon = np.array(
+        [[-4996.77049111088]]
+    )
+    B_lon = np.array(
+        [[0.15640149796443698, -0.00043212705017340664, 0.01596103011849002, -0.00017520759288595494, -0.0016056595485786098, -5.957540570227146]]
+    )
     def lon_func(self, ref_q):
         x = np.array([ref_q])
-        b = np.array([1, 1/self.airspeed_mps, self.q_term1])
+        b = np.array([1, self.ay, abs(self.ay), self.gbody_y, self.airspeed_mps, 1/self.airspeed_mps])
         y = (self.Ainv_lon @ x - self.B_lon @ b) / self.qbar
         print("lat y:", y)
         return y[0]
