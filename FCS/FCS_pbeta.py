@@ -2,7 +2,7 @@ from math import cos, exp, sin, tan
 import numpy as np
 
 from lib.constants import d2r, gravity
-from lib.props import accel_node, aero_node, att_node, control_engine_node, control_flight_node, inceptor_node, vel_node
+from lib.props import accel_node, aero_node, att_node, control_flight_node, inceptor_node, vel_node
 
 from .NotaPID import NotaPID
 
@@ -60,14 +60,11 @@ class FCS_pbeta():
         if flying_confidence > 0.5:
             if True:
                 # sensed directly (or from sim model)
-                self.alpha_deg = aero_node.getFloat("alpha_deg")
                 self.beta_deg = aero_node.getFloat("beta_deg")
             else:
                 # inertial+airdata estimate (behaves very wrong at low airspeeds, ok in flight!)
-                self.alpha_deg = self.alpha_func()
                 self.beta_deg = self.beta_func()  # this functions drifts and can get stuck!
         else:
-            self.alpha_deg = self.theta_deg
             self.beta_deg = 0
 
         # Feed forward steady state q and r basd on bank angle/turn rate.
@@ -89,13 +86,7 @@ class FCS_pbeta():
         roll_rate_cmd = inceptor_node.getFloat("aileron") * self.roll_stick_scale
         beta_deg_cmd = -inceptor_node.getFloat("rudder") * self.yaw_stick_scale
 
-        # envelope protection (needs to move after or into the controller or at
-        # least incorporate the ff term (and dampers?))  This must consider more
-        # than just pitch rate and may need to lower the pitch angle hold value
-        # simultaneously, however it takes time for speed to build up and alpha
-        # to come down so how/where should the limited 'hold' value get set to?
-
-        # bank angle limits
+        # envelope protection: bank angle limits
         max_p = (self.bank_limit_deg - self.phi_deg) * d2r * 0.5
         min_p = (-self.bank_limit_deg - self.phi_deg) * d2r * 0.5
 
@@ -130,20 +121,6 @@ class FCS_pbeta():
 
         control_flight_node.setFloat("aileron", aileron_cmd)
         control_flight_node.setFloat("rudder", rudder_cmd)
-
-        print (' move outsdie')
-        control_flight_node.setBool("flaps_down", inceptor_node.getBool("flaps_down"))
-        control_flight_node.setBool("flaps_up", inceptor_node.getBool("flaps_up"))
-
-        throttle_cmd = inceptor_node.getFloat("throttle")
-        control_engine_node.setFloat("throttle", throttle_cmd)
-
-    # a simple alpha estimator fit from flight test data
-    def alpha_func(self):
-        p = 0 # roll rate shows up in our alpha measurement because the alpha vane is at the end of the wing, but let's zero it and ignore that.
-        # alpha_deg = -6.519 + 14920.457/self.qbar - 0.331*self.az - 4.432*self.p + 0.243*self.ax + 0.164*self.ay + 3.577*self.q
-        alpha_deg = -6.3792 + 14993.7058/self.qbar -0.3121*self.az - 4.3545*p + 5.3980*self.q + 0.2199*self.ax
-        return alpha_deg
 
     # a simple beta estimator fit from flight test data
     def beta_func(self):

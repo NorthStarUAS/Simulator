@@ -2,7 +2,7 @@ from math import cos, sin, tan
 import numpy as np
 
 from lib.constants import d2r, gravity
-from lib.props import accel_node, aero_node, att_node, control_engine_node, control_flight_node, inceptor_node, vel_node
+from lib.props import accel_node, aero_node, att_node, control_flight_node, inceptor_node, vel_node
 
 from .NotaPID import NotaPID
 
@@ -58,14 +58,11 @@ class FCS_q():
             if True:
                 # sensed directly (or from sim model)
                 self.alpha_deg = aero_node.getFloat("alpha_deg")
-                self.beta_deg = aero_node.getFloat("beta_deg")
             else:
                 # inertial+airdata estimate (behaves very wrong at low airspeeds, ok in flight!)
                 self.alpha_deg = self.alpha_func()
-                self.beta_deg = self.beta_func()  # this functions drifts and can get stuck!
         else:
             self.alpha_deg = self.theta_deg
-            self.beta_deg = 0
 
         # Feed forward steady state q and r basd on bank angle/turn rate.
         # Presuming a steady state level turn, compute turn rate =
@@ -120,27 +117,12 @@ class FCS_q():
         #       "raw ele: %.3f" % raw_elevator_cmd, "final ele: %.3f" % elevator_cmd)
         control_flight_node.setFloat("elevator", elevator_cmd)
 
-        # move outside
-        print('move outside')
-        control_flight_node.setBool("flaps_down", inceptor_node.getBool("flaps_down"))
-        control_flight_node.setBool("flaps_up", inceptor_node.getBool("flaps_up"))
-
-        throttle_cmd = inceptor_node.getFloat("throttle")
-        control_engine_node.setFloat("throttle", throttle_cmd)
-
     # a simple alpha estimator fit from flight test data
     def alpha_func(self):
         p = 0 # roll rate shows up in our alpha measurement because the alpha vane is at the end of the wing, but let's zero it and ignore that.
         # alpha_deg = -6.519 + 14920.457/self.qbar - 0.331*self.az - 4.432*self.p + 0.243*self.ax + 0.164*self.ay + 3.577*self.q
         alpha_deg = -6.3792 + 14993.7058/self.qbar -0.3121*self.az - 4.3545*p + 5.3980*self.q + 0.2199*self.ax
         return alpha_deg
-
-    # a simple beta estimator fit from flight test data
-    def beta_func(self):
-        rudder_cmd = inceptor_node.getFloat("rudder")
-        # beta_deg = 2.807 - 9.752*self.ay + 0.003*self.ay*self.qbar - 5399.632/self.qbar - 0.712*abs(self.ay)
-        beta_deg = -0.3552 - 12.1898*rudder_cmd - 3.5411*self.ay + 7.1957*self.r + 0.0008*self.ay*self.qbar + 0.9769*self.throttle_cmd
-        return beta_deg
 
     # compute model-based elevator command to achieve the reference pitch rate.
     def lon_func(self, ref_q):
