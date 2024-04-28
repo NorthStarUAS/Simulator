@@ -15,9 +15,9 @@ import os
 import time
 
 from lib.props import control_engine_node, control_flight_node, inceptor_node, vel_node
-from FCS.FCS_pbeta import FCS_pbeta
-from FCS.FCS_q import FCS_q
-from FCS.IsFlying import IsFlying
+from FCS.direct_pbeta import pbeta_controller
+from FCS.direct_q import q_controller
+from FCS.util import IsFlying
 from sim.jsbsim import JSBSimWrap
 from sim.joystick import Joystick
 from visuals.fgfs import fgfs
@@ -59,19 +59,26 @@ def direct_fcs():
     control_flight_node.setBool("flaps_down", inceptor_node.getBool("flaps_down"))
     control_flight_node.setBool("flaps_up", inceptor_node.getBool("flaps_up"))
 
-fcs_lat = FCS_pbeta()
-fcs_lon = FCS_q()
+fcs_lat = pbeta_controller()
+fcs_lon = q_controller()
 # fcs = FCS_pr_q()
 is_flying = IsFlying(on_ground_for_sure_mps=30, flying_for_sure_mps=40)
 
 def update():
     joystick.update()
 
-    # this section should go into a top level FCS() class
+    # this section should go into a top level FCS() class or a function
     flying_confidence = is_flying.get_flying_confidence(vel_node.getFloat("vc_mps"))
     fcs_lat.update(flying_confidence)
     fcs_lon.update(flying_confidence)
-    print("integrators: %.2f %.2f %.2f" % (fcs_lat.aileron_int, fcs_lon.elevator_int, fcs_lat.rudder_int))  # move outside
+    print("integrators: %.2f %.2f %.2f" % (fcs_lat.aileron_int, fcs_lon.elevator_int, fcs_lat.rudder_int))
+    control_flight_node.setFloat("aileron", fcs_lat.aileron_cmd)
+    control_flight_node.setFloat("rudder", fcs_lat.rudder_cmd)
+    control_flight_node.setFloat("elevator", fcs_lon.elevator_cmd)
+    control_flight_node.setBool("flaps_down", inceptor_node.getBool("flaps_down"))
+    control_flight_node.setBool("flaps_up", inceptor_node.getBool("flaps_up"))
+    throttle_cmd = inceptor_node.getFloat("throttle")
+    control_engine_node.setFloat("throttle", throttle_cmd)
 
     sim.RunSteps(4, updateWind=True)
     sim.PublishProps()
