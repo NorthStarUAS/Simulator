@@ -143,15 +143,15 @@ class FCS_q():
         return beta_deg
 
     # compute model-based elevator command to achieve the reference pitch rate.
-    Ainv_lon = np.array(
-        [[-4996.77049111088]]
-    )
-    B_lon = np.array(
-        [[0.15640149796443698, -0.00043212705017340664, 0.01596103011849002, -0.00017520759288595494, -0.0016056595485786098, -5.957540570227146]]
-    )
     def lon_func(self, ref_q):
+        Ainv = np.array(
+            [[-4996.77049111088]]
+        )
+        B = np.array(
+            [[0.15640149796443698, -0.00043212705017340664, 0.01596103011849002, -0.00017520759288595494, -0.0016056595485786098, -5.957540570227146]]
+        )
         x = np.array([ref_q])
         b = np.array([1, self.ay, abs(self.ay), self.gbody_y, self.airspeed_mps, 1/self.airspeed_mps])
-        y = (self.Ainv_lon @ x - self.B_lon @ b) / self.qbar
+        y = (Ainv @ x - B @ b) / self.qbar
         print("lat y:", y)
         return y[0]

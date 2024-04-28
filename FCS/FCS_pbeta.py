@@ -153,17 +153,17 @@ class FCS_pbeta():
         return beta_deg
 
     # compute model-based aileron and rudder command to simultaneously achieve the reference roll rate and side slip angle.
-    Ainv_lat = np.array(
-        [[5223.997719570232, 86.53137102359369],
-         [3112.870284450966, -187.8833840322353]]
-    )
-    B_lat = np.array(
-        [[-0.3279732547932126, -0.006061380767969274, 0.0017838077680168345, 0.002582130232044947,   8.229002177507066],
-         [11.381920691905997,   0.06423929309132188, -0.1514805151401035,   -0.10031783139998209, -318.79044889415076]]
-    )
     def lat_func(self, ref_p, ref_beta):
+        Ainv = np.array(
+            [[5223.997719570232, 86.53137102359369],
+            [3112.870284450966, -187.8833840322353]]
+        )
+        B = np.array(
+            [[-0.3279732547932126, -0.006061380767969274, 0.0017838077680168345, 0.002582130232044947,   8.229002177507066],
+            [11.381920691905997,   0.06423929309132188, -0.1514805151401035,   -0.10031783139998209, -318.79044889415076]]
+        )
         x = np.array([ref_p, ref_beta])
         b = np.array([1, self.ay, self.gbody_y, self.vc_mps, 1/self.vc_mps])
-        y = (self.Ainv_lat @ x - self.B_lat @ b) / self.qbar
+        y = (Ainv @ x - B @ b) / self.qbar
         print("lon y:", y)
         return y.tolist()
