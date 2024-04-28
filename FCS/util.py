@@ -55,6 +55,10 @@ class NotaPID():
             ref_val = min_val
         return ref_val
 
+    # Tip of the hat to imperfect models vs the real world.  The integrators
+    # suck up any difference between the model and the real aircraft. Imperfect
+    # models can be due to linear fit limits, change in aircraft weight and
+    # balance, change in atmospheric conditions, etc.
     def integrator(self, ref_val, cur_val, flying_confidence=0.0):
         cutoff = self.antiwindup * flying_confidence
         self.error_sum += self.int_gain * (ref_val - cur_val) * self.dt

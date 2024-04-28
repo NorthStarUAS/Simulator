@@ -23,7 +23,11 @@ class pbeta_controller():
         self.roll_damp_gain = 1500.0
         self.yaw_damp_gain = 6000.0
 
-    # compute model-based roll and yaw commands to simultaneously achieve the reference roll rate and beta (side-slip) angle.
+    # compute model-based roll and yaw commands to simultaneously achieve the
+    # reference roll rate and beta (side-slip) angle. This functions is fit from
+    # the original flight data and involves a matrix inversion that is
+    # precomputed offlin.  Here we use the inverted matrix directly and never
+    # needs to be recomputed.
     def lat_func(self, ref_p, ref_beta, qbar, ay, gbody_y, vc_mps):
         Ainv = np.array(
             [[5223.997719570232, 86.53137102359369],
@@ -62,17 +66,10 @@ class pbeta_controller():
         ref_p = self.roll_helper.get_ref_value(roll_rate_request, 0, min_p, max_p, phi_deg, flying_confidence)
         ref_beta = self.yaw_helper.get_ref_value(beta_deg_request, 0, None, None, 0, flying_confidence)
 
-        # compute the direct surface position to achieve the command (these
-        # functions are fit from the original flight data and involve a matrix
-        # inversion that is precomputed and the result is static and never needs
-        # to be recomputed.)
+        # compute the direct surface position to achieve the command
         raw_roll_cmd, raw_yaw_cmd = self.lat_func(ref_p, ref_beta, qbar, self.ay, gbody_y, vc_mps)
 
-        # run the integrators.  Tip of the hat to imperfect models vs the real
-        # world.  The integrators suck up any difference between the model and
-        # the real aircraft. Imperfect models can be due to linear fit limits,
-        # change in aircraft weight and balance, change in atmospheric
-        # conditions, etc.
+        # run the integrators
         self.roll_int = self.roll_helper.integrator(ref_p, p_rps, flying_confidence)
         self.yaw_int = self.yaw_helper.integrator(ref_beta, beta_deg, flying_confidence)
 
@@ -86,4 +83,5 @@ class pbeta_controller():
         yaw_cmd = raw_yaw_cmd + self.yaw_int - yaw_damp
         # print("inc_q: %.3f" % pitch_rate_cmd, "bl_q: %.3f" % baseline_q, "ref_q: %.3f" % ref_q,
         #       "raw ele: %.3f" % raw_elevator_cmd, "final ele: %.3f" % elevator_cmd)
+
         return roll_cmd, yaw_cmd

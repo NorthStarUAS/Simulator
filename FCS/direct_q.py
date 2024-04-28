@@ -22,6 +22,9 @@ class q_controller():
         self.pitch_damp_gain = 1500.0
 
     # compute model-based pitch command to achieve the reference pitch rate.
+    # This functions is fit from the original flight data and involves a matrix
+    # inversion that is precomputed offlin.  Here we use the inverted matrix
+    # directly and never needs to be recomputed.
     def lon_func(self, ref_q, qbar, ay, gbody_y, vc_mps):
         Ainv = np.array(
             [[-4996.77049111088]]
@@ -60,10 +63,7 @@ class q_controller():
         # Condition and limit the pilot request
         ref_q = self.pitch_helper.get_ref_value(pitch_rate_request, baseline_q, None, max_q, theta_deg, flying_confidence)
 
-        # compute the direct surface position to achieve the command (these
-        # functions are fit from the original flight data and involve a matrix
-        # inversion that is precomputed and the result is static and never needs
-        # to be recomputed.)
+        # compute the direct surface position to achieve the command
         raw_pitch_cmd = self.lon_func(ref_q, qbar, ay, gbody_y, vc_mps)
 
         # run the integrators.  Tip of the hat to imperfect models vs the real
@@ -82,4 +82,5 @@ class q_controller():
         pitch_cmd = raw_pitch_cmd + self.pitch_int + pitch_damp
         # print("inc_q: %.3f" % pitch_rate_cmd, "bl_q: %.3f" % baseline_q, "ref_q: %.3f" % ref_q,
         #       "raw ele: %.3f" % raw_pitch_cmd, "final ele: %.3f" % pitch_cmd)
+
         return pitch_cmd
