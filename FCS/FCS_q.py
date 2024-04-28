@@ -2,7 +2,7 @@ from math import cos, sin, tan
 import numpy as np
 
 from lib.constants import d2r, gravity
-from lib.props import accel_node, aero_node, att_node, control_flight_node, inceptor_node, vel_node
+from lib.props import accel_node, aero_node, att_node, inceptor_node, vel_node
 
 from .NotaPID import NotaPID
 
@@ -20,13 +20,17 @@ class FCS_q():
         self.alpha_limit_deg = 13.0
         self.vne_mps = 80
 
+        # helper
+        self.pitch_helper = NotaPID("pitch", -15, 15, integral_gain=-4.0, antiwindup=0.5, neutral_tolerance=0.03)
+
         # integrators
         self.elevator_int = 0.0
 
         # dampers
         self.pitch_damp_gain = 1500.0
 
-        self.pitch_helper = NotaPID("pitch", -15, 15, integral_gain=-4.0, antiwindup=0.5, neutral_tolerance=0.03)
+        # output
+        self.elevator_cmd = 0
 
     def update(self, flying_confidence):
         # fetch and compute all the values needed by the control laws
@@ -112,10 +116,9 @@ class FCS_q():
         elevator_damp = (self.q - baseline_q) * self.pitch_damp_gain / self.qbar
 
         # final output command
-        elevator_cmd = raw_elevator_cmd + self.elevator_int + elevator_damp
+        self.elevator_cmd = raw_elevator_cmd + self.elevator_int + elevator_damp
         # print("inc_q: %.3f" % pitch_rate_cmd, "bl_q: %.3f" % baseline_q, "ref_q: %.3f" % ref_q,
         #       "raw ele: %.3f" % raw_elevator_cmd, "final ele: %.3f" % elevator_cmd)
-        control_flight_node.setFloat("elevator", elevator_cmd)
 
     # a simple alpha estimator fit from flight test data
     def alpha_func(self):

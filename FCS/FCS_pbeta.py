@@ -2,7 +2,7 @@ from math import cos, exp, sin, tan
 import numpy as np
 
 from lib.constants import d2r, gravity
-from lib.props import accel_node, aero_node, att_node, control_flight_node, inceptor_node, vel_node
+from lib.props import accel_node, aero_node, att_node, inceptor_node, vel_node
 
 from .NotaPID import NotaPID
 
@@ -20,6 +20,10 @@ class FCS_pbeta():
         # envelope protection
         self.bank_limit_deg = 60.0
 
+        # helpers
+        self.roll_helper = NotaPID("roll", -45, 45, integral_gain=1.0, antiwindup=0.25, neutral_tolerance=0.02)
+        self.yaw_helper = NotaPID("yaw", -10, 10, integral_gain=-0.01, antiwindup=0.25, neutral_tolerance=0.02)
+
         # integrators
         self.aileron_int = 0.0
         self.rudder_int = 0.0
@@ -28,8 +32,9 @@ class FCS_pbeta():
         self.roll_damp_gain = 1500.0
         self.yaw_damp_gain = 6000.0
 
-        self.roll_helper = NotaPID("roll", -45, 45, integral_gain=1.0, antiwindup=0.25, neutral_tolerance=0.02)
-        self.yaw_helper = NotaPID("yaw", -10, 10, integral_gain=-0.01, antiwindup=0.25, neutral_tolerance=0.02)
+        # output
+        self.aileron_cmd = 0.0
+        self.rudder_cmd = 0.0
 
     def update(self, flying_confidence):
         # fetch and compute all the values needed by the control laws
@@ -114,13 +119,10 @@ class FCS_pbeta():
         rudder_damp = (self.r - baseline_r) * self.yaw_damp_gain / self.qbar
 
         # final output command
-        aileron_cmd = raw_aileron_cmd + self.aileron_int - aileron_damp
-        rudder_cmd = raw_rudder_cmd + self.rudder_int - rudder_damp
+        self.aileron_cmd = raw_aileron_cmd + self.aileron_int - aileron_damp
+        self.rudder_cmd = raw_rudder_cmd + self.rudder_int - rudder_damp
         # print("inc_q: %.3f" % pitch_rate_cmd, "bl_q: %.3f" % baseline_q, "ref_q: %.3f" % ref_q,
         #       "raw ele: %.3f" % raw_elevator_cmd, "final ele: %.3f" % elevator_cmd)
-
-        control_flight_node.setFloat("aileron", aileron_cmd)
-        control_flight_node.setFloat("rudder", rudder_cmd)
 
     # a simple beta estimator fit from flight test data
     def beta_func(self):
