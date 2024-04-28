@@ -13,10 +13,6 @@ class pbeta_controller():
         self.vc_mps = 25
         self.vtrue_mps = 25
 
-        # stick -> rate command scaling
-        self.roll_stick_scale = 30 * d2r  # radians
-        self.yaw_stick_scale = 20         # maps to beta_deg
-
         # envelope protection
         self.bank_limit_deg = 60.0
 
@@ -25,18 +21,14 @@ class pbeta_controller():
         self.yaw_helper = NotaPID("yaw", -10, 10, integral_gain=-0.01, antiwindup=0.25, neutral_tolerance=0.02)
 
         # integrators
-        self.aileron_int = 0.0
-        self.rudder_int = 0.0
+        self.roll_int = 0.0
+        self.yaw_int = 0.0
 
-        # dampers
+        # damper gains
         self.roll_damp_gain = 1500.0
         self.yaw_damp_gain = 6000.0
 
-        # output
-        self.aileron_cmd = 0.0
-        self.rudder_cmd = 0.0
-
-    def update(self, flying_confidence):
+    def update(self, roll_rate_request, beta_deg_request, flying_confidence):
         # fetch and compute all the values needed by the control laws
         self.throttle_cmd = inceptor_node.getFloat("throttle")
 
@@ -87,51 +79,48 @@ class pbeta_controller():
         baseline_r = cos(self.phi_deg*d2r) * turn_rate_rps
         # print("tr: %.3f" % turn_rate_rps, "q: %.3f %.3f" % (baseline_q, self.q), "r: %.3f %.3f" % (baseline_r, self.r))
 
-        # Pilot commands
-        roll_rate_cmd = inceptor_node.getFloat("aileron") * self.roll_stick_scale
-        beta_deg_cmd = -inceptor_node.getFloat("rudder") * self.yaw_stick_scale
-
         # envelope protection: bank angle limits
         max_p = (self.bank_limit_deg - self.phi_deg) * d2r * 0.5
         min_p = (-self.bank_limit_deg - self.phi_deg) * d2r * 0.5
 
         # Condition and limit the pilot requests
-        ref_p = self.roll_helper.get_ref_value(roll_rate_cmd, 0, min_p, max_p, self.phi_deg, flying_confidence)
-        ref_beta = self.yaw_helper.get_ref_value(beta_deg_cmd, 0, None, None, 0, flying_confidence)
+        ref_p = self.roll_helper.get_ref_value(roll_rate_request, 0, min_p, max_p, self.phi_deg, flying_confidence)
+        ref_beta = self.yaw_helper.get_ref_value(beta_deg_request, 0, None, None, 0, flying_confidence)
 
         # compute the direct surface position to achieve the command (these
         # functions are fit from the original flight data and involve a matrix
         # inversion that is precomputed and the result is static and never needs
         # to be recomputed.)
-        raw_aileron_cmd, raw_rudder_cmd = self.lat_func(ref_p, ref_beta)
+        raw_roll_cmd, raw_yaw_cmd = self.lat_func(ref_p, ref_beta)
 
         # run the integrators.  Tip of the hat to imperfect models vs the real
         # world.  The integrators suck up any difference between the model and
         # the real aircraft. Imperfect models can be due to linear fit limits,
         # change in aircraft weight and balance, change in atmospheric
         # conditions, etc.
-        self.aileron_int = self.roll_helper.integrator(ref_p, self.p, flying_confidence)
-        self.rudder_int = self.yaw_helper.integrator(ref_beta, self.beta_deg, flying_confidence)
+        self.roll_int = self.roll_helper.integrator(ref_p, self.p, flying_confidence)
+        self.yaw_int = self.yaw_helper.integrator(ref_beta, self.beta_deg, flying_confidence)
 
         # dampers, these can be tuned to pilot preference for lighter finger tip
         # flying vs heavy stable flying.
-        aileron_damp = self.p * self.roll_damp_gain / self.qbar
-        rudder_damp = (self.r - baseline_r) * self.yaw_damp_gain / self.qbar
+        roll_damp = self.p * self.roll_damp_gain / self.qbar
+        yaw_damp = (self.r - baseline_r) * self.yaw_damp_gain / self.qbar
 
         # final output command
-        self.aileron_cmd = raw_aileron_cmd + self.aileron_int - aileron_damp
-        self.rudder_cmd = raw_rudder_cmd + self.rudder_int - rudder_damp
+        roll_cmd = raw_roll_cmd + self.roll_int - roll_damp
+        yaw_cmd = raw_yaw_cmd + self.yaw_int - yaw_damp
         # print("inc_q: %.3f" % pitch_rate_cmd, "bl_q: %.3f" % baseline_q, "ref_q: %.3f" % ref_q,
         #       "raw ele: %.3f" % raw_elevator_cmd, "final ele: %.3f" % elevator_cmd)
+        return roll_cmd, yaw_cmd
 
-    # a simple beta estimator fit from flight test data
+    # a simple beta estimator fit from flight test data (todo: fit a beta function without rudder)
     def beta_func(self):
         rudder_cmd = inceptor_node.getFloat("rudder")
         # beta_deg = 2.807 - 9.752*self.ay + 0.003*self.ay*self.qbar - 5399.632/self.qbar - 0.712*abs(self.ay)
         beta_deg = -0.3552 - 12.1898*rudder_cmd - 3.5411*self.ay + 7.1957*self.r + 0.0008*self.ay*self.qbar + 0.9769*self.throttle_cmd
         return beta_deg
 
-    # compute model-based aileron and rudder command to simultaneously achieve the reference roll rate and side slip angle.
+    # compute model-based roll and yaw commands to simultaneously achieve the reference roll rate and beta (side-slip) angle.
     def lat_func(self, ref_p, ref_beta):
         Ainv = np.array(
             [[5223.997719570232, 86.53137102359369],

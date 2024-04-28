@@ -13,9 +13,6 @@ class q_controller():
         self.airspeed_mps = 25
         self.vtrue_mps = 25
 
-        # stick -> rate command scaling
-        self.pitch_stick_scale = 30 * d2r
-
         # envelope protection
         self.alpha_limit_deg = 13.0
         self.vne_mps = 80
@@ -24,15 +21,12 @@ class q_controller():
         self.pitch_helper = NotaPID("pitch", -15, 15, integral_gain=-4.0, antiwindup=0.5, neutral_tolerance=0.03)
 
         # integrators
-        self.elevator_int = 0.0
+        self.pitch_int = 0.0
 
-        # dampers
+        # damper gains
         self.pitch_damp_gain = 1500.0
 
-        # output
-        self.elevator_cmd = 0
-
-    def update(self, flying_confidence):
+    def update(self, pitch_rate_request, flying_confidence):
         # fetch and compute all the values needed by the control laws
         self.throttle_cmd = inceptor_node.getFloat("throttle")
 
@@ -83,9 +77,6 @@ class q_controller():
         baseline_r = cos(self.phi_deg*d2r) * turn_rate_rps
         # print("tr: %.3f" % turn_rate_rps, "q: %.3f %.3f" % (baseline_q, self.q), "r: %.3f %.3f" % (baseline_r, self.r))
 
-        # Pilot command
-        pitch_rate_cmd = -inceptor_node.getFloat("elevator") * self.pitch_stick_scale
-
         # envelope protection (needs to move after or into the controller or at
         # least incorporate the ff term (and dampers?))  This must consider more
         # than just pitch rate and may need to lower the pitch angle hold value
@@ -95,30 +86,31 @@ class q_controller():
         # min_q = (self.airspeed_mps - self.vne_mps) * 0.1
 
         # Condition and limit the pilot request
-        ref_q = self.pitch_helper.get_ref_value(pitch_rate_cmd, baseline_q, None, max_q, self.theta_deg, flying_confidence)
+        ref_q = self.pitch_helper.get_ref_value(pitch_rate_request, baseline_q, None, max_q, self.theta_deg, flying_confidence)
 
         # compute the direct surface position to achieve the command (these
         # functions are fit from the original flight data and involve a matrix
         # inversion that is precomputed and the result is static and never needs
         # to be recomputed.)
-        raw_elevator_cmd = self.lon_func(ref_q)
+        raw_pitch_cmd = self.lon_func(ref_q)
 
         # run the integrators.  Tip of the hat to imperfect models vs the real
         # world.  The integrators suck up any difference between the model and
         # the real aircraft. Imperfect models can be due to linear fit limits,
         # change in aircraft weight and balance, change in atmospheric
         # conditions, etc.
-        self.elevator_int = self.pitch_helper.integrator(ref_q, self.q, flying_confidence)
-        # print("pitch integrators: %.2f %.2f %.2f" % (aileron_int, self.elevator_int, rudder_int))  # move outside
+        self.pitch_int = self.pitch_helper.integrator(ref_q, self.q, flying_confidence)
+        # print("pitch integrators: %.2f %.2f %.2f" % (aileron_int, self.pitch_int, rudder_int))  # move outside
 
         # dampers, these can be tuned to pilot preference for lighter finger tip
         # flying vs heavy stable flying.
-        elevator_damp = (self.q - baseline_q) * self.pitch_damp_gain / self.qbar
+        pitch_damp = (self.q - baseline_q) * self.pitch_damp_gain / self.qbar
 
         # final output command
-        self.elevator_cmd = raw_elevator_cmd + self.elevator_int + elevator_damp
+        pitch_cmd = raw_pitch_cmd + self.pitch_int + pitch_damp
         # print("inc_q: %.3f" % pitch_rate_cmd, "bl_q: %.3f" % baseline_q, "ref_q: %.3f" % ref_q,
-        #       "raw ele: %.3f" % raw_elevator_cmd, "final ele: %.3f" % elevator_cmd)
+        #       "raw ele: %.3f" % raw_pitch_cmd, "final ele: %.3f" % pitch_cmd)
+        return pitch_cmd
 
     # a simple alpha estimator fit from flight test data
     def alpha_func(self):
@@ -127,7 +119,7 @@ class q_controller():
         alpha_deg = -6.3792 + 14993.7058/self.qbar -0.3121*self.az - 4.3545*p + 5.3980*self.q + 0.2199*self.ax
         return alpha_deg
 
-    # compute model-based elevator command to achieve the reference pitch rate.
+    # compute model-based pitch command to achieve the reference pitch rate.
     def lon_func(self, ref_q):
         Ainv = np.array(
             [[-4996.77049111088]]
