@@ -14,10 +14,7 @@ import argparse
 import os
 import time
 
-from lib.props import control_engine_node, control_flight_node, inceptor_node, vel_node
-from FCS.direct_pbeta import pbeta_controller
-from FCS.direct_q import q_controller
-from FCS.util import IsFlying
+from FCS.fcs_mgr import FCSMgr
 from sim.jsbsim import JSBSimWrap
 from sim.joystick import Joystick
 from visuals.fgfs import fgfs
@@ -50,39 +47,13 @@ if not args.no_trim: # fixme
     sim.DispTrim()
 # sim.SetTurb(turbSeverity=1, vWind20_mps=2.5, vWindHeading_deg=270) # Trim with wind, no turbulence
 
-def direct_fcs():
-    control_engine_node.setFloat("throttle", inceptor_node.getFloat("throttle"))
-    control_flight_node.setFloat("aileron", inceptor_node.getFloat("aileron"))
-    control_flight_node.setFloat("elevator", inceptor_node.getFloat("elevator"))
-    control_flight_node.setFloat("elevator_trim", inceptor_node.getFloat("elevator_trim"))
-    control_flight_node.setFloat("rudder", inceptor_node.getFloat("rudder"))
-    control_flight_node.setBool("flaps_down", inceptor_node.getBool("flaps_down"))
-    control_flight_node.setBool("flaps_up", inceptor_node.getBool("flaps_up"))
-
-fcs_lat = pbeta_controller()
-fcs_lon = q_controller()
-# fcs = FCS_pr_q()
-is_flying = IsFlying(on_ground_for_sure_mps=30, flying_for_sure_mps=40)
+fcs = FCSMgr()
 
 def update():
     joystick.update()
-
-    # this section should go into a top level FCS() class or a function
-    flying_confidence = is_flying.get_flying_confidence(vel_node.getFloat("vc_mps"))
-    fcs_lat.update(flying_confidence)
-    fcs_lon.update(flying_confidence)
-    print("integrators: %.2f %.2f %.2f" % (fcs_lat.aileron_int, fcs_lon.elevator_int, fcs_lat.rudder_int))
-    control_flight_node.setFloat("aileron", fcs_lat.aileron_cmd)
-    control_flight_node.setFloat("rudder", fcs_lat.rudder_cmd)
-    control_flight_node.setFloat("elevator", fcs_lon.elevator_cmd)
-    control_flight_node.setBool("flaps_down", inceptor_node.getBool("flaps_down"))
-    control_flight_node.setBool("flaps_up", inceptor_node.getBool("flaps_up"))
-    throttle_cmd = inceptor_node.getFloat("throttle")
-    control_engine_node.setFloat("throttle", throttle_cmd)
-
+    fcs.update()
     sim.RunSteps(4, updateWind=True)
     sim.PublishProps()
-
     fgfs.send_to_fgfs()
     # pvi.update(state_mgr, 0, 0, 0, 0)
     xp.update()
