@@ -60,6 +60,8 @@ class FCSMgr():
         else:
             alpha_deg = att_node.getFloat("theta_deg")
             beta_deg = 0
+        fcs_node.setFloat("alpha_deg", alpha_deg)
+        fcs_node.setFloat("beta_deg", beta_deg)
 
         # Feed forward steady state q and r basd on bank angle/turn rate.
         # Presuming a steady state level turn, compute turn rate =
