@@ -11,9 +11,10 @@ class q_controller():
         # envelope protection
         self.alpha_limit_deg = 13.0
         self.vne_mps = 80
+        theta_soft_limit = 15
 
         # helper
-        self.pitch_helper = NotaPID("pitch", -15, 15, integral_gain=-4.0, antiwindup=0.5, neutral_tolerance=0.03)
+        self.pitch_helper = NotaPID("pitch", -theta_soft_limit, theta_soft_limit, integral_gain=-4.0, antiwindup=0.5, neutral_tolerance=0.03)
 
         # integrators
         self.pitch_int = 0.0

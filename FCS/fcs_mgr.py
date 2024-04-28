@@ -22,8 +22,8 @@ class FCSMgr():
 
         # filtered state (clamp to minimum of 25 mps because we need to divide
         # by airspeed and qbar so this must be definitely positive 100% of the time.)
-        self.vc_mps = 25
-        self.vtrue_mps = 25
+        self.vc_filt_mps = 25
+        self.vtrue_filt_mps = 25
 
     def compute_stuff(self):
         # update state and filters
@@ -31,18 +31,17 @@ class FCSMgr():
         # velocity terms
         vc_mps = vel_node.getFloat("vc_mps")
         if vc_mps < 25: vc_mps = 25
-        self.vc_mps = 0.99 * self.vc_mps + 0.01 * vc_mps
+        self.vc_filt_mps = 0.99 * self.vc_filt_mps + 0.01 * vc_mps
         vtrue_mps = vel_node.getFloat("vtrue_mps")
         if vtrue_mps < 25: vtrue_mps = 25
-        self.vtrue_mps = 0.99 * self.vtrue_mps + 0.01 * vtrue_mps
-        qbar = 0.5 * self.vc_mps**2 * rho
-        fcs_node.setFloat("vc_filt_mps", self.vc_mps)
-        fcs_node.setFloat("vtrue_filt_mps", self.vtrue_mps)
+        self.vtrue_filt_mps = 0.99 * self.vtrue_filt_mps + 0.01 * vtrue_mps
+        qbar = 0.5 * self.vc_filt_mps**2 * rho
+        fcs_node.setFloat("vc_filt_mps", self.vc_filt_mps)
         fcs_node.setFloat("qbar", qbar)
 
         # in the air vs on the ground?  (uses a sigmoid function between
         # threshold speeds)
-        flying_confidence = self.is_flying.get_flying_confidence(self.vc_mps)
+        flying_confidence = self.is_flying.get_flying_confidence(self.vc_filt_mps)
         fcs_node.setFloat("flying_confidence", flying_confidence)
 
         # alpha / beta estimates (or direct from sim model)
@@ -70,7 +69,7 @@ class FCSMgr():
         # all fixed wing aircraft.
         phi_rad = att_node.getFloat("phi_deg") * d2r
         if abs(phi_rad) < pi * 0.5 * 0.9:
-            turn_rate_rps = tan(phi_rad) * -gravity / vtrue_mps
+            turn_rate_rps = tan(phi_rad) * -gravity / self.vtrue_filt_mps
         else:
             turn_rate_rps = 0
         # compute a baseline q and r for the presumed steady state level turn,
@@ -85,11 +84,12 @@ class FCSMgr():
         # update state and filters
         self.compute_stuff()
 
-        # Pilot commands
+        # pilot commands
         roll_rate_request = inceptor_node.getFloat("aileron") * self.roll_stick_scale
         pitch_rate_request = -inceptor_node.getFloat("elevator") * self.pitch_stick_scale
         beta_deg_request = -inceptor_node.getFloat("rudder") * self.yaw_stick_scale
 
+        # flight control laws
         roll_cmd, yaw_cmd = self.fcs_lat.update(roll_rate_request, beta_deg_request)
         pitch_cmd = self.fcs_lon.update(pitch_rate_request)
         print("integrators: %.2f %.2f %.2f" % (self.fcs_lat.roll_int, self.fcs_lon.pitch_int, self.fcs_lat.yaw_int))

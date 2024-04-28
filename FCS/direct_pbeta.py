@@ -9,11 +9,13 @@ from .util import NotaPID
 class pbeta_controller():
     def __init__(self):
         # envelope protection
-        self.bank_limit_deg = 60.0
+        self.phi_hard_limit_deg = 60.0
+        phi_soft_limit_deg = 45.0
+        beta_soft_limit_deg = 10.0
 
         # helpers
-        self.roll_helper = NotaPID("roll", -45, 45, integral_gain=1.0, antiwindup=0.25, neutral_tolerance=0.02)
-        self.yaw_helper = NotaPID("yaw", -10, 10, integral_gain=-0.01, antiwindup=0.25, neutral_tolerance=0.02)
+        self.roll_helper = NotaPID("roll", -phi_soft_limit_deg, phi_soft_limit_deg, integral_gain=1.0, antiwindup=0.25, neutral_tolerance=0.02)
+        self.yaw_helper = NotaPID("yaw", -beta_soft_limit_deg,beta_soft_limit_deg, integral_gain=-0.01, antiwindup=0.25, neutral_tolerance=0.02)
 
         # integrators
         self.roll_int = 0.0
@@ -59,8 +61,8 @@ class pbeta_controller():
         beta_deg = fcs_node.getFloat("beta_deg")
 
         # envelope protection: bank angle limits
-        max_p = (self.bank_limit_deg - phi_deg) * d2r * 0.5
-        min_p = (-self.bank_limit_deg - phi_deg) * d2r * 0.5
+        max_p = (self.phi_hard_limit_deg - phi_deg) * d2r * 0.5
+        min_p = (-self.phi_hard_limit_deg - phi_deg) * d2r * 0.5
 
         # Condition and limit the pilot requests
         ref_p = self.roll_helper.get_ref_value(roll_rate_request, 0, min_p, max_p, phi_deg, flying_confidence)
