@@ -1,4 +1,4 @@
-from math import cos, exp, sin, tan
+from math import cos, sin, tan
 import numpy as np
 
 from lib.constants import d2r, gravity
@@ -16,11 +16,6 @@ class FCS_q():
         # stick -> rate command scaling
         self.pitch_stick_scale = 30 * d2r
 
-        # flying vs on ground detection
-        self.on_ground_for_sure_mps = 30
-        self.flying_for_sure_mps = 40
-        self.flying_confidence = 0.0  # range from 0 to 1 representing level of confidence we are on ground(0) vs flying(1)
-
         # envelope protection
         self.alpha_limit_deg = 13.0
         self.vne_mps = 80
@@ -33,7 +28,7 @@ class FCS_q():
 
         self.pitch_helper = NotaPID("pitch", -15, 15, integral_gain=-4.0, antiwindup=0.5, neutral_tolerance=0.03)
 
-    def update(self):
+    def update(self, flying_confidence):
         # fetch and compute all the values needed by the control laws
         self.throttle_cmd = inceptor_node.getFloat("throttle")
 
@@ -59,16 +54,7 @@ class FCS_q():
         self.gbody_z = cos(self.phi_deg*d2r) * cos(self.theta_deg*d2r) * gravity
         self.q_term1 = sin(self.phi_deg*d2r) * (sin(self.phi_deg*d2r) / cos(self.phi_deg*d2r)) / self.airspeed_mps
 
-        # flying?  Let's use a sigmoid function between min/max threshold and
-        # compute a 0 - 1 likelihood.
-        diff = self.flying_for_sure_mps - self.on_ground_for_sure_mps
-        mid = self.on_ground_for_sure_mps + diff * 0.5
-        # sigmoid function of [-5 to 5]
-        x = 10 * (self.airspeed_mps - self.on_ground_for_sure_mps) / diff - 5
-        self.flying_confidence = exp(x) / (1 + exp(x))
-        print("flying:", "%.1f %.0f%%" % (self.airspeed_mps, 100*self.flying_confidence))
-
-        if self.flying_confidence > 0.5:
+        if flying_confidence > 0.5:
             if True:
                 # sensed directly (or from sim model)
                 self.alpha_deg = aero_node.getFloat("alpha_deg")
@@ -108,7 +94,7 @@ class FCS_q():
         # min_q = (self.airspeed_mps - self.vne_mps) * 0.1
 
         # Condition and limit the pilot request
-        ref_q = self.pitch_helper.get_ref_value(pitch_rate_cmd, baseline_q, None, max_q, self.theta_deg, self.flying_confidence)
+        ref_q = self.pitch_helper.get_ref_value(pitch_rate_cmd, baseline_q, None, max_q, self.theta_deg, flying_confidence)
 
         # compute the direct surface position to achieve the command (these
         # functions are fit from the original flight data and involve a matrix
@@ -121,7 +107,7 @@ class FCS_q():
         # the real aircraft. Imperfect models can be due to linear fit limits,
         # change in aircraft weight and balance, change in atmospheric
         # conditions, etc.
-        self.elevator_int = self.pitch_helper.integrator(ref_q, self.q, self.flying_confidence)
+        self.elevator_int = self.pitch_helper.integrator(ref_q, self.q, flying_confidence)
         # print("pitch integrators: %.2f %.2f %.2f" % (aileron_int, self.elevator_int, rudder_int))  # move outside
 
         # dampers, these can be tuned to pilot preference for lighter finger tip
