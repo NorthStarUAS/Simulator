@@ -42,7 +42,7 @@ class pbeta_controller():
         x = np.array([ref_p, ref_beta])
         b = np.array([1, ay, gbody_y, vc_mps, 1/vc_mps])
         y = (Ainv @ x - B @ b) / qbar
-        print("lon y:", y)
+        # print("lat y:", y)
         return y.tolist()
 
     def update(self, roll_rate_request, beta_deg_request):

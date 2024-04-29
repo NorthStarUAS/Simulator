@@ -36,7 +36,7 @@ def send_to_fgfs():
                       -fcs_node.getFloat("posRud_deg") / 20,
                       fcs_node.getFloat("posThrottle_nd"),
 
-                      fcs_node.getFloat("posAil_deg") / 12.5,
+                      -fcs_node.getFloat("posAil_deg") / 12.5, # Emannual's SR22 needs a negative value here, reversed from the other SR22
                       fcs_node.getFloat("posAil_deg") / 12.5,
                       fcs_node.getFloat("posElev_deg") / 25,
                       -fcs_node.getFloat("posRud_deg") / 20,

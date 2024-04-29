@@ -36,7 +36,7 @@ class q_controller():
         x = np.array([ref_q])
         b = np.array([1, ay, abs(ay), gbody_y, vc_mps, 1/vc_mps])
         y = (Ainv @ x - B @ b) / qbar
-        print("lat y:", y)
+        # print("lon y:", y)
         return y[0]
 
     def update(self, pitch_rate_request):

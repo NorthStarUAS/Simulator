@@ -45,7 +45,7 @@ if not args.no_trim: # fixme
     trimType = 1  # 1 = in air, 2 = on the ground
     sim.RunTrim(trimType=trimType, throttle=0.5, flap=0.0)
     sim.DispTrim()
-# sim.SetTurb(turbSeverity=1, vWind20_mps=2.5, vWindHeading_deg=270) # Trim with wind, no turbulence
+sim.SetTurb(turbSeverity=1, vWind20_mps=2, vWindHeading_deg=0) # Trim with wind, no turbulence
 
 fcs = FCSMgr()
 
