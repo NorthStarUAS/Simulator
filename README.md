@@ -1,6 +1,6 @@
 # Simulation and Control Law Development
 
-This project explores techniques to derive dyanmics models and flight control
+This project explores techniques to derive dynamics models and flight control
 laws directly from flight test data.
 
 ## Simulation
@@ -49,7 +49,7 @@ anything here.
 
 That said, my initial investigations (beginning in 2021) shows that all this
 stuff works, and can work pretty well.  This is a DIY project and I am doing in
-my spare time whenever I get a rainy saturday, so I don't have a specific time
+my spare time whenever I get a rainy Saturday, so I don't have a specific time
 line.  It is whatever I can do whenever I can do it.
 
 Feel free to ask questions if you have any!
