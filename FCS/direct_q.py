@@ -67,11 +67,7 @@ class q_controller():
         # compute the direct surface position to achieve the command
         raw_pitch_cmd = self.lon_func(ref_q, qbar, ay, gbody_y, vc_mps)
 
-        # run the integrators.  Tip of the hat to imperfect models vs the real
-        # world.  The integrators suck up any difference between the model and
-        # the real aircraft. Imperfect models can be due to linear fit limits,
-        # change in aircraft weight and balance, change in atmospheric
-        # conditions, etc.
+        # run the integrators.
         self.pitch_int = self.pitch_helper.integrator(ref_q, q_rps, flying_confidence)
         # print("pitch integrators: %.2f %.2f %.2f" % (aileron_int, self.pitch_int, rudder_int))  # move outside
 
