@@ -132,7 +132,6 @@ class StateManager():
             self.alpha = [alpha_rad] + self.alpha[:num]
             self.alpha_dot = (self.alpha[0] - self.alpha[1]) / self.dt
             self.vel_body[2] = vc_mps * sin(alpha_rad)
-        self.beta_prev1 = self.beta
         if beta_rad is not None:
             self.beta = [beta_rad] + self.beta[:num]
             self.vel_body[1] = vc_mps * sin(beta_rad)
@@ -408,8 +407,6 @@ class StateManager():
                 val = sin(self.beta) * self.qbar
             elif field == "qbar/cos(beta_deg)":
                 val = self.qbar / cos(self.beta)
-            elif field == "sin(beta_prev1_deg)*qbar":
-                val = sin(self.beta_prev1) * self.qbar
             elif field == "p":
                 val = self.gyros[n][0]
             elif field == "q":
