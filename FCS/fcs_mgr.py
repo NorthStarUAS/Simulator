@@ -13,7 +13,7 @@ class FCSMgr():
     def __init__(self):
         # stick -> rate command scaling
         self.roll_stick_scale = 30 * d2r   # rad
-        self.pitch_stick_scale = 30 * d2r  # rad
+        self.pitch_stick_scale = 20 * d2r  # rad
         self.yaw_stick_scale = 20          # maps to beta_deg
 
         self.fcs_lat = pbeta_controller()
