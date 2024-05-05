@@ -141,7 +141,8 @@ for i, s in enumerate(train_states):
         propagate.append( [src, dst] )
 print("Previous state propagation:", propagate)
 
-state_mgr.set_is_flying_thresholds(75*kt2mps, 65*kt2mps)
+state_mgr.set_is_flying_thresholds(15*kt2mps, 10*kt2mps) # bob ross
+# state_mgr.set_is_flying_thresholds(75*kt2mps, 65*kt2mps) # sr22
 
 train_data = TrainData()
 train_data.load_flightdata(args.flight, args.vehicle, args.invert_elevator, args.invert_rudder, state_mgr, conditions, train_states)
@@ -522,7 +523,7 @@ for i, cond in enumerate(conditions):
         corr = np.corrcoef(traindata)
         print("corr:\n", corr)
 
-    if True:
+    if False:
         do_filter(traindata, dt)
 
     # sysid = SystemIdentification(args.vehicle)
@@ -531,7 +532,7 @@ for i, cond in enumerate(conditions):
     if False and False:
         mass_solution_4(traindata, train_states, output_states, self_reference=True)
 
-    if False:
+    if True:
         # Parameter predictionive correlation: these are the things we want to
         # control, this will find the most important "predictive" correlations,
         # hopefully some external input (inceptor, control surface, etc.)
@@ -561,19 +562,19 @@ for i, cond in enumerate(conditions):
         # clear correlation in the flight data.
 
         # enable these one at a time (decide if we are building the controller around yaw rate or beta_deg)
-        y_state = "p"
-        y_state = "r"
+        # y_state = "p"
+        # y_state = "r"
         # y_state = "beta_deg"
-        include_states = ["aileron*qbar", "rudder*qbar", "one"]
-        # include_states = []
+        # include_states = ["aileron*qbar", "rudder*qbar", "one"]
 
         # notice that rudder deflection leads to significant pitch down moment in decrab ... do we want to factor that in some how?
-        # y_state = "q"
-        # include_states = ["elevator*qbar", "one"]
+        y_state = "q"
+        include_states = ["elevator*qbar", "one"]
 
         # exclude states
         exclude_states = ["p", "q", "r"] + inceptor_terms + inceptor_airdata_terms  # avoid self referencing
         # exclude_states = ["p", "q", "r", "beta_deg"]
+        # exclude_states = []
 
         parameter_find_5(traindata, train_states, y_state, include_states, exclude_states, self_reference=False)
 
