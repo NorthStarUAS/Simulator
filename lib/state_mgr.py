@@ -263,8 +263,8 @@ class StateManager():
             #      "v_body:", self.vel_body, np.linalg.norm(self.vel_body))
 
             # compute alpha and beta from body frame velocity
-            self.alpha = atan2( self.vel_body[2], self.vel_body[0] )
-            self.beta = atan2( -self.vel_body[1], self.vel_body[0] )
+            self.alpha = [ atan2( self.vel_body[2], self.vel_body[0] ) ] + self.alpha[:num]
+            self.beta = [ atan2( -self.vel_body[1], self.vel_body[0] ) ] + self.beta[:num]
             #print("v(body):", v_body, "alpha = %.1f" % (self.alpha/d2r), "beta = %.1f" % (self.beta/d2r))
 
 
