@@ -150,8 +150,9 @@ train_data.load_flightdata(args.flight, args.vehicle, args.invert_elevator, args
 print("Conditions report:")
 for i, cond in enumerate(conditions):
     print(i, cond)
-    print("  Number of states:", len(train_data.cond_list[i][0]))
-    print("  Input state vectors:", len(train_data.cond_list[i]))
+    if len(train_data.cond_list[i]):
+        print("  Number of states:", len(train_data.cond_list[i][0]))
+        print("  Input state vectors:", len(train_data.cond_list[i]))
 
 # signal smoothing experiment
 from scipy import signal
@@ -565,7 +566,7 @@ for i, cond in enumerate(conditions):
         # y_state = "p"
         # y_state = "r"
         # y_state = "beta_deg"
-        # include_states = ["aileron*qbar", "rudder*qbar", "one"]
+        include_states = ["aileron*qbar", "rudder*qbar", "one"]
 
         # notice that rudder deflection leads to significant pitch down moment in decrab ... do we want to factor that in some how?
         y_state = "q"
