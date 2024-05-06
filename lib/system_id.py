@@ -257,18 +257,19 @@ class SystemIdentification():
         # compute expected ranges for output parameters
         self.parameters = []
         for i in range(states):
+            print("i:", i, state_mgr.state_list[i])
             row = self.X[i,:]
             min = np.min(row)
             max = np.max(row)
             mean = np.mean(row)
-            if state_mgr.state_list[i] in state_mgr.input_states:
-                var_type = "input"
-            elif state_mgr.state_list[i] in state_mgr.internal_states:
-                var_type = "internal"
-            elif state_mgr.state_list[i] in state_mgr.output_states:
-                var_type = "output"
-            else:
-                var_type = "unknown"
+            # if state_mgr.state_list[i] in state_mgr.input_states:
+            #     var_type = "input"
+            # elif state_mgr.state_list[i] in state_mgr.internal_states:
+            #     var_type = "internal"
+            # elif state_mgr.state_list[i] in state_mgr.output_states:
+            #     var_type = "output"
+            # else:
+            #     var_type = "unknown"
             self.parameters.append(
                 {
                     "name": state_mgr.state_list[i],
@@ -276,7 +277,7 @@ class SystemIdentification():
                     "max": np.max(row),
                     "median": np.median(row),
                     "std": np.std(row),
-                    "type": var_type
+                    # "type": var_type
                 }
             )
 
