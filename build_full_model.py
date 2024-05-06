@@ -262,7 +262,8 @@ elif True:
 
     # states to predict
     output_states = [
-        "p",
+        "p", "q", "r",
+        "ax", "ay", "az",
     ]
 
     # bins of unique flight conditions
@@ -304,16 +305,13 @@ elif args.vehicle == "quad":
 
 state_mgr = StateManager(args.vehicle)
 train_states = inceptor_terms + inceptor_airdata_terms + inertial_terms + airdata_terms
-state_mgr.set_state_names(inceptor_terms, inertial_terms + airdata_terms, output_states)
+state_mgr.set_state_names(inceptor_terms + inceptor_airdata_terms, inertial_terms + airdata_terms, output_states)
+
+state_mgr.set_is_flying_thresholds(12*kt2mps, 7*kt2mps) # bob ross
+# state_mgr.set_is_flying_thresholds(75*kt2mps, 65*kt2mps) # sr22
 
 train_data = TrainData()
 train_data.load_flightdata(args.flight, args.vehicle, args.invert_elevator, args.invert_rudder, state_mgr, conditions, train_states)
-
-if train_data.flight_format == "cirrus_csv":
-    state_mgr.set_is_flying_thresholds(75*kt2mps, 65*kt2mps)
-
-train_states = state_names
-train_data.build(args.vehicle, args.invert_elevator, args.invert_rudder, state_mgr, conditions, train_states)
 
 # # dt estimation
 # print("Estimating median dt from IMU records:")
@@ -500,8 +498,9 @@ train_data.build(args.vehicle, args.invert_elevator, args.invert_rudder, state_m
 print("Conditions report:")
 for i, cond in enumerate(conditions):
     print(i, cond)
-    print("  Number of states:", len(train_data.cond_list[i]["traindata_list"][0]))
-    print("  Input state vectors:", len(train_data.cond_list[i]["traindata_list"]))
+    if len(train_data.cond_list[i]):
+        print("  Number of states:", len(train_data.cond_list[i][0]))
+        print("  Input state vectors:", len(train_data.cond_list[i]))
 
 # stub / top of our model structure to save
 root_dict = {
@@ -511,18 +510,22 @@ root_dict = {
     "conditions": [],
 }
 
+sysid_list = [None] * len(conditions)
+print("sysid_list:", sysid_list)
+
 # create a solution for each condition
 for i, cond in enumerate(conditions):
     print(i, cond)
+    traindata = train_data.cond_list[i]
+    dt = train_data.dt
+
     condition_dict = { "condition": cond }
-    traindata = np.array(train_data.cond_list[i]["traindata_list"])
-    coeff = np.array(train_data.cond_list[i]["coeff"])
 
     sysid = SystemIdentification(args.vehicle)
-    train_data.cond_list[i]["sysid"] = sysid
+    sysid_list[i] = sysid
 
     # sysid.correlation_report_2(state_mgr, traindata, None)
-    sysid.compute_lift_curve(coeff)
+    # sysid.compute_lift_curve(coeff)
     sysid.fit(state_mgr, traindata)
     sysid.model_noise(state_mgr, traindata)
     sysid.analyze(state_mgr, traindata)
