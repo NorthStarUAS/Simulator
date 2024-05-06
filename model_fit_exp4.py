@@ -30,8 +30,6 @@ parser.add_argument("--invert-elevator", action='store_true', help="invert direc
 parser.add_argument("--invert-rudder", action='store_true', help="invert direction of rudder")
 args = parser.parse_args()
 
-state_mgr = StateManager(args.vehicle)
-
 # question 1: seem to get a better flaps up fit to airspeed (vs. qbar) but fails to converge for 50% flaps
 # qbar only converges for both conditions
 # question 2: would it be useful to have a gamma (flight path angle) parameter (may help asi)
@@ -114,6 +112,7 @@ conditions = [
     { "flaps": 1.0 },
 ]
 
+state_mgr = StateManager(args.vehicle)
 train_states = inceptor_terms + inceptor_airdata_terms + inertial_terms + airdata_terms
 state_mgr.set_state_names(inceptor_terms, inertial_terms + airdata_terms, output_states)
 
