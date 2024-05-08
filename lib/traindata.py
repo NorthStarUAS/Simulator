@@ -47,6 +47,8 @@ class TrainData():
                 print("airdata records:", len(data["air"]))
             if "act" in data:
                 print("actuator records:", len(data["act"]))
+            if "filter" in data:
+                print("filter records:", len(data["filter"]))
             if len(data["imu"]) == 0 and len(data["gps"]) == 0:
                 print("not enough data loaded to continue.")
                 quit()
@@ -98,7 +100,7 @@ class TrainData():
             # backup wind estimator if needed
             windest = Wind()
 
-            if False or self.flight_format != "cirrus_pkl":
+            if False and self.flight_format != "cirrus_pkl":
                 # note: wind estimates are only needed for estimating alpha/beta (or
                 # bvz/bvy) which is not needed if the aircraft is instrumented with
                 # alpha/beta vanes and these are measured directly.
