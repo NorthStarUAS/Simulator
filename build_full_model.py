@@ -313,6 +313,13 @@ state_mgr.set_is_flying_thresholds(12*kt2mps, 7*kt2mps) # bob ross
 train_data = TrainData()
 train_data.load_flightdata(args.flight, args.vehicle, args.invert_elevator, args.invert_rudder, state_mgr, conditions, train_states)
 
+train_idx = []
+for x in train_states:
+    train_idx.append(train_states.index(x))
+output_idx = []
+for x in output_states:
+    output_idx.append(train_states.index(x))
+
 # # dt estimation
 # print("Estimating median dt from IMU records:")
 # iter = flight_interp.IterateGroup(data)
@@ -517,6 +524,8 @@ print("sysid_list:", sysid_list)
 for i, cond in enumerate(conditions):
     print(i, cond)
     traindata = train_data.cond_list[i]
+    if not len(traindata):
+        continue
     dt = train_data.dt
 
     condition_dict = { "condition": cond }
@@ -526,9 +535,11 @@ for i, cond in enumerate(conditions):
 
     # sysid.correlation_report_2(state_mgr, traindata, None)
     # sysid.compute_lift_curve(coeff)
-    sysid.fit(state_mgr, traindata)
-    sysid.model_noise(state_mgr, traindata)
-    sysid.analyze(state_mgr, traindata)
+    # sysid.fit(state_mgr, traindata)
+    sysid.solve(traindata, train_idx, output_idx)
+    sysid.ranges(train_states)
+    sysid.model_noise(state_mgr, traindata, output_idx, dt)
+    sysid.analyze(state_mgr, traindata, train_states, output_idx)
     condition_dict["parameters"] = sysid.parameters
     condition_dict["A"] = sysid.A.flatten().tolist()
     root_dict["conditions"].append(condition_dict)
