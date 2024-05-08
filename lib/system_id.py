@@ -198,7 +198,82 @@ class SystemIdentification():
                 incl[idx[0][0]] = True
             print("")
 
-    def fit(self, state_mgr, traindata):
+    def solve(self, traindata, includes_idx, solutions_idx):
+        srcdata = traindata[includes_idx,:]
+        soldata = traindata[solutions_idx,:]
+        states = len(traindata[0])
+
+        self.X = np.array(srcdata[:,:-1])
+        self.Y = np.array(soldata[:,1:])
+        print("X:", self.X.shape)
+        print("Y:", self.Y.shape)
+        # print("X:\n", np.array(X))
+        # print("Y:\n", np.array(Y))
+
+        # Y = A * X, solve for A
+        #
+        # A is a matrix that projects (predicts) all the next states
+        # given all the previous states (in a least squares best fit
+        # sense)
+        #
+        # X isn't nxn and doesn't have a direct inverse, so first
+        # perform an svd:
+        #
+        # Y = A * U * D * V.T
+
+        # print("dask svd...")
+        daX = da.from_array(self.X, chunks=(self.X.shape[0], 10000)).persist()
+        u, s, vh = da.linalg.svd(daX)
+
+        if False:
+            # debug and sanity check
+            print("u:\n", u.shape, u)
+            print("s:\n", s.shape, s)
+            print("vh:\n", vh.shape, vh)
+            Xr = (u * s) @ vh[:states, :]
+            print( "dask svd close?", np.allclose(self.X, Xr.compute()) )
+
+        # after algebraic manipulation
+        #
+        # A = Y * V * D.inv() * U.T
+
+        v = vh.T
+        # print("s inv:", (1/s).compute() )
+
+        self.A = (self.Y @ (v[:,:states] * (1/s)) @ u.T).compute()
+        print("A rank:", np.linalg.matrix_rank(self.A))
+        print("A:\n", self.A.shape, self.A)
+
+    def ranges(self, train_states):
+        # compute expected ranges for output parameters
+        self.parameters = []
+        for i in range(len(train_states)):
+            print("i:", i, train_states[i])
+            row = self.X[i,:]
+            min = np.min(row)
+            max = np.max(row)
+            mean = np.mean(row)
+            # if state_mgr.state_list[i] in state_mgr.input_states:
+            #     var_type = "input"
+            # elif state_mgr.state_list[i] in state_mgr.internal_states:
+            #     var_type = "internal"
+            # elif state_mgr.state_list[i] in state_mgr.output_states:
+            #     var_type = "output"
+            # else:
+            #     var_type = "unknown"
+            self.parameters.append(
+                {
+                    "name": train_states[i],
+                    "min": np.min(row),
+                    "max": np.max(row),
+                    "median": np.median(row),
+                    "std": np.std(row),
+                    # "type": var_type
+                }
+            )
+            print(self.parameters[-1])
+
+    def old_fit(self, state_mgr, traindata):
         if False:    # need to use filtfilt here to avoid phase change
             # signal smoothing experiment
             from scipy import signal
@@ -281,16 +356,15 @@ class SystemIdentification():
                 }
             )
 
-    def model_noise(self, state_mgr, traindata):
+    def model_noise(self, state_mgr, traindata, output_idx, dt):
         # look at the frequency of the error terms in the output states which
         # suggest unmodeled effects such as short period oscillations and
         # turbulence, or artifacts in the data log (like a 5hz gps update rate
         # showing up in ekf velocity estimate.)
 
-        output_index_list = state_mgr.get_state_index( state_mgr.output_states )
         pred = []
         for i in range(len(self.X.T)):
-            v  = traindata[i,:].copy()
+            v  = traindata[:,i].copy()
             p = self.A @ np.array(v)
             pred.append(p)
         Ypred = np.array(pred).T
@@ -298,11 +372,11 @@ class SystemIdentification():
 
         M=1024
         from scipy import signal
-        for i in range(len(output_index_list)):
+        for i in range(len(output_idx)):
             # parameter: window='hann' may need to be added to the
             # signal.spectogram() call for older scipy/numpy versions that don't
             # yet agree on this name.
-            freqs, times, Sx = signal.spectrogram(diff[i,:], fs=(1/state_mgr.dt),
+            freqs, times, Sx = signal.spectrogram(diff[i,:], fs=(1/dt),
                                                   nperseg=M, noverlap=M - 100,
                                                   detrend=False, scaling='spectrum')
             if False:
@@ -326,7 +400,7 @@ class SystemIdentification():
                     pt = 0.5 * (bins[j] + bins[j+1])
                     #print( j, pt, total )
                     d1.append( [pt, total] )
-            self.parameters[output_index_list[i]]["noise"] = d1
+            self.parameters[output_idx[i]]["noise"] = d1
             if False:
                 d1 = np.array(d1)
                 plt.figure()
@@ -336,14 +410,13 @@ class SystemIdentification():
         if False:
             plt.show()
 
-    def analyze(self, state_mgr, traindata):
-        output_index_list = state_mgr.get_state_index( state_mgr.output_states )
-        states = len(traindata[0])
+    def analyze(self, state_mgr, traindata, train_states, output_idx):
+        states = len(train_states)
         params = self.parameters
 
         # report leading contributions towards computing each output state
-        for i in range(len(state_mgr.output_states)):
-            #print(self.state_names[i])
+        for i in range(len(output_idx)):
+            print(train_states[i])
             row = self.A[i,:]
             energy = []
             for j in range(states):
@@ -354,11 +427,10 @@ class SystemIdentification():
                 energy.append(e)
             idx = np.argsort(-np.abs(energy))
             total = np.sum(np.abs(energy))
-            output_idx = output_index_list[i]
-            params[output_idx]["contributors"] = state_mgr.state_list[output_idx] + " = "
-            params[output_idx]["formula"] = state_mgr.state_list[output_idx] + " = "
-            contributors = state_mgr.state_list[output_idx] + " = "
-            formula = state_mgr.state_list[output_idx] + " = "
+            params[output_idx[i]]["contributors"] = state_mgr.state_list[output_idx[i]] + " = "
+            params[output_idx[i]]["formula"] = state_mgr.state_list[output_idx[i]] + " = "
+            contributors = state_mgr.state_list[output_idx[i]] + " = "
+            formula = state_mgr.state_list[output_idx[i]] + " = "
             first = True
             for j in idx:
                 perc = 100 * energy[j] / total
@@ -377,10 +449,11 @@ class SystemIdentification():
                     formula += " + "
                 contributors += state_mgr.state_list[j] + " %.1f%%" % abs(perc)
                 formula += "%.3f" % abs(row[j]) + "*" + state_mgr.state_list[j]
-            params[output_index_list[i]]["contributors"] = contributors
-            params[output_index_list[i]]["formula"] = formula
-            print(params[output_index_list[i]]["contributors"])
-            print(params[output_index_list[i]]["formula"])
+            print(i, output_idx[i])
+            params[output_idx[i]]["contributors"] = contributors
+            params[output_idx[i]]["formula"] = formula
+            print(params[output_idx[i]]["contributors"])
+            print(params[output_idx[i]]["formula"])
 
     def save(self, model_name, dt):
         # the median delta t from the data log is important to include
