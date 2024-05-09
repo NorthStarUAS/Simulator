@@ -410,13 +410,13 @@ class SystemIdentification():
         if False:
             plt.show()
 
-    def analyze(self, state_mgr, traindata, train_states, output_idx):
+    def analyze(self, state_mgr, train_states, output_idx):
         states = len(train_states)
         params = self.parameters
 
         # report leading contributions towards computing each output state
         for i in range(len(output_idx)):
-            print(train_states[i])
+            print(train_states[output_idx[i]])
             row = self.A[i,:]
             energy = []
             for j in range(states):
@@ -427,10 +427,10 @@ class SystemIdentification():
                 energy.append(e)
             idx = np.argsort(-np.abs(energy))
             total = np.sum(np.abs(energy))
-            params[output_idx[i]]["contributors"] = state_mgr.state_list[output_idx[i]] + " = "
-            params[output_idx[i]]["formula"] = state_mgr.state_list[output_idx[i]] + " = "
-            contributors = state_mgr.state_list[output_idx[i]] + " = "
-            formula = state_mgr.state_list[output_idx[i]] + " = "
+            params[output_idx[i]]["contributors"] = train_states[output_idx[i]] + " = "
+            params[output_idx[i]]["formula"] = train_states[output_idx[i]] + " = "
+            contributors = train_states[output_idx[i]] + " = "
+            formula = train_states[output_idx[i]] + " = "
             first = True
             for j in idx:
                 perc = 100 * energy[j] / total
@@ -447,8 +447,8 @@ class SystemIdentification():
                     formula += " - "
                 else:
                     formula += " + "
-                contributors += state_mgr.state_list[j] + " %.1f%%" % abs(perc)
-                formula += "%.3f" % abs(row[j]) + "*" + state_mgr.state_list[j]
+                contributors += train_states[j] + " %.1f%%" % abs(perc)
+                formula += "%.3f" % abs(row[j]) + "*" + train_states[j]
             print(i, output_idx[i])
             params[output_idx[i]]["contributors"] = contributors
             params[output_idx[i]]["formula"] = formula
@@ -488,7 +488,7 @@ class SystemIdentification():
             # print("includes_idx:", includes_idx)
             # print("solutions_idx:", solutions_idx)
             v = data[includes_idx,i]
-            # print(v.shape, v)
+            # print("v:", v.shape, v)
             if len(indirect_idx):
                 v[indirect_idx] = next
             next = self.A @ v
@@ -505,6 +505,7 @@ class SystemIdentification():
             print(j)
             print(j, est[j,:], solutions_idx[j])
             plt.plot(est[j,:], label="%s (pred)" % train_states[solutions_idx[j]])
+            # plt.ylim([-20,20])
             plt.legend()
         plt.show()
 

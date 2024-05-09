@@ -188,7 +188,7 @@ elif True:
         "p", "q", "r",        # imu (body) rates
         "ax",                 # thrust - drag
         "ay",                 # side force
-        "ay^2", "ay*vc_mps", "ay*qbar",
+        # "ay^2", "ay*vc_mps", "ay*qbar",
         "az",                 # lift
         "bgx", "bgy", "bgz",  # gravity rotated into body frame
         "abs(ay)", "abs(bgy)",
@@ -209,17 +209,17 @@ elif True:
         "qbar",
         "1/vc_mps",
         "1/qbar",
-        # "alpha_dot_term2",
+        "alpha_dot_term2",
         # "sin(alpha_deg)*qbar", "sin(alpha_deg)*qbar_1",
         # "sin(beta_deg)*qbar", "sin(beta_deg)*qbar_1",
         # "qbar/cos(beta_deg)",
     ]
 
     inceptor_airdata_terms = [
-        "aileron*qbar", "aileron*vc_mps", # "aileron*qbar_1",
+        "aileron*qbar", #"aileron*vc_mps", # "aileron*qbar_1",
         "abs(aileron)*qbar",
-        "elevator*qbar", "elevator*vc_mps", # "elevator*qbar_1", "elevator*qbar_2", "elevator*qbar_3",
-        "rudder*qbar", "rudder*vc_mps", # "rudder*qbar_1", "rudder*qbar_2", "rudder*qbar_3",
+        "elevator*qbar", #"elevator*vc_mps", # "elevator*qbar_1", "elevator*qbar_2", "elevator*qbar_3",
+        "rudder*qbar", #"rudder*vc_mps", # "rudder*qbar_1", "rudder*qbar_2", "rudder*qbar_3",
         "abs(rudder)*qbar",
     ]
 
@@ -264,6 +264,7 @@ elif True:
     output_states = [
         "p", "q", "r",
         "ax", "ay", "az",
+        "alpha_deg", "beta_deg",
     ]
 
     # bins of unique flight conditions
@@ -304,7 +305,9 @@ elif args.vehicle == "quad":
     ]
 
 state_mgr = StateManager(args.vehicle)
-train_states = inceptor_terms + inceptor_airdata_terms + inertial_terms + airdata_terms
+# train_states = inceptor_terms + inceptor_airdata_terms + inertial_terms + airdata_terms
+train_states = inceptor_airdata_terms + inertial_terms + airdata_terms
+print("train_states:", len(train_states), train_states)
 state_mgr.set_state_names(inceptor_terms + inceptor_airdata_terms, inertial_terms + airdata_terms, output_states)
 
 state_mgr.set_is_flying_thresholds(12*kt2mps, 7*kt2mps) # bob ross
@@ -539,7 +542,7 @@ for i, cond in enumerate(conditions):
     sysid.solve(traindata, train_idx, output_idx)
     sysid.ranges(train_states)
     sysid.model_noise(state_mgr, traindata, output_idx, dt)
-    sysid.analyze(state_mgr, traindata, train_states, output_idx)
+    sysid.analyze(state_mgr, train_states, output_idx)
 
     sysid.simulate(traindata, train_states, train_idx, output_idx)
     condition_dict["parameters"] = sysid.parameters
