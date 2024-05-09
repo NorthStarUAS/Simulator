@@ -540,6 +540,8 @@ for i, cond in enumerate(conditions):
     sysid.ranges(train_states)
     sysid.model_noise(state_mgr, traindata, output_idx, dt)
     sysid.analyze(state_mgr, traindata, train_states, output_idx)
+
+    sysid.simulate(traindata, train_states, train_idx, output_idx)
     condition_dict["parameters"] = sysid.parameters
     condition_dict["A"] = sysid.A.flatten().tolist()
     root_dict["conditions"].append(condition_dict)
@@ -553,7 +555,7 @@ f = open(args.write, "w")
 json.dump(root_dict, f, indent=4)
 f.close()
 
-if True:
+if False:
     # for each condition, show a running estimate of output states.  Feed the
     # output estimate forward into next state rather than using the original
     # logged value.  This can show the convergence of the estimated parameters
