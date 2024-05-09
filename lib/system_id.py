@@ -455,6 +455,59 @@ class SystemIdentification():
             print(params[output_idx[i]]["contributors"])
             print(params[output_idx[i]]["formula"])
 
+    def simulate(self, traindata, train_states, includes_idx, solutions_idx):
+        # make a copy because we are going to roll our state estimates through the
+        # data matrix and make a mess (or a piece of artwork!) out of it.
+        data = traindata.copy()
+        print("simulate:", data.shape, includes_idx, solutions_idx)
+
+        # this gets a little funky because we will be using numpy implied indexing below.
+        indirect_idx = []
+        for i in solutions_idx:
+            if i in includes_idx:
+                indirect_idx.append( includes_idx.index(i) )
+
+        if False: # we don't need this
+            # more craziness ... the propagate (state history) mapping is relative to
+            # the full traindata so we need to indirectly index those as well
+            local_prop = []
+            for [src, dst] in propagate:
+                if src in includes_idx and dst in includes_idx:
+                    local_prop.append( [includes_idx.index(src), includes_idx.index(dst)] )
+
+        # def shuffle_down(j):
+        #     if j < data.shape[1] - 1:
+        #         for [src, dst] in reversed(propagate):
+        #             data[dst,j+1] = data[src,j]
+
+        est = []
+        next = np.zeros(len(indirect_idx))
+        data[solutions_idx,i] = next
+        for i in range(data.shape[1]):
+            # print("i:", i)
+            # print("includes_idx:", includes_idx)
+            # print("solutions_idx:", solutions_idx)
+            v = data[includes_idx,i]
+            # print(v.shape, v)
+            if len(indirect_idx):
+                v[indirect_idx] = next
+            next = self.A @ v
+            # shuffle_down(i)
+            if i < data.shape[1] - 1:
+                data[solutions_idx,i+1] = next
+            est.append(next)
+        # return np.array(est).T
+        est = np.array(est).T
+
+        for j in range(len(solutions_idx)):
+            plt.figure()
+            plt.plot(traindata[solutions_idx[j],:], label="%s (orig)" % train_states[solutions_idx[j]])
+            print(j)
+            print(j, est[j,:], solutions_idx[j])
+            plt.plot(est[j,:], label="%s (pred)" % train_states[solutions_idx[j]])
+            plt.legend()
+        plt.show()
+
     def save(self, model_name, dt):
         # the median delta t from the data log is important to include
         # with the state transition matrix because the state
