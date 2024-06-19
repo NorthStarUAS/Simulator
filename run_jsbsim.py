@@ -14,6 +14,7 @@ import argparse
 import os
 import time
 
+from comms.HIL import HIL
 from FCS.fcs_mgr import FCSMgr
 from sim.jsbsim import JSBSimWrap
 from sim.joystick import Joystick
@@ -33,6 +34,7 @@ run_time = 600
 joystick = Joystick()
 pvi = PVI()
 xp = XPlane()
+hil = HIL()
 
 model = 'SR22T'
 # pathJSB = os.path.join("/home/clolson/Projects/SVO_Simulator/simulation-python-jsbsim", "JSBSim")
@@ -52,8 +54,10 @@ fcs = FCSMgr()
 def update():
     joystick.update()
     fcs.update()
+    # hil.read()
     sim.RunSteps(4, updateWind=True)
     sim.PublishProps()
+    hil.write()
     fgfs.send_to_fgfs()
     # pvi.update(state_mgr, 0, 0, 0, 0)
     xp.update()

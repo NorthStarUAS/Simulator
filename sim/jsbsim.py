@@ -11,7 +11,8 @@ Modifications: Curtis Olson
 import numpy as np
 import jsbsim as jsb    # pip install jsbsim
 
-from lib.props import accel_node, aero_node, att_node, control_engine_node, control_flight_node, engine_node, environment_node, fcs_node, mass_node, pos_node, root_node, vel_node
+from lib.constants import gravity
+from lib.props import accel_node, aero_node, att_node, control_engine_node, control_flight_node, engine_node, environment_node, fcs_node, imu_node, mass_node, pos_node, root_node, vel_node
 
 slug2kg = 14.5939029
 in2m = 0.0254
@@ -176,7 +177,7 @@ class JSBSimWrap:
 
     def RunTo(self, time_s, updateWind = None):
         # honor visual system ground elevation if set
-        vis_ground_m = pos_node.getFloat("visual_terrain_elevation_m")
+        vis_ground_m = pos_node.getDouble("visual_terrain_elevation_m")
         if vis_ground_m > 0:
             self.fdm["position/terrain-elevation-asl-ft"] = vis_ground_m * m2ft
 
@@ -187,11 +188,11 @@ class JSBSimWrap:
 
     def RunSteps(self, steps, updateWind = None):
         # update control inputs
-        self.fdm['fcs/throttle-cmd-norm'] = control_engine_node.getFloat("throttle")
-        self.fdm['fcs/aileron-cmd-norm'] = control_flight_node.getFloat("aileron")
-        self.fdm['fcs/elevator-cmd-norm'] = control_flight_node.getFloat("elevator")
-        self.fdm['fcs/pitch-trim-cmd-norm'] = control_flight_node.getFloat("elevator_trim")
-        self.fdm['fcs/rudder-cmd-norm'] = -control_flight_node.getFloat("rudder")
+        self.fdm['fcs/throttle-cmd-norm'] = control_engine_node.getDouble("throttle")
+        self.fdm['fcs/aileron-cmd-norm'] = control_flight_node.getDouble("aileron")
+        self.fdm['fcs/elevator-cmd-norm'] = control_flight_node.getDouble("elevator")
+        self.fdm['fcs/pitch-trim-cmd-norm'] = control_flight_node.getDouble("elevator_trim")
+        self.fdm['fcs/rudder-cmd-norm'] = -control_flight_node.getDouble("rudder")
 
         # 3 position flap dance
         flap_pos = self.fdm['fcs/flap-pos-norm']
@@ -210,7 +211,7 @@ class JSBSimWrap:
 
 
         # honor visual system ground elevation if set
-        vis_ground_m = pos_node.getFloat("visual_terrain_elevation_m")
+        vis_ground_m = pos_node.getDouble("visual_terrain_elevation_m")
         if vis_ground_m > 0:
             self.fdm["position/terrain-elevation-asl-ft"] = vis_ground_m * m2ft
         for i in range(steps):
@@ -219,68 +220,65 @@ class JSBSimWrap:
             self.fdm.run()
 
     def PublishProps(self):
-        root_node.setFloat("sim_time_sec", self.fdm['simulation/sim-time-sec'])
+        root_node.setDouble("sim_time_sec", self.fdm['simulation/sim-time-sec'])
 
         # Mass Properties
-        mass_node.setFloat("mass_kg", self.fdm['inertia/mass-slugs'] * slug2kg)
-        mass_node.setFloat("weight_lb", self.fdm['inertia/weight-lbs'])
-        mass_node.setFloat("weight_N", self.fdm['inertia/weight-lbs'] * lb2N)
+        mass_node.setDouble("mass_kg", self.fdm['inertia/mass-slugs'] * slug2kg)
+        mass_node.setDouble("weight_lb", self.fdm['inertia/weight-lbs'])
+        mass_node.setDouble("weight_N", self.fdm['inertia/weight-lbs'] * lb2N)
 
-        mass_node.setFloat("weightFuel_lb", self.fdm['propulsion/total-fuel-lbs'])
-        mass_node.setFloat("weightFuel_N", self.fdm['propulsion/total-fuel-lbs'] * lb2N)
+        mass_node.setDouble("weightFuel_lb", self.fdm['propulsion/total-fuel-lbs'])
+        mass_node.setDouble("weightFuel_N", self.fdm['propulsion/total-fuel-lbs'] * lb2N)
 
-        mass_node.setFloat("rCgX_Bf_m", self.fdm['inertia/cg-x-in'] * in2m)
-        mass_node.setFloat("rCgY_Bf_m", self.fdm['inertia/cg-y-in'] * in2m)
-        mass_node.setFloat("rCgZ_Bf_m", self.fdm['inertia/cg-z-in'] * in2m)
+        mass_node.setDouble("rCgX_Bf_m", self.fdm['inertia/cg-x-in'] * in2m)
+        mass_node.setDouble("rCgY_Bf_m", self.fdm['inertia/cg-y-in'] * in2m)
+        mass_node.setDouble("rCgZ_Bf_m", self.fdm['inertia/cg-z-in'] * in2m)
 
-        mass_node.setFloat("inertiaXX_kgm2", self.fdm['inertia/ixx-slugs_ft2'] * slug2kg * ft2m**2)
-        mass_node.setFloat("inertiaYY_kgm2", self.fdm['inertia/iyy-slugs_ft2'] * slug2kg * ft2m**2)
-        mass_node.setFloat("inertiaZZ_kgm2", self.fdm['inertia/izz-slugs_ft2'] * slug2kg * ft2m**2)
-        mass_node.setFloat("inertiaXY_kgm2", self.fdm['inertia/ixy-slugs_ft2'] * slug2kg * ft2m**2)
-        mass_node.setFloat("inertiaYZ_kgm2", self.fdm['inertia/iyz-slugs_ft2'] * slug2kg * ft2m**2)
-        mass_node.setFloat("inertiaXZ_kgm2", self.fdm['inertia/ixz-slugs_ft2'] * slug2kg * ft2m**2)
+        mass_node.setDouble("inertiaXX_kgm2", self.fdm['inertia/ixx-slugs_ft2'] * slug2kg * ft2m**2)
+        mass_node.setDouble("inertiaYY_kgm2", self.fdm['inertia/iyy-slugs_ft2'] * slug2kg * ft2m**2)
+        mass_node.setDouble("inertiaZZ_kgm2", self.fdm['inertia/izz-slugs_ft2'] * slug2kg * ft2m**2)
+        mass_node.setDouble("inertiaXY_kgm2", self.fdm['inertia/ixy-slugs_ft2'] * slug2kg * ft2m**2)
+        mass_node.setDouble("inertiaYZ_kgm2", self.fdm['inertia/iyz-slugs_ft2'] * slug2kg * ft2m**2)
+        mass_node.setDouble("inertiaXZ_kgm2", self.fdm['inertia/ixz-slugs_ft2'] * slug2kg * ft2m**2)
 
         # Environment
-        environment_node.setFloat("aGrav_mps2", self.fdm['accelerations/gravity-ft_sec2'] * ft2m)
+        environment_node.setDouble("aGrav_mps2", self.fdm['accelerations/gravity-ft_sec2'] * ft2m)
 
-        environment_node.setFloat("rho_kgpm3", self.fdm['atmosphere/rho-slugs_ft3'] * slug2kg * m2ft**3)
-        environment_node.setFloat("temp_C", (self.fdm['atmosphere/T-R'] - 491.67) / 1.8)
-        environment_node.setFloat("pres_Pa", self.fdm['atmosphere/P-psf'] * lb2N * m2ft**2)
+        environment_node.setDouble("rho_kgpm3", self.fdm['atmosphere/rho-slugs_ft3'] * slug2kg * m2ft**3)
+        environment_node.setDouble("temp_C", (self.fdm['atmosphere/T-R'] - 491.67) / 1.8)
+        environment_node.setDouble("pres_Pa", self.fdm['atmosphere/P-psf'] * lb2N * m2ft**2)
 
-        environment_node.setFloat("psiWind_rad", self.fdm['atmosphere/psiw-rad'])
-        environment_node.setFloat("vWindMag_mps", self.fdm['atmosphere/wind-mag-fps'] * ft2m)
-        environment_node.setFloat("vWindMag20_mps", self.fdm['atmosphere/turbulence/milspec/windspeed_at_20ft_AGL-fps'] * ft2m) # Wind at 20ft AGL
-        environment_node.setFloat("turbSeverity", self.fdm['atmosphere/turbulence/milspec/severity']) # Wind at 20ft AGL
+        environment_node.setDouble("psiWind_rad", self.fdm['atmosphere/psiw-rad'])
+        environment_node.setDouble("vWindMag_mps", self.fdm['atmosphere/wind-mag-fps'] * ft2m)
+        environment_node.setDouble("vWindMag20_mps", self.fdm['atmosphere/turbulence/milspec/windspeed_at_20ft_AGL-fps'] * ft2m) # Wind at 20ft AGL
+        environment_node.setDouble("turbSeverity", self.fdm['atmosphere/turbulence/milspec/severity']) # Wind at 20ft AGL
 
-        environment_node.setFloat("pTurb_rps", self.fdm['atmosphere/p-turb-rad_sec'])
-        environment_node.setFloat("qTurb_rps", self.fdm['atmosphere/q-turb-rad_sec'])
-        environment_node.setFloat("rTurb_rps", self.fdm['atmosphere/r-turb-rad_sec'])
+        environment_node.setDouble("pTurb_rps", self.fdm['atmosphere/p-turb-rad_sec'])
+        environment_node.setDouble("qTurb_rps", self.fdm['atmosphere/q-turb-rad_sec'])
+        environment_node.setDouble("rTurb_rps", self.fdm['atmosphere/r-turb-rad_sec'])
 
-        environment_node.setFloat("vTurbN_mps", self.fdm['atmosphere/turb-north-fps'] * ft2m)
-        environment_node.setFloat("vTurbE_mps", self.fdm['atmosphere/turb-east-fps'] * ft2m)
-        environment_node.setFloat("vTurbD_mps", self.fdm['atmosphere/turb-down-fps'] * ft2m)
+        environment_node.setDouble("vTurbN_mps", self.fdm['atmosphere/turb-north-fps'] * ft2m)
+        environment_node.setDouble("vTurbE_mps", self.fdm['atmosphere/turb-east-fps'] * ft2m)
+        environment_node.setDouble("vTurbD_mps", self.fdm['atmosphere/turb-down-fps'] * ft2m)
 
-        environment_node.setFloat("vWindN_mps", self.fdm['atmosphere/total-wind-north-fps'] * ft2m)
-        environment_node.setFloat("vWindE_mps", self.fdm['atmosphere/total-wind-east-fps'] * ft2m)
-        environment_node.setFloat("vWindD_mps", self.fdm['atmosphere/total-wind-down-fps'] * ft2m)
+        environment_node.setDouble("vWindN_mps", self.fdm['atmosphere/total-wind-north-fps'] * ft2m)
+        environment_node.setDouble("vWindE_mps", self.fdm['atmosphere/total-wind-east-fps'] * ft2m)
+        environment_node.setDouble("vWindD_mps", self.fdm['atmosphere/total-wind-down-fps'] * ft2m)
 
         # Accelerations
-        accel_node.setFloat("Nx", self.fdm['accelerations/Nx'])
-        accel_node.setFloat("Ny", self.fdm['accelerations/Ny'])
-        accel_node.setFloat("Nz", self.fdm['accelerations/Nz'])
-        accel_node.setFloat("pDot_rps2", self.fdm['accelerations/pdot-rad_sec2'])
-        accel_node.setFloat("qDot_rps2", self.fdm['accelerations/qdot-rad_sec2'])
-        accel_node.setFloat("rDot_rps2", self.fdm['accelerations/rdot-rad_sec2'])
-        accel_node.setFloat("uDot_mps2", self.fdm['accelerations/udot-ft_sec2'] * ft2m)
-        accel_node.setFloat("vDot_mps2", self.fdm['accelerations/vdot-ft_sec2'] * ft2m)
-        accel_node.setFloat("wDot_mps2", self.fdm['accelerations/wdot-ft_sec2'] * ft2m)
+        accel_node.setDouble("pDot_rps2", self.fdm['accelerations/pdot-rad_sec2'])
+        accel_node.setDouble("qDot_rps2", self.fdm['accelerations/qdot-rad_sec2'])
+        accel_node.setDouble("rDot_rps2", self.fdm['accelerations/rdot-rad_sec2'])
+        accel_node.setDouble("uDot_mps2", self.fdm['accelerations/udot-ft_sec2'] * ft2m)
+        accel_node.setDouble("vDot_mps2", self.fdm['accelerations/vdot-ft_sec2'] * ft2m)
+        accel_node.setDouble("wDot_mps2", self.fdm['accelerations/wdot-ft_sec2'] * ft2m)
 
         # Aerodynamics
-        aero_node.setFloat("alpha_deg", self.fdm['aero/alpha-deg'])
-        aero_node.setFloat("beta_deg", self.fdm['aero/beta-deg'])
-        aero_node.setFloat("alphaDot_dps", self.fdm['aero/alphadot-deg_sec'])
-        aero_node.setFloat("beta_deg", self.fdm['aero/beta-deg'])
-        aero_node.setFloat("betaDot_dps", self.fdm['aero/betadot-deg_sec'])
+        aero_node.setDouble("alpha_deg", self.fdm['aero/alpha-deg'])
+        aero_node.setDouble("beta_deg", self.fdm['aero/beta-deg'])
+        aero_node.setDouble("alphaDot_dps", self.fdm['aero/alphadot-deg_sec'])
+        aero_node.setDouble("beta_deg", self.fdm['aero/beta-deg'])
+        aero_node.setDouble("betaDot_dps", self.fdm['aero/betadot-deg_sec'])
 
         aero_coef_elements = self.fdm.query_property_catalog('aero/coefficient')
         aero_coef_elements = aero_coef_elements.replace(' (R)', '')
@@ -288,60 +286,73 @@ class JSBSimWrap:
         aero_coef_elements = aero_coef_elements.split('\n')
         for elem in aero_coef_elements:
             if elem != '':
-                aero_node.setFloat(elem, self.fdm[elem])
+                aero_node.setDouble(elem, self.fdm[elem])
 
         # Attitude
-        att_node.setFloat("phi_deg", self.fdm['attitude/phi-deg'])
-        att_node.setFloat("theta_deg", self.fdm['attitude/theta-deg'])
-        att_node.setFloat("psi_deg", self.fdm['attitude/psi-deg'])
-        att_node.setFloat("gamma_deg", self.fdm['flight-path/gamma-deg'])
+        att_node.setDouble("phi_deg", self.fdm['attitude/phi-deg'])
+        att_node.setDouble("theta_deg", self.fdm['attitude/theta-deg'])
+        att_node.setDouble("psi_deg", self.fdm['attitude/psi-deg'])
+        att_node.setDouble("gamma_deg", self.fdm['flight-path/gamma-deg'])
 
         # Propulsion
-        engine_node.setFloat("propeller_rpm", self.fdm['propulsion/engine/propeller-rpm'])
-        engine_node.setFloat("power_hp", self.fdm['propulsion/engine/power-hp'])
-        engine_node.setFloat("power_W", self.fdm['propulsion/engine/power-hp'] * hp22W)
-        engine_node.setFloat("blade_angle", self.fdm[ 'propulsion/engine/blade-angle'])
-        engine_node.setFloat("advance_ratio", self.fdm[ 'propulsion/engine/advance-ratio'])
-        engine_node.setFloat("thrust_lb", self.fdm[ 'propulsion/engine/thrust-lbs'])
-        engine_node.setFloat("thrust_N", self.fdm[ 'propulsion/engine/thrust-lbs'] * lb2N)
+        engine_node.setDouble("propeller_rpm", self.fdm['propulsion/engine/propeller-rpm'])
+        engine_node.setDouble("power_hp", self.fdm['propulsion/engine/power-hp'])
+        engine_node.setDouble("power_W", self.fdm['propulsion/engine/power-hp'] * hp22W)
+        engine_node.setDouble("blade_angle", self.fdm[ 'propulsion/engine/blade-angle'])
+        engine_node.setDouble("advance_ratio", self.fdm[ 'propulsion/engine/advance-ratio'])
+        engine_node.setDouble("thrust_lb", self.fdm[ 'propulsion/engine/thrust-lbs'])
+        engine_node.setDouble("thrust_N", self.fdm[ 'propulsion/engine/thrust-lbs'] * lb2N)
 
         # Flight Control System (Actuators)
-        fcs_node.setFloat("cmdAil_deg", self.fdm['fcs/cmdAil_deg'])
-        fcs_node.setFloat("posAil_deg", self.fdm['fcs/posAil_deg'])
-        fcs_node.setFloat("cmdElev_deg", self.fdm['fcs/cmdElev_deg'])
-        fcs_node.setFloat("posElev_deg", self.fdm['fcs/posElev_deg'])
-        fcs_node.setFloat("cmdRud_deg", self.fdm['fcs/cmdRud_deg'])
-        fcs_node.setFloat("posRud_deg", self.fdm['fcs/posRud_deg'])
-        fcs_node.setFloat("cmdFlap_deg", self.fdm['fcs/cmdFlap_deg'])
-        fcs_node.setFloat("posFlap_deg", self.fdm['fcs/posFlap_deg'])
-        fcs_node.setFloat("cmdThrottle_nd", self.fdm['fcs/throttle-cmd-norm'])
-        fcs_node.setFloat("posThrottle_nd", self.fdm['fcs/throttle-pos-norm'])
-        fcs_node.setFloat("cmdBrakeLeft_nd", self.fdm['fcs/left-brake-cmd-norm'])
-        fcs_node.setFloat("cmdBrakeRight_nd", self.fdm['fcs/right-brake-cmd-norm'])
+        fcs_node.setDouble("cmdAil_deg", self.fdm['fcs/cmdAil_deg'])
+        fcs_node.setDouble("posAil_deg", self.fdm['fcs/posAil_deg'])
+        fcs_node.setDouble("cmdElev_deg", self.fdm['fcs/cmdElev_deg'])
+        fcs_node.setDouble("posElev_deg", self.fdm['fcs/posElev_deg'])
+        fcs_node.setDouble("cmdRud_deg", self.fdm['fcs/cmdRud_deg'])
+        fcs_node.setDouble("posRud_deg", self.fdm['fcs/posRud_deg'])
+        fcs_node.setDouble("cmdFlap_deg", self.fdm['fcs/cmdFlap_deg'])
+        fcs_node.setDouble("posFlap_deg", self.fdm['fcs/posFlap_deg'])
+        fcs_node.setDouble("cmdThrottle_nd", self.fdm['fcs/throttle-cmd-norm'])
+        fcs_node.setDouble("posThrottle_nd", self.fdm['fcs/throttle-pos-norm'])
+        fcs_node.setDouble("cmdBrakeLeft_nd", self.fdm['fcs/left-brake-cmd-norm'])
+        fcs_node.setDouble("cmdBrakeRight_nd", self.fdm['fcs/right-brake-cmd-norm'])
 
         # Positions
-        pos_node.setFloat("long_gc_deg", self.fdm['position/long-gc-deg'])
-        pos_node.setFloat("lat_geod_deg", self.fdm['position/lat-geod-deg'])
-        pos_node.setFloat("geod_alt_m", self.fdm['position/geod-alt-ft'] * ft2m)
-        pos_node.setFloat("h_sl_m", self.fdm['position/h-sl-ft'] * ft2m)
-        pos_node.setFloat("h_agl_m", self.fdm['position/h-agl-ft'] * ft2m)
+        pos_node.setDouble("long_gc_deg", self.fdm['position/long-gc-deg'])
+        pos_node.setDouble("lat_geod_deg", self.fdm['position/lat-geod-deg'])
+        pos_node.setDouble("geod_alt_m", self.fdm['position/geod-alt-ft'] * ft2m)
+        pos_node.setDouble("h_sl_m", self.fdm['position/h-sl-ft'] * ft2m)
+        pos_node.setDouble("h_agl_m", self.fdm['position/h-agl-ft'] * ft2m)
 
         # Velocities
-        vel_node.setFloat("vtrue_mps", self.fdm['velocities/vtrue-fps'] * ft2m)
-        vel_node.setFloat("vtrue_kts", self.fdm['velocities/vtrue-kts'])
-        vel_node.setFloat("vc_mps", self.fdm['velocities/vc-fps'] * ft2m)
-        vel_node.setFloat("vc_kts", self.fdm['velocities/vc-kts'])
-        vel_node.setFloat("mach_nd", self.fdm['velocities/mach'])
-        vel_node.setFloat("hDot_mps", self.fdm['velocities/h-dot-fps'] * ft2m)
-        vel_node.setFloat("vn_mps", self.fdm['velocities/v-north-fps'] * ft2m)
-        vel_node.setFloat("ve_mps", self.fdm['velocities/v-east-fps'] * ft2m)
-        vel_node.setFloat("vd_mps", self.fdm['velocities/v-down-fps'] * ft2m)
-        vel_node.setFloat("p_rps", self.fdm['velocities/p-rad_sec'])
-        vel_node.setFloat("q_rps", self.fdm['velocities/q-rad_sec'])
-        vel_node.setFloat("r_rps", self.fdm['velocities/r-rad_sec'])
-        vel_node.setFloat("u_mps", self.fdm['velocities/u-fps'] * ft2m)
-        vel_node.setFloat("v_mps", self.fdm['velocities/v-fps'] * ft2m)
-        vel_node.setFloat("w_mps", self.fdm['velocities/w-fps'] * ft2m)
+        vel_node.setDouble("vtrue_mps", self.fdm['velocities/vtrue-fps'] * ft2m)
+        vel_node.setDouble("vtrue_kts", self.fdm['velocities/vtrue-kts'])
+        vel_node.setDouble("vc_mps", self.fdm['velocities/vc-fps'] * ft2m)
+        vel_node.setDouble("vc_kts", self.fdm['velocities/vc-kts'])
+        vel_node.setDouble("mach_nd", self.fdm['velocities/mach'])
+        vel_node.setDouble("hDot_mps", self.fdm['velocities/h-dot-fps'] * ft2m)
+        vel_node.setDouble("vn_mps", self.fdm['velocities/v-north-fps'] * ft2m)
+        vel_node.setDouble("ve_mps", self.fdm['velocities/v-east-fps'] * ft2m)
+        vel_node.setDouble("vd_mps", self.fdm['velocities/v-down-fps'] * ft2m)
+
+        vel_node.setDouble("u_mps", self.fdm['velocities/u-fps'] * ft2m)
+        vel_node.setDouble("v_mps", self.fdm['velocities/v-fps'] * ft2m)
+        vel_node.setDouble("w_mps", self.fdm['velocities/w-fps'] * ft2m)
+
+        # imu
+        imu_node.setUInt("millis", int(round(self.fdm['simulation/sim-time-sec']*1000)))
+        imu_node.setDouble("ax_raw", self.fdm['accelerations/Nx'] * gravity)
+        imu_node.setDouble("ay_raw", self.fdm['accelerations/Ny'] * gravity)
+        imu_node.setDouble("az_raw", self.fdm['accelerations/Nz'] * gravity)
+        # mag raw
+        imu_node.setDouble("ax_mps2", self.fdm['accelerations/Nx'] * gravity)
+        imu_node.setDouble("ay_mps2", self.fdm['accelerations/Ny'] * gravity)
+        imu_node.setDouble("az_mps2", self.fdm['accelerations/Nz'] * gravity)
+        imu_node.setDouble("p_rps", self.fdm['velocities/p-rad_sec'])
+        imu_node.setDouble("q_rps", self.fdm['velocities/q-rad_sec'])
+        imu_node.setDouble("r_rps", self.fdm['velocities/r-rad_sec'])
+        # mag cal
+        imu_node.setDouble("temp_C", 15)
 
     # def InitLog(self, logList=None):
     #     self.dataLog = {}

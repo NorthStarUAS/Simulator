@@ -74,28 +74,28 @@ class XPlane():
         if self.sock is not None:
             # lla = navpy.ned2lla(state.pos_ned, self.lat_deg, self.lon_deg, self.altitude_m)
             # Drive the external MSFS visual system
-            lat_deg = pos_node.getFloat("lat_geod_deg")
-            lon_deg = pos_node.getFloat("long_gc_deg")
-            alt_m = pos_node.getFloat("geod_alt_m")
+            lat_deg = pos_node.getDouble("lat_geod_deg")
+            lon_deg = pos_node.getDouble("long_gc_deg")
+            alt_m = pos_node.getDouble("geod_alt_m")
             alt_ft = alt_m * m2ft
-            phi_deg = att_node.getFloat("phi_deg")
-            the_deg = att_node.getFloat("theta_deg")
-            psi_deg = att_node.getFloat("psi_deg")
-            vc = vel_node.getFloat("vc_kts")
-            vd = vel_node.getFloat("vd_mps") * m2ft
+            phi_deg = att_node.getDouble("phi_deg")
+            the_deg = att_node.getDouble("theta_deg")
+            psi_deg = att_node.getDouble("psi_deg")
+            vc = vel_node.getDouble("vc_kts")
+            vd = vel_node.getDouble("vd_mps") * m2ft
 
             # engine power (estimate/hack) // does not work :-(
             self.send_data_ref("sim/operation/override/override_engine_forces", 1)
-            self.send_data_ref("sim/flightmodel/engine/ENGN_power", fcs_node.getFloat("posThrottle_nd")*100)
+            self.send_data_ref("sim/flightmodel/engine/ENGN_power", fcs_node.getDouble("posThrottle_nd")*100)
 
             # https://www.siminnovations.com/xplane/dataref/?name=sim%2Fcockpit&type=float&writable=y&units=&description=&submit=Search
 
             # visible ailerons and flaps
             self.send_data_ref("sim/operation/override/override_control_surfaces", 1)
-            self.send_data_ref("sim/flightmodel/controls/wing3l_ail1def", fcs_node.getFloat("posAil_deg"))
-            self.send_data_ref("sim/flightmodel/controls/wing3r_ail1def", -fcs_node.getFloat("posAil_deg"))
-            self.send_data_ref("sim/flightmodel/controls/wing2l_fla1def", fcs_node.getFloat("posFlap_deg"))
-            self.send_data_ref("sim/flightmodel/controls/wing2r_fla1def", fcs_node.getFloat("posFlap_deg"))
+            self.send_data_ref("sim/flightmodel/controls/wing3l_ail1def", fcs_node.getDouble("posAil_deg"))
+            self.send_data_ref("sim/flightmodel/controls/wing3r_ail1def", -fcs_node.getDouble("posAil_deg"))
+            self.send_data_ref("sim/flightmodel/controls/wing2l_fla1def", fcs_node.getDouble("posFlap_deg"))
+            self.send_data_ref("sim/flightmodel/controls/wing2r_fla1def", fcs_node.getDouble("posFlap_deg"))
 
             # not tested elevator/rudder ...
             # self.send_data_ref("sim/aircraft/parts/acf_elev", sim.fdm['fcs/left-aileron-pos-norm'])
@@ -111,10 +111,10 @@ class XPlane():
             self.send_data_ref("sim/flightmodel2/engines/prop_rotation_angle_deg[0]", self.prop_rotation_angle_deg)
 
             # sound (sadly this is a readonly data ref in x-plane)
-            # print("engine rotation speed:", fcs_node.getFloat("posThrottle_nd")*2700*0.1072)
+            # print("engine rotation speed:", fcs_node.getDouble("posThrottle_nd")*2700*0.1072)
 
             self.send_data_ref("sim/flightmodel2/engines/engine_rotation_speed_rad_sec",
-                               fcs_node.getFloat("posThrottle_nd")*2700*0.1072)
+                               fcs_node.getDouble("posThrottle_nd")*2700*0.1072)
 
             #print(lat_rad, lon_rad, alt_ft, phi, the, psi)
             self.send_data_ref("sim/cockpit/gyros/phi_ind_ahars_pilot_deg", phi_deg)
@@ -141,4 +141,4 @@ class XPlane():
             # print(values)
             ground_elev_m = (msl - agl) - 4.7*ft2m
             # print("AGL (ft):", agl*m2ft, "Ground (ft):", ground_elev_ft)
-            pos_node.setFloat("visual_terrain_elevation_m", ground_elev_m)
+            pos_node.setDouble("visual_terrain_elevation_m", ground_elev_m)

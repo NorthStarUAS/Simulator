@@ -145,9 +145,9 @@ class Joystick():
                 joy["hats"][i] = handle.get_hat(i)
             # print(joy)
 
-        inceptor_node.setFloat("throttle", (1.0 - self.get_input_value("throttle")) * 0.5)
+        inceptor_node.setDouble("throttle", (1.0 - self.get_input_value("throttle")) * 0.5)
 
-        inceptor_node.setFloat("aileron", self.get_input_value("aileron"))
+        inceptor_node.setDouble("aileron", self.get_input_value("aileron"))
 
         trim_cmd = 0
         trim_cmd += self.get_input_value("elevator_trim_down")
@@ -157,11 +157,11 @@ class Joystick():
         if self.elevator_trim < -0.25: self.elevator_trim = -0.25
         if self.elevator_trim > 0.25: self.elevator_trim = 0.25
         # print("elevator trim:", self.elevator_trim)
-        inceptor_node.setFloat("elevator_trim", self.elevator_trim)
+        inceptor_node.setDouble("elevator_trim", self.elevator_trim)
 
-        inceptor_node.setFloat("elevator", -self.get_input_value("elevator"))
+        inceptor_node.setDouble("elevator", -self.get_input_value("elevator"))
 
-        inceptor_node.setFloat("rudder", self.get_input_value("rudder"))
+        inceptor_node.setDouble("rudder", self.get_input_value("rudder"))
 
         inceptor_node.setBool("flaps_down",  self.get_input_value("flaps_down"))
         inceptor_node.setBool("flaps_up",  self.get_input_value("flaps_up"))

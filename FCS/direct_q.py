@@ -2,7 +2,7 @@ from math import cos, sin, tan
 import numpy as np
 
 from lib.constants import d2r, gravity
-from lib.props import accel_node, att_node, fcs_node, vel_node
+from lib.props import att_node, fcs_node, imu_node
 
 from .util import NotaPID
 
@@ -41,17 +41,17 @@ class q_controller():
 
     def update(self, pitch_rate_request):
         # fetch and compute all the values needed by the control laws
-        flying_confidence = fcs_node.getFloat("flying_confidence")
-        phi_rad = att_node.getFloat("phi_deg") * d2r
-        theta_deg = att_node.getFloat("theta_deg")
+        flying_confidence = fcs_node.getDouble("flying_confidence")
+        phi_rad = att_node.getDouble("phi_deg") * d2r
+        theta_deg = att_node.getDouble("theta_deg")
         theta_rad = theta_deg * d2r
-        q_rps = vel_node.getFloat("q_rps")
-        baseline_q = fcs_node.getFloat("baseline_q")
-        ay = accel_node.getFloat("Ny") * gravity
+        q_rps = imu_node.getDouble("q_rps")
+        baseline_q = fcs_node.getDouble("baseline_q")
+        ay = imu_node.getDouble("ay_mps2")
         gbody_y = sin(phi_rad) * cos(theta_rad) * gravity
-        vc_mps = fcs_node.getFloat("vc_filt_mps")
-        qbar = fcs_node.getFloat("qbar")
-        alpha_deg = fcs_node.getFloat("alpha_deg")
+        vc_mps = fcs_node.getDouble("vc_filt_mps")
+        qbar = fcs_node.getDouble("qbar")
+        alpha_deg = fcs_node.getDouble("alpha_deg")
 
         # envelope protection (needs to move after or into the controller or at
         # least incorporate the ff term (and dampers?))  This must consider more

@@ -25,22 +25,22 @@ def send_to_fgfs():
     # lla = navpy.ned2lla(state.pos_ned, lat_deg, lon_deg, altitude_m)
     msg = struct.pack("!fddffffffffffffff",
                       0.0,
-                      pos_node.getFloat("lat_geod_deg"), pos_node.getFloat("long_gc_deg"), pos_node.getFloat("geod_alt_m")/0.3048,
-                      att_node.getFloat("phi_deg"),
-                      att_node.getFloat("theta_deg"),
-                      att_node.getFloat("psi_deg"),
-                      vel_node.getFloat("vc_kts"),
+                      pos_node.getDouble("lat_geod_deg"), pos_node.getDouble("long_gc_deg"), pos_node.getDouble("geod_alt_m")/0.3048,
+                      att_node.getDouble("phi_deg"),
+                      att_node.getDouble("theta_deg"),
+                      att_node.getDouble("psi_deg"),
+                      vel_node.getDouble("vc_kts"),
 
-                      fcs_node.getFloat("posAil_deg") / 12.5,
-                      fcs_node.getFloat("posElev_deg") / 25,
-                      -fcs_node.getFloat("posRud_deg") / 20,
-                      fcs_node.getFloat("posThrottle_nd"),
+                      fcs_node.getDouble("posAil_deg") / 12.5,
+                      fcs_node.getDouble("posElev_deg") / 25,
+                      -fcs_node.getDouble("posRud_deg") / 20,
+                      fcs_node.getDouble("posThrottle_nd"),
 
-                      -fcs_node.getFloat("posAil_deg") / 12.5, # Emannual's SR22 needs a negative value here, reversed from the other SR22
-                      fcs_node.getFloat("posAil_deg") / 12.5,
-                      fcs_node.getFloat("posElev_deg") / 25,
-                      -fcs_node.getFloat("posRud_deg") / 20,
-                      fcs_node.getFloat("posFlap_deg") / 32
+                      -fcs_node.getDouble("posAil_deg") / 12.5, # Emannual's SR22 needs a negative value here, reversed from the other SR22
+                      fcs_node.getDouble("posAil_deg") / 12.5,
+                      fcs_node.getDouble("posElev_deg") / 25,
+                      -fcs_node.getDouble("posRud_deg") / 20,
+                      fcs_node.getDouble("posFlap_deg") / 32
                     )
     sock.sendto(msg, (ip, port))
 
