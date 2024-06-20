@@ -1,9 +1,8 @@
 from serial import Serial
 
-from lib.constants import gravity
-from lib.props import imu_node, root_node, vel_node
+from lib.props import gps_node, imu_node
 
-from .ns_messages import imu_v6
+from .ns_messages import gps_v5, imu_v6
 from . import serial_parser
 
 Serial("/dev/ttyACM0", 500000)
@@ -28,6 +27,15 @@ class HIL():
     def write(self):
         msg = imu_v6()
         msg.props2msg(imu_node)
+        msg.index = 0   # gps 0
+        buf = msg.pack()
+        packet = serial_parser.wrap_packet(msg.id, buf)
+        result = self.ser.write(packet)
+        if result != len(packet):
+            print("ERROR: wrote %d of %d bytes to serial port!\n" % (result, len(packet)))
+
+        msg = gps_v5()
+        msg.props2msg(gps_node)
         msg.index = 0   # imu 0
         buf = msg.pack()
         packet = serial_parser.wrap_packet(msg.id, buf)

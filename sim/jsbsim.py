@@ -9,10 +9,12 @@ Modifications: Curtis Olson
 
 #%% JSBSim
 import numpy as np
+import time
+
 import jsbsim as jsb    # pip install jsbsim
 
 from lib.constants import gravity
-from lib.props import accel_node, aero_node, att_node, control_engine_node, control_flight_node, engine_node, environment_node, fcs_node, imu_node, mass_node, pos_node, root_node, vel_node
+from lib.props import accel_node, aero_node, att_node, control_engine_node, control_flight_node, engine_node, environment_node, fcs_node, gps_node, imu_node, mass_node, pos_node, root_node, vel_node
 
 slug2kg = 14.5939029
 in2m = 0.0254
@@ -339,8 +341,22 @@ class JSBSimWrap:
         vel_node.setDouble("v_mps", self.fdm['velocities/v-fps'] * ft2m)
         vel_node.setDouble("w_mps", self.fdm['velocities/w-fps'] * ft2m)
 
+        millis = int(round(self.fdm['simulation/sim-time-sec']*1000))
+
+        # gps
+        gps_node.setUInt("millis", millis)
+        gps_node.setUInt64("unix_usec", int(round(time.time() * 1000000)))
+        gps_node.setUInt("num_sats", 9)
+        gps_node.setUInt("status", 3)
+        gps_node.setDouble("longitude_raw", int(round(self.fdm['position/long-gc-deg'] * 10000000)))
+        gps_node.setDouble("latitude_raw", int(round(self.fdm['position/lat-geod-deg'] * 10000000)))
+        gps_node.setDouble("altitude_m", self.fdm['position/geod-alt-ft'] * ft2m)
+        gps_node.setDouble("vn_mps", self.fdm['velocities/v-north-fps'] * ft2m)
+        gps_node.setDouble("ve_mps", self.fdm['velocities/v-east-fps'] * ft2m)
+        gps_node.setDouble("vd_mps", self.fdm['velocities/v-down-fps'] * ft2m)
+
         # imu
-        imu_node.setUInt("millis", int(round(self.fdm['simulation/sim-time-sec']*1000)))
+        imu_node.setUInt("millis", millis)
         imu_node.setDouble("ax_raw", self.fdm['accelerations/Nx'] * gravity)
         imu_node.setDouble("ay_raw", self.fdm['accelerations/Ny'] * gravity)
         imu_node.setDouble("az_raw", self.fdm['accelerations/Nz'] * gravity)

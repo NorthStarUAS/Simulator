@@ -5,6 +5,7 @@ from PropertyTree import PropertyNode
 # nodes or lookup and store their own references to existing nodes if they
 # prefer.
 root_node = PropertyNode("/")
+gps_node = PropertyNode("/sensors/gps")
 imu_node = PropertyNode("/sensors/imu")
 
 accel_node = PropertyNode("/acceleration")
