@@ -221,6 +221,22 @@ class JSBSimWrap:
                 self.UpdateWind()
             self.fdm.run()
 
+    # estimate the 'ideal' magnetometer reading in body coordinates
+    def EstMagBody(self, lat_deg, lon_deg, phi_rad, the_rad, psi_rad):
+        import geomag
+        import navpy
+        gm = geomag.geomag.GeoMag()
+        mag = gm.GeoMag(lat_deg, lon_deg)
+        mag_ned = np.array( [mag.bx, mag.by, mag.bz] )
+        norm = np.linalg.norm(mag_ned)
+        mag_ned /= norm
+        N2B = navpy.angle2dcm(psi_rad, the_rad, phi_rad, input_unit='rad')
+        mag_body = N2B.dot(mag_ned)
+        norm = np.linalg.norm(mag_body)
+        mag_body /= norm
+        # print("  mag ned:", mag_ned, "body:", mag_body)
+        return mag_body
+
     def PublishProps(self):
         root_node.setDouble("sim_time_sec", self.fdm['simulation/sim-time-sec'])
 
@@ -355,19 +371,24 @@ class JSBSimWrap:
         gps_node.setDouble("ve_mps", self.fdm['velocities/v-east-fps'] * ft2m)
         gps_node.setDouble("vd_mps", self.fdm['velocities/v-down-fps'] * ft2m)
 
-        # imu
+         # imu
+        mag_body = self.EstMagBody(self.fdm['position/lat-geod-deg'], self.fdm['position/long-gc-deg'], self.fdm['attitude/phi-rad'], self.fdm['attitude/theta-rad'], self.fdm['attitude/psi-rad'])
         imu_node.setUInt("millis", millis)
         imu_node.setDouble("ax_raw", self.fdm['accelerations/Nx'] * gravity)
         imu_node.setDouble("ay_raw", self.fdm['accelerations/Ny'] * gravity)
         imu_node.setDouble("az_raw", self.fdm['accelerations/Nz'] * gravity)
-        # mag raw
+        imu_node.setDouble("hx_raw", mag_body[0])
+        imu_node.setDouble("hy_raw", mag_body[1])
+        imu_node.setDouble("hz_raw", mag_body[2])
         imu_node.setDouble("ax_mps2", self.fdm['accelerations/Nx'] * gravity)
         imu_node.setDouble("ay_mps2", self.fdm['accelerations/Ny'] * gravity)
         imu_node.setDouble("az_mps2", self.fdm['accelerations/Nz'] * gravity)
         imu_node.setDouble("p_rps", self.fdm['velocities/p-rad_sec'])
         imu_node.setDouble("q_rps", self.fdm['velocities/q-rad_sec'])
         imu_node.setDouble("r_rps", self.fdm['velocities/r-rad_sec'])
-        # mag cal
+        imu_node.setDouble("hx", mag_body[0])
+        imu_node.setDouble("hy", mag_body[1])
+        imu_node.setDouble("hz", mag_body[2])
         imu_node.setDouble("temp_C", 15)
 
     # def InitLog(self, logList=None):

@@ -19,7 +19,7 @@ from FCS.fcs_mgr import FCSMgr
 from sim.jsbsim import JSBSimWrap
 from sim.joystick import Joystick
 from visuals.fgfs import fgfs
-from visuals.pvi.pvi import PVI
+from visuals.display import Display
 from visuals.xp.xp import XPlane
 
 # command line arguments
@@ -32,7 +32,7 @@ args = parser.parse_args()
 run_time = 600
 
 joystick = Joystick()
-pvi = PVI()
+display = Display()
 xp = XPlane()
 hil = HIL()
 
@@ -59,7 +59,7 @@ def update():
     sim.PublishProps()
     hil.write()
     fgfs.send_to_fgfs()
-    # pvi.update(state_mgr, 0, 0, 0, 0)
+    display.update()
     xp.update()
 
 if args.realtime:
