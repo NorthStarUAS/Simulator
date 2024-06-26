@@ -31,7 +31,7 @@ def checksum(id, buf, len_lo, len_hi):
 # wrap payload in header bytes, id, length, payload, and compute checksums
 def wrap_packet( packet_id, payload ):
     size = len(payload)
-    print("size:", size)
+    # print("size:", size)
     len_lo = size & 0xff
     len_hi = int(size / 0xff)   # FIXME: validate size/math
     buf = bytearray()
