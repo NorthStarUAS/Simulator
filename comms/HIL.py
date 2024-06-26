@@ -43,7 +43,6 @@ class HIL():
         if result != len(packet):
             print("ERROR: wrote %d of %d bytes to serial port!\n" % (result, len(packet)))
 
-
         return result
 
     def read(self):
