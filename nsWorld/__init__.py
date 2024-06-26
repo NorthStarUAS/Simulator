@@ -1,6 +1,6 @@
 # for convenience of upstream code
 
-import importlib.metadata
+import importlib.metadata, importlib.util
 
 # this code assumes version numbers in the form of int.int.int
 # (major.minor.patch)
