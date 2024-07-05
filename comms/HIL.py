@@ -5,8 +5,6 @@ from lib.props import gps_node, imu_node
 from .ns_messages import gps_v5, imu_v6
 from . import serial_parser
 
-Serial("/dev/ttyACM0", 500000)
-
 class HIL():
     def __init__(self):
         port = "/dev/ttyACM0"
