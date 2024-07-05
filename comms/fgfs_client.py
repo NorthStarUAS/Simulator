@@ -1,16 +1,16 @@
 from math import atan2, sqrt
 import numpy as np
 import socket
+import struct
 import time
 
 from direct.stdpy import threading
 
 import navpy
 
-from nsWorld.constants import r2d, m2ft
-from .display_messages import display_v1
+from nsWorld.constants import ft2m, r2d
 
-port_in = 6767
+port_in = 6504
 
 comms_lock = threading.Lock()
 comms_queue = []
@@ -35,6 +35,9 @@ class CommsWorker(threading.Thread):
 
 class CommsManager():
     def __init__(self):
+        self.fgfs_pack_string = "!fddffffffffff"
+        self.fgfs_struct = struct.Struct(self.fgfs_pack_string)
+
         self.nedref = None
         self.nedref_time = -1
         self.lla = [0, 0, 0]  # order: lat_deg, lon_deg, alt_m
@@ -49,9 +52,8 @@ class CommsManager():
         self.dlat = 0
         self.dlon = 0
         self.dalt = 0
+        self.values_prev = None
         self.psiDot_dps_est = None
-
-        self.msg_prev = None
 
         self.comms_worker = CommsWorker()
         self.comms_worker.start()
@@ -84,35 +86,39 @@ class CommsManager():
                 self.hpr_deg[0] += self.psiDot_dps_est / est_hz
                 self.hpr_deg[1] += self.thetaDot_dps_est / est_hz
                 self.hpr_deg[2] += self.phiDot_dps_est / est_hz
-        else:
-            # accept new data
-            msg = display_v1()
-            msg.unpack(data)
+        elif len(data) == 60:
+            # accept new data from flightgear rc-sim.xml data packet format
+            values = self.fgfs_struct.unpack(data)
+            (self.time_sec,
+            self.lla[0],
+            self.lla[1],
+            alt_ft,
+            self.hpr_deg[2],
+            self.hpr_deg[1],
+            self.hpr_deg[0],
+            self.indicated_kts,
+            right_ail,
+            left_ail,
+            self.ele_cmd_norm,
+            self.rud_cmd_norm,
+            self.flap_cmd_norm,
+            ) = values
+            self.lla[2] = alt_ft * ft2m
+            self.ail_cmd_norm = (right_ail + left_ail) * 0.5
 
-            self.time_sec = msg.time_sec
-            self.lla[0] = msg.latitude_deg
-            self.lla[1] = msg.longitude_deg
-            self.lla[2] = msg.altitude_m
-            alt_ft = msg.altitude_m * m2ft
-            self.hpr_deg[2] = msg.roll_deg
-            self.hpr_deg[1] = msg.pitch_deg
-            self.hpr_deg[0] = msg.yaw_deg
-            self.indicated_kts = msg.airspeed_kt
-            self.ail_cmd_norm = msg.ail_cmd_norm
-            self.ele_cmd_norm = msg.ele_cmd_norm
-            self.rud_cmd_norm = msg.rud_cmd_norm
-            self.flap_cmd_norm = msg.flap_cmd_norm
-
-            if self.msg_prev is not None:
-                self.dt = msg.time_sec - self.msg_prev.time_sec
+            if self.values_prev is not None:
+                self.dt = values[0] - self.values_prev[0]
                 if self.dt > 0:
-                    self.dlat = (msg.latitude_deg - self.msg_prev.latitude_deg) / self.dt
-                    self.dlon = (msg.longitude_deg - self.msg_prev.longitude_deg) / self.dt
-                    self.dalt = (msg.altitude_m - self.msg_prev.altitude_m) / self.dt
-                    self.psiDot_dps_est = self.angle_diff_deg(msg.yaw_deg, self.msg_prev.yaw_deg) / self.dt
-                    self.thetaDot_dps_est = self.angle_diff_deg(msg.pitch_deg, self.msg_prev.pitch_deg) / self.dt
-                    self.phiDot_dps_est = self.angle_diff_deg(msg.roll_deg, self.msg_prev.roll_deg) / self.dt
-            self.msg_prev = msg
+                    self.dlat = (values[1] - self.values_prev[1]) / self.dt
+                    self.dlon = (values[2] - self.values_prev[2]) / self.dt
+                    self.dalt = (values[3] - self.values_prev[3]) * ft2m / self.dt
+                    self.psiDot_dps_est = self.angle_diff_deg(values[6], self.values_prev[6]) / self.dt
+                    self.thetaDot_dps_est = self.angle_diff_deg(values[5], self.values_prev[5]) / self.dt
+                    self.phiDot_dps_est = self.angle_diff_deg(values[4], self.values_prev[4]) / self.dt
+            self.values_prev = values
+        else:
+            print("wrong length:", len(data))
+            return
 
         # print("nedref:", self.nedref, "lla_deg/m:", self.lla)
         if self.nedref is None or np.linalg.norm(self.nedpos[:2]) > 1000:
