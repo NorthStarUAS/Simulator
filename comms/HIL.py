@@ -1,15 +1,17 @@
-from serial import Serial
+import socket
 
 from lib.props import gps_node, imu_node
 
 from .ns_messages import gps_v5, imu_v6
-from . import serial_parser
+from serial_parser import wrap_packet
+
+link_host = "localhost"
+link_port = 6767
 
 class HIL():
     def __init__(self):
-        port = "/dev/ttyACM0"
-        self.ser = Serial(port, 500000)
         self.parser = serial_parser.serial_parser()
+        self.sock_out = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
         try:
             self.ser = Serial(port, 500000)
@@ -27,21 +29,15 @@ class HIL():
         msg.props2msg(imu_node)
         msg.index = 0   # gps 0
         buf = msg.pack()
-        packet = serial_parser.wrap_packet(msg.id, buf)
-        result = self.ser.write(packet)
-        if result != len(packet):
-            print("ERROR: wrote %d of %d bytes to serial port!\n" % (result, len(packet)))
+        packet = wrap_packet(msg.id, buf)
+        self.sock_out.sendto(packet, (link_host, link_port))
 
         msg = gps_v5()
         msg.props2msg(gps_node)
         msg.index = 0   # imu 0
         buf = msg.pack()
-        packet = serial_parser.wrap_packet(msg.id, buf)
-        result = self.ser.write(packet)
-        if result != len(packet):
-            print("ERROR: wrote %d of %d bytes to serial port!\n" % (result, len(packet)))
-
-        return result
+        packet = wrap_packet(msg.id, buf)
+        self.sock_out.sendto(packet, (link_host, link_port))
 
     def read(self):
         pkt_id = self.parser.read(self.ser)
