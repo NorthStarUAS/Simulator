@@ -37,9 +37,9 @@ xp = XPlane()
 hil = HIL()
 
 model = 'SR22T'
-# pathJSB = os.path.join("/home/clolson/Projects/SVO_Simulator/simulation-python-jsbsim", "JSBSim")
-# pathJSB = os.path.join("/Users/Cirrus/Projects/SVO_Simulator/simulation-python-jsbsim", "JSBSim")
-pathJSB = os.path.join("/home/curt/Sync", "JSBSim")
+pathJSB = os.path.join("/home/clolson/Projects/ADD_Simulator/simulation-python-jsbsim", "JSBSim")
+# pathJSB = os.path.join("/Users/Cirrus/Projects/ADD_Simulator/simulation-python-jsbsim", "JSBSim")
+# pathJSB = os.path.join("/home/curt/Sync", "JSBSim")
 sim = JSBSimWrap(model, pathJSB)
 sim.SetupICprops()
 
