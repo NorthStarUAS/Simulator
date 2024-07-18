@@ -1,40 +1,35 @@
 import socket
 
-from lib.props import gps_node, imu_node
+from lib.props import airdata_node, gps_node, imu_node
 
-from .ns_messages import gps_v5, imu_v6
-from serial_parser import wrap_packet
+from .ns_messages import airdata_v8, gps_v5, imu_v6
+from .serial_parser import wrap_packet
 
 link_host = "localhost"
-link_port = 6767
+link_port = 5051
 
 class HIL():
     def __init__(self):
-        self.parser = serial_parser.serial_parser()
         self.sock_out = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
-        try:
-            self.ser = Serial(port, 500000)
-        except:
-            print("Cannot open:", port)
-            import serial.tools.list_ports
-            ports = list(serial.tools.list_ports.comports())
-            print("Available ports:")
-            for p in ports:
-                print(p)
-            quit()
-
     def write(self):
+        msg = airdata_v8()
+        msg.props2msg(airdata_node)
+        msg.index = 0
+        buf = msg.pack()
+        packet = wrap_packet(msg.id, buf)
+        self.sock_out.sendto(packet, (link_host, link_port))
+
         msg = imu_v6()
         msg.props2msg(imu_node)
-        msg.index = 0   # gps 0
+        msg.index = 0
         buf = msg.pack()
         packet = wrap_packet(msg.id, buf)
         self.sock_out.sendto(packet, (link_host, link_port))
 
         msg = gps_v5()
         msg.props2msg(gps_node)
-        msg.index = 0   # imu 0
+        msg.index = 0
         buf = msg.pack()
         packet = wrap_packet(msg.id, buf)
         self.sock_out.sendto(packet, (link_host, link_port))
