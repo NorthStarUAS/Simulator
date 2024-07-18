@@ -223,7 +223,7 @@ class JSBSimWrap:
 
     # estimate the 'ideal' magnetometer reading in body coordinates
     def EstMagBody(self, lat_deg, lon_deg, phi_rad, the_rad, psi_rad):
-        import geomag
+        import geomag  # pip install geomag
         import navpy
         gm = geomag.geomag.GeoMag()
         mag = gm.GeoMag(lat_deg, lon_deg)
