@@ -14,7 +14,7 @@ import time
 import jsbsim as jsb    # pip install jsbsim
 
 from lib.constants import gravity
-from lib.props import accel_node, aero_node, att_node, control_engine_node, control_flight_node, engine_node, environment_node, fcs_node, gps_node, imu_node, mass_node, pos_node, root_node, vel_node
+from lib.props import accel_node, aero_node, airdata_node, att_node, control_engine_node, control_flight_node, engine_node, environment_node, fcs_node, gps_node, imu_node, mass_node, pos_node, root_node, vel_node
 
 slug2kg = 14.5939029
 in2m = 0.0254
@@ -358,6 +358,25 @@ class JSBSimWrap:
         vel_node.setDouble("w_mps", self.fdm['velocities/w-fps'] * ft2m)
 
         millis = int(round(self.fdm['simulation/sim-time-sec']*1000))
+
+        # airdata
+        airdata_node.setUInt("millis", millis)
+        airdata_node.setDouble("baro_press_pa", self.fdm['atmosphere/P-psf'] * lb2N * m2ft**2)
+        airdata_node.setDouble("diff_press_pa", 0)
+        airdata_node.setDouble("air_temp_C", (self.fdm['atmosphere/T-R'] - 491.67) / 1.8)
+        airdata_node.setDouble("airspeed_mps", self.fdm['velocities/vc-fps'] * ft2m)
+        airdata_node.setDouble("altitude_agl_m", self.fdm['position/h-agl-ft'] * ft2m)
+        airdata_node.setDouble("altitude_true_m", self.fdm['position/h-sl-ft'] * ft2m)
+        airdata_node.setDouble("altitude_ground_m", self.fdm["position/terrain-elevation-asl-ft"] * ft2m)
+        airdata_node.setUInt("is_airborne", self.fdm['position/h-agl-ft'] >= 10.0)
+        airdata_node.setUInt("flight_timer_millis", millis)
+        airdata_node.setDouble("wind_dir_deg", self.fdm['atmosphere/psiw-rad'] * rad2deg)
+        airdata_node.setDouble("wind_speed_mps", self.fdm['atmosphere/wind-mag-fps'] * ft2m)
+        if self.fdm['velocities/vc-fps'] > 10:
+            airdata_node.setDouble("pitot_scale_factor", self.fdm['velocities/vtrue-fps'] / self.fdm['velocities/vc-fps'] )
+        else:
+            airdata_node.setDouble("pitot_scale_factor", 1.0)
+        airdata_node.setUInt("error_count", 0)
 
         # gps
         gps_node.setUInt("millis", millis)
