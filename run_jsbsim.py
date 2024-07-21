@@ -14,7 +14,7 @@ import argparse
 import os
 import time
 
-from comms.HIL import HIL
+from comms.HIL_nsLink import HIL
 from FCS.fcs_mgr import FCSMgr
 from sim.jsbsim import JSBSimWrap
 from sim.joystick import Joystick
@@ -29,17 +29,15 @@ parser.add_argument('--realtime', action='store_true', help='run sim in realtime
 parser.add_argument('--no-trim', action='store_true', help="don't trim")
 args = parser.parse_args()
 
-run_time = 600
-
 joystick = Joystick()
 display = Display()
 xp = XPlane()
 hil = HIL()
 
 model = 'SR22T'
-pathJSB = os.path.join("/home/clolson/Projects/ADD_Simulator/simulation-python-jsbsim", "JSBSim")
+# pathJSB = os.path.join("/home/clolson/Projects/ADD_Simulator/simulation-python-jsbsim", "JSBSim")
 # pathJSB = os.path.join("/Users/Cirrus/Projects/ADD_Simulator/simulation-python-jsbsim", "JSBSim")
-# pathJSB = os.path.join("/home/curt/Sync", "JSBSim")
+pathJSB = os.path.join("/home/curt/Sync", "JSBSim")
 sim = JSBSimWrap(model, pathJSB)
 sim.SetupICprops()
 
@@ -67,7 +65,7 @@ if args.realtime:
     sched.add_job(update, 'interval', seconds=sim.dt*4)
     sched.start()
     while True:
-        time.sleep(run_time)
+        time.sleep(1)
     sched.shutdown()
 else:
     while sim.time <= run_time:
