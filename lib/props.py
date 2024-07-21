@@ -8,6 +8,7 @@ root_node = PropertyNode("/")
 airdata_node = PropertyNode("/sensors/airdata")
 gps_node = PropertyNode("/sensors/gps")
 imu_node = PropertyNode("/sensors/imu")
+power_node = PropertyNode("/sensors/power")
 
 accel_node = PropertyNode("/acceleration")
 aero_node = PropertyNode("/aero")
