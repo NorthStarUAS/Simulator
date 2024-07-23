@@ -36,7 +36,10 @@ class HIL():
         self.batt_used_ah += dah
         batt_perc = (self.batt_ah - self.batt_used_ah) / self.batt_ah
         if batt_perc < 0:
-            batt_perc = 0
+            # this is a totally fake battery model intended only to generate
+            # some plausible numbers for testing, so recycle the battery to 100%
+            # when it's empty and just keep going.
+            self.batt_used_ah = 0
         sag = thr * 0.1
         volt = (batf(batt_perc) - sag) * cells
         print("dt: %.2f" % dt, "batt: %.3f" % batt_perc, "dah:", dah, "volt: %.2f" % volt)
