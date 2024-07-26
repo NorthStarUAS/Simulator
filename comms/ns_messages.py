@@ -1283,7 +1283,7 @@ class pilot_v4():
 # Id: 63
 class inceptors_v2():
     id = 63
-    _pack_string = "<LhhhHHBhhhhhhhh"
+    _pack_string = "<LhhhHHBhh"
     _struct = struct.Struct(_pack_string)
 
     def __init__(self, msg=None):
@@ -1297,7 +1297,6 @@ class inceptors_v2():
         self.gear = 0
         self.aux1 = 0.0
         self.aux2 = 0.0
-        self.channel = [0.0] * ap_channels
         # unpack if requested
         if msg: self.unpack(msg)
 
@@ -1311,13 +1310,7 @@ class inceptors_v2():
                   int(round(self.flaps * 60000.0)),
                   self.gear,
                   int(round(self.aux1 * 30000.0)),
-                  int(round(self.aux2 * 30000.0)),
-                  int(round(self.channel[0] * 2000.0)),
-                  int(round(self.channel[1] * 2000.0)),
-                  int(round(self.channel[2] * 2000.0)),
-                  int(round(self.channel[3] * 2000.0)),
-                  int(round(self.channel[4] * 2000.0)),
-                  int(round(self.channel[5] * 2000.0)))
+                  int(round(self.aux2 * 30000.0)))
         return msg
 
     def unpack(self, msg):
@@ -1329,13 +1322,7 @@ class inceptors_v2():
          self.flaps,
          self.gear,
          self.aux1,
-         self.aux2,
-         self.channel[0],
-         self.channel[1],
-         self.channel[2],
-         self.channel[3],
-         self.channel[4],
-         self.channel[5]) = self._struct.unpack(msg)
+         self.aux2) = self._struct.unpack(msg)
         self.roll /= 30000.0
         self.pitch /= 30000.0
         self.yaw /= 30000.0
@@ -1343,12 +1330,6 @@ class inceptors_v2():
         self.flaps /= 60000.0
         self.aux1 /= 30000.0
         self.aux2 /= 30000.0
-        self.channel[0] /= 2000.0
-        self.channel[1] /= 2000.0
-        self.channel[2] /= 2000.0
-        self.channel[3] /= 2000.0
-        self.channel[4] /= 2000.0
-        self.channel[5] /= 2000.0
 
     def msg2props(self, node):
         node.setUInt("millis", self.millis)
@@ -1360,7 +1341,6 @@ class inceptors_v2():
         node.setUInt("gear", self.gear)
         node.setDouble("aux1", self.aux1)
         node.setDouble("aux2", self.aux2)
-        for _i in range(ap_channels): node.setDouble("channel", self.channel[_i], _i)
 
     def props2msg(self, node):
         self.millis = node.getUInt("millis")
@@ -1372,7 +1352,6 @@ class inceptors_v2():
         self.gear = node.getUInt("gear")
         self.aux1 = node.getDouble("aux1")
         self.aux2 = node.getDouble("aux2")
-        for _i in range(ap_channels): self.channel[_i] = node.getDouble("channel", _i)
 
 # Message: power_v1
 # Id: 55

@@ -52,8 +52,8 @@ class FCSMgr():
                 beta_deg = aero_node.getDouble("beta_deg")
             else:
                 # inertial+airdata estimate (behaves very wrong at low airspeeds, ok in flight!)
-                rudder_cmd = inceptor_node.getDouble("rudder")
-                throttle_cmd = inceptor_node.getDouble("throttle")
+                rudder_cmd = inceptor_node.getDouble("yaw")
+                throttle_cmd = inceptor_node.getDouble("power")
                 alpha_deg = alpha_func(qbar, az, p, q, ax)
                 beta_deg = beta_func(qbar, ay, r, rudder_cmd, throttle_cmd)  # this functions drifts and can get stuck!
         else:
@@ -86,9 +86,9 @@ class FCSMgr():
         self.compute_stuff()
 
         # pilot commands
-        roll_rate_request = inceptor_node.getDouble("aileron") * self.roll_stick_scale
-        pitch_rate_request = -inceptor_node.getDouble("elevator") * self.pitch_stick_scale
-        beta_deg_request = -inceptor_node.getDouble("rudder") * self.yaw_stick_scale
+        roll_rate_request = inceptor_node.getDouble("roll") * self.roll_stick_scale
+        pitch_rate_request = -inceptor_node.getDouble("pitch") * self.pitch_stick_scale
+        beta_deg_request = -inceptor_node.getDouble("yaw") * self.yaw_stick_scale
 
         # flight control laws
         roll_cmd, yaw_cmd = self.fcs_lat.update(roll_rate_request, beta_deg_request)
@@ -101,5 +101,5 @@ class FCSMgr():
         # pass through flaps and throttle for now
         control_flight_node.setBool("flaps_down", inceptor_node.getBool("flaps_down"))
         control_flight_node.setBool("flaps_up", inceptor_node.getBool("flaps_up"))
-        throttle_cmd = inceptor_node.getDouble("throttle")
+        throttle_cmd = inceptor_node.getDouble("power")
         control_engine_node.setDouble("throttle", throttle_cmd)

@@ -3,7 +3,7 @@ import socket
 
 from lib.props import airdata_node, fcs_node, gps_node, imu_node, inceptor_node, power_node
 
-from .ns_messages import airdata_v8, gps_v5, imu_v6, inceptors_v1, power_v1
+from .ns_messages import airdata_v8, gps_v5, imu_v6, inceptors_v2, power_v1
 from .serial_parser import wrap_packet
 
 link_host = "localhost"
@@ -67,15 +67,8 @@ class HIL():
         packet = wrap_packet(msg.id, buf)
         self.sock_out.sendto(packet, (link_host, link_port))
 
-        msg = inceptors_v1()
-        msg.index = 0
-        msg.millis = imu_node.getUInt("millis")
-        msg.channel[0] = inceptor_node.getDouble("throttle")
-        msg.channel[1] = inceptor_node.getDouble("aileron")
-        msg.channel[2] = inceptor_node.getDouble("elevator")
-        msg.channel[3] = inceptor_node.getDouble("rudder")
-        msg.channel[4] = fcs_node.getDouble("cmdFlap_deg")
-        msg.channel[5] = inceptor_node.getDouble("gear")
+        msg = inceptors_v2()
+        msg.props2msg(inceptor_node)
         buf = msg.pack()
         packet = wrap_packet(msg.id, buf)
         self.sock_out.sendto(packet, (link_host, link_port))

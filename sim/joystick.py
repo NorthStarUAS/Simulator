@@ -21,18 +21,18 @@ class Joystick():
         self.num_joysticks = 0
         self.joys = []
         self.mapping = {
-            "aileron": [None] * 3,
-            "elevator": [None] * 3,
-            "elevator_trim": [None] * 3,
-            "rudder": [None] * 3,
-            "throttle": [None] * 3,
+            "roll": [None] * 3,
+            "pitch": [None] * 3,
+            "pitch_trim": [None] * 3,
+            "yaw": [None] * 3,
+            "power": [None] * 3,
             "flaps": [None] * 3,
             "gear": [None] * 3,
         }
 
         # internally tracked trim values
-        self.rudder_trim = 0.0
-        self.elevator_trim = 0.0
+        self.yaw_trim = 0.0
+        self.pitch_trim = 0.0
 
         if not have_pygame:
             return
@@ -64,35 +64,35 @@ class Joystick():
             self.joys.append(joy)
 
             if name == "CLSE Joystick Infinity":
-                self.mapping["aileron"] = ["axis", i, 0]
-                self.mapping["elevator"] = ["axis", i, 1]
-                self.mapping["elevator_trim"] = ["hat", i, 0, 1]
+                self.mapping["roll"] = ["axis", i, 0]
+                self.mapping["pitch"] = ["axis", i, 1]
+                self.mapping["pitch_trim"] = ["hat", i, 0, 1]
             elif name == "TWCS Throttle":
-                self.mapping["throttle"] = ["axis", i, 2]
-                self.mapping["rudder"] = ["axis", i, 7, {"expo": 2.5}]
+                self.mapping["power"] = ["axis", i, 2]
+                self.mapping["yaw"] = ["axis", i, 7, {"expo": 2.5}]
                 self.mapping["flaps_down"] = ["button", i, 4]
                 self.mapping["flaps_up"] = ["button", i, 3]
             elif name == "Thrustmaster T.16000M":
-                self.mapping["aileron"] = ["axis", i, 0]
-                self.mapping["elevator"] = ["axis", i, 1]
-                self.mapping["rudder"] = ["axis", i, 2, {"expo": 2}]
-                self.mapping["throttle"] = ["axis", i, 3]
-                self.mapping["elevator_trim_down"] = ["button", i, 4]
-                self.mapping["elevator_trim_up"] = ["button", i, 9]
+                self.mapping["roll"] = ["axis", i, 0]
+                self.mapping["pitch"] = ["axis", i, 1]
+                self.mapping["yaw"] = ["axis", i, 2, {"expo": 2}]
+                self.mapping["power"] = ["axis", i, 3]
+                self.mapping["pitch_trim_down"] = ["button", i, 4]
+                self.mapping["pitch_trim_up"] = ["button", i, 9]
                 self.mapping["flaps_down"] = ["button", i, 15]
                 self.mapping["flaps_up"] = ["button", i, 10]
             elif name == "Logitech Extreme 3D pro":
-                self.mapping["aileron"] = ["axis", i, 0]
-                self.mapping["elevator"] = ["axis", i, 1]
-                self.mapping["rudder"] = ["axis", i, 2, {"expo": 2}]
-                self.mapping["throttle"] = ["axis", i, 3]
-                self.mapping["elevator_trim_down"] = ["button", i, 4]
-                self.mapping["elevator_trim_up"] = ["button", i, 2]
+                self.mapping["roll"] = ["axis", i, 0]
+                self.mapping["pitch"] = ["axis", i, 1]
+                self.mapping["yaw"] = ["axis", i, 2, {"expo": 2}]
+                self.mapping["power"] = ["axis", i, 3]
+                self.mapping["pitch_trim_down"] = ["button", i, 4]
+                self.mapping["pitch_trim_up"] = ["button", i, 2]
                 self.mapping["flaps_down"] = ["button", i, 3]
                 self.mapping["flaps_up"] = ["button", i, 5]
             elif name == "VPC Stick MT-50CM3":
-                self.mapping["aileron"] = ["axis", i, 0, {"expo": 1.05}]
-                self.mapping["elevator"] = ["axis", i, 1, {"expo": 1.1}]
+                self.mapping["roll"] = ["axis", i, 0, {"expo": 1.05}]
+                self.mapping["pitch"] = ["axis", i, 1, {"expo": 1.1}]
 
 
         print("Joystick structures:", self.joys)
@@ -122,7 +122,7 @@ class Joystick():
                     val = self.joys[joy_num]["hats"][element_num][sub_num]
                 elif source == "button":
                     val = self.joys[joy_num]["buttons"][element_num]
-                # if name == "elevator_trim_up":
+                # if name == "pitch_trim_up":
                 #     print(mapping, val)
         return val
 
@@ -145,24 +145,23 @@ class Joystick():
                 joy["hats"][i] = handle.get_hat(i)
             # print(joy)
 
-        inceptor_node.setDouble("throttle", (1.0 - self.get_input_value("throttle")) * 0.5)
+        inceptor_node.setDouble("power", (1.0 - self.get_input_value("power")) * 0.5)
 
-        inceptor_node.setDouble("aileron", self.get_input_value("aileron"))
+        inceptor_node.setDouble("roll", self.get_input_value("roll"))
 
         trim_cmd = 0
-        trim_cmd += self.get_input_value("elevator_trim_down")
-        trim_cmd -= self.get_input_value("elevator_trim_up")
-        # trim_cmd += self.get_input_value("elevator_trim")
-        self.elevator_trim += 0.001 * trim_cmd
-        if self.elevator_trim < -0.25: self.elevator_trim = -0.25
-        if self.elevator_trim > 0.25: self.elevator_trim = 0.25
-        # print("elevator trim:", self.elevator_trim)
-        inceptor_node.setDouble("elevator_trim", self.elevator_trim)
+        trim_cmd += self.get_input_value("pitch_trim_down")
+        trim_cmd -= self.get_input_value("pitch_trim_up")
+        # trim_cmd += self.get_input_value("pitch_trim")
+        self.pitch_trim += 0.001 * trim_cmd
+        if self.pitch_trim < -0.25: self.pitch_trim = -0.25
+        if self.pitch_trim > 0.25: self.pitch_trim = 0.25
+        # print("pitch trim:", self.pitch_trim)
+        inceptor_node.setDouble("pitch_trim", self.pitch_trim)
 
-        inceptor_node.setDouble("elevator", -self.get_input_value("elevator"))
+        inceptor_node.setDouble("pitch", -self.get_input_value("pitch"))
 
-        inceptor_node.setDouble("rudder", self.get_input_value("rudder"))
+        inceptor_node.setDouble("yaw", self.get_input_value("yaw"))
 
         inceptor_node.setBool("flaps_down",  self.get_input_value("flaps_down"))
         inceptor_node.setBool("flaps_up",  self.get_input_value("flaps_up"))
-        # print(inceptor_node.getBool("flaps_down"), inceptor_node.getBool("flaps_up"))
