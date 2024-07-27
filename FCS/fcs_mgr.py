@@ -1,6 +1,6 @@
 from math import cos, pi, sin, tan
 from lib.constants import d2r, gravity
-from lib.props import aero_node, att_node, control_engine_node, control_flight_node, fcs_node, inceptor_node, vel_node
+from lib.props import aero_node, att_node, control_node, fcs_node, inceptors_node, vel_node
 
 from FCS.direct_airdata import alpha_func, beta_func
 from FCS.direct_pbeta import pbeta_controller
@@ -86,20 +86,20 @@ class FCSMgr():
         self.compute_stuff()
 
         # pilot commands
-        roll_rate_request = inceptor_node.getDouble("roll") * self.roll_stick_scale
-        pitch_rate_request = -inceptor_node.getDouble("pitch") * self.pitch_stick_scale
-        beta_deg_request = -inceptor_node.getDouble("yaw") * self.yaw_stick_scale
+        roll_rate_request = inceptors_node.getDouble("roll") * self.roll_stick_scale
+        pitch_rate_request = -inceptors_node.getDouble("pitch") * self.pitch_stick_scale
+        beta_deg_request = -inceptors_node.getDouble("yaw") * self.yaw_stick_scale
 
         # flight control laws
         roll_cmd, yaw_cmd = self.fcs_lat.update(roll_rate_request, beta_deg_request)
         pitch_cmd = self.fcs_lon.update(pitch_rate_request)
         print("integrators: %.2f %.2f %.2f" % (self.fcs_lat.roll_int, self.fcs_lon.pitch_int, self.fcs_lat.yaw_int))
-        control_flight_node.setDouble("aileron", roll_cmd)
-        control_flight_node.setDouble("rudder", yaw_cmd)
-        control_flight_node.setDouble("elevator", pitch_cmd)
+        control_node.setDouble("aileron", roll_cmd)
+        control_node.setDouble("rudder", yaw_cmd)
+        control_node.setDouble("elevator", pitch_cmd)
 
         # pass through flaps and throttle for now
-        control_flight_node.setBool("flaps_down", inceptor_node.getBool("flaps_down"))
-        control_flight_node.setBool("flaps_up", inceptor_node.getBool("flaps_up"))
-        throttle_cmd = inceptor_node.getDouble("power")
-        control_engine_node.setDouble("throttle", throttle_cmd)
+        control_node.setBool("flaps_down", inceptors_node.getBool("flaps_down"))
+        control_node.setBool("flaps_up", inceptors_node.getBool("flaps_up"))
+        throttle_cmd = inceptors_node.getDouble("power")
+        control_node.setDouble("throttle", throttle_cmd)

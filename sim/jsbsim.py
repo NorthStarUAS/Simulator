@@ -14,7 +14,7 @@ import time
 import jsbsim as jsb    # pip install jsbsim
 
 from lib.constants import gravity
-from lib.props import accel_node, aero_node, airdata_node, att_node, control_engine_node, control_flight_node, engine_node, environment_node, fcs_node, gps_node, imu_node, mass_node, pos_node, root_node, vel_node
+from lib.props import accel_node, aero_node, airdata_node, att_node, control_node, engine_node, environment_node, fcs_node, gps_node, imu_node, mass_node, pos_node, root_node, vel_node
 
 slug2kg = 14.5939029
 in2m = 0.0254
@@ -190,22 +190,22 @@ class JSBSimWrap:
 
     def RunSteps(self, steps, updateWind = None):
         # update control inputs
-        self.fdm['fcs/throttle-cmd-norm'] = control_engine_node.getDouble("throttle")
-        self.fdm['fcs/aileron-cmd-norm'] = control_flight_node.getDouble("aileron")
-        self.fdm['fcs/elevator-cmd-norm'] = control_flight_node.getDouble("elevator")
-        self.fdm['fcs/pitch-trim-cmd-norm'] = control_flight_node.getDouble("elevator_trim")
-        self.fdm['fcs/rudder-cmd-norm'] = -control_flight_node.getDouble("rudder")
+        self.fdm['fcs/throttle-cmd-norm'] = control_node.getDouble("throttle")
+        self.fdm['fcs/aileron-cmd-norm'] = control_node.getDouble("aileron")
+        self.fdm['fcs/elevator-cmd-norm'] = control_node.getDouble("elevator")
+        self.fdm['fcs/pitch-trim-cmd-norm'] = control_node.getDouble("elevator_trim")
+        self.fdm['fcs/rudder-cmd-norm'] = -control_node.getDouble("rudder")
 
         # 3 position flap dance
         flap_pos = self.fdm['fcs/flap-pos-norm']
         # print(flap_pos, abs(flap_pos % 0.5))
         if abs(flap_pos % 0.5) < 0.01:
-            if control_flight_node.getBool("flaps_down"):
+            if control_node.getBool("flaps_down"):
                 flap_pos = int((flap_pos + 0.5)*2) * 0.5
                 if flap_pos > 1.0: flap_pos = 1.0
                 # print("flaps down:", flap_pos)
                 self.fdm['fcs/flap-cmd-norm'] = flap_pos
-            if control_flight_node.getBool("flaps_up"):
+            if control_node.getBool("flaps_up"):
                 flap_pos = int((flap_pos - 0.5)*2) * 0.5
                 if flap_pos < 0.0: flap_pos = 0.0
                 # print("flaps up:", flap_pos)

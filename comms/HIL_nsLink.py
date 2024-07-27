@@ -1,7 +1,7 @@
 from scipy.interpolate import interp1d
 import socket
 
-from lib.props import airdata_node, fcs_node, gps_node, imu_node, inceptor_node, power_node
+from lib.props import airdata_node, fcs_node, gps_node, imu_node, inceptors_node, power_node
 
 from .ns_messages import airdata_v8, gps_v5, imu_v6, inceptors_v2, power_v1
 from .serial_parser import wrap_packet
@@ -68,7 +68,9 @@ class HIL():
         self.sock_out.sendto(packet, (link_host, link_port))
 
         msg = inceptors_v2()
-        msg.props2msg(inceptor_node)
+        msg.props2msg(inceptors_node)
+        msg.master_switch = True
+        msg.throttle_safety = False
         buf = msg.pack()
         packet = wrap_packet(msg.id, buf)
         self.sock_out.sendto(packet, (link_host, link_port))

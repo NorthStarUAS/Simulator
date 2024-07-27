@@ -13,7 +13,7 @@ except:
     print("or pip install pygame")
     sleep(5)
 
-from lib.props import inceptor_node
+from lib.props import inceptors_node
 
 class Joystick():
     def __init__(self):
@@ -145,9 +145,9 @@ class Joystick():
                 joy["hats"][i] = handle.get_hat(i)
             # print(joy)
 
-        inceptor_node.setDouble("power", (1.0 - self.get_input_value("power")) * 0.5)
+        inceptors_node.setDouble("power", (1.0 - self.get_input_value("power")) * 0.5)
 
-        inceptor_node.setDouble("roll", self.get_input_value("roll"))
+        inceptors_node.setDouble("roll", self.get_input_value("roll"))
 
         trim_cmd = 0
         trim_cmd += self.get_input_value("pitch_trim_down")
@@ -157,11 +157,11 @@ class Joystick():
         if self.pitch_trim < -0.25: self.pitch_trim = -0.25
         if self.pitch_trim > 0.25: self.pitch_trim = 0.25
         # print("pitch trim:", self.pitch_trim)
-        inceptor_node.setDouble("pitch_trim", self.pitch_trim)
+        inceptors_node.setDouble("pitch_trim", self.pitch_trim)
 
-        inceptor_node.setDouble("pitch", -self.get_input_value("pitch"))
+        inceptors_node.setDouble("pitch", -self.get_input_value("pitch"))
 
-        inceptor_node.setDouble("yaw", self.get_input_value("yaw"))
+        inceptors_node.setDouble("yaw", self.get_input_value("yaw"))
 
-        inceptor_node.setBool("flaps_down",  self.get_input_value("flaps_down"))
-        inceptor_node.setBool("flaps_up",  self.get_input_value("flaps_up"))
+        inceptors_node.setBool("flaps_down",  self.get_input_value("flaps_down"))
+        inceptors_node.setBool("flaps_up",  self.get_input_value("flaps_up"))

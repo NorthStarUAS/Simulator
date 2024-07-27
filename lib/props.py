@@ -7,7 +7,6 @@ from PropertyTree import PropertyNode
 root_node = PropertyNode("/")
 airdata_node = PropertyNode("/sensors/airdata")
 gps_node = PropertyNode("/sensors/gps")
-inceptor_node = PropertyNode("/sensors/inceptors")
 imu_node = PropertyNode("/sensors/imu")
 power_node = PropertyNode("/sensors/power")
 
@@ -22,6 +21,5 @@ mass_node = PropertyNode("/mass")
 pos_node = PropertyNode("/position")
 vel_node = PropertyNode("/velocity")
 
-# control_node = PropertyNode("/control")
-control_engine_node = PropertyNode("/control/engine")
-control_flight_node = PropertyNode("/control/flight")
+inceptors_node = PropertyNode("/fcs/inceptors")
+control_node = PropertyNode("/fcs/control")
