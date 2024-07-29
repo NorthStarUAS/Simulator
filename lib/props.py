@@ -5,10 +5,6 @@ from PropertyTree import PropertyNode
 # nodes or lookup and store their own references to existing nodes if they
 # prefer.
 root_node = PropertyNode("/")
-airdata_node = PropertyNode("/sensors/airdata")
-gps_node = PropertyNode("/sensors/gps")
-imu_node = PropertyNode("/sensors/imu")
-power_node = PropertyNode("/sensors/power")
 
 accel_node = PropertyNode("/acceleration")
 aero_node = PropertyNode("/aero")
@@ -21,5 +17,12 @@ mass_node = PropertyNode("/mass")
 pos_node = PropertyNode("/position")
 vel_node = PropertyNode("/velocity")
 
-inceptors_node = PropertyNode("/fcs/inceptors")
+# Sensors
+airdata_node = PropertyNode("/sensors/airdata")
+gps_node = PropertyNode("/sensors/gps")
+imu_node = PropertyNode("/sensors/imu")
+inceptors_node = PropertyNode("/sensors/inceptors")
+power_node = PropertyNode("/sensors/power")
+
+# FCS
 control_node = PropertyNode("/fcs/control")
