@@ -3,15 +3,21 @@ import socket
 
 from lib.props import airdata_node, fcs_node, gps_node, imu_node, inceptors_node, power_node
 
-from .ns_messages import airdata_v8, gps_v5, imu_v6, inceptors_v2, power_v1
+from .ns_messages import airdata_v8, effectors_v1, effectors_v1_id, gps_v5, imu_v6, inceptors_v2, power_v1
 from .serial_parser import wrap_packet
 
 link_host = "localhost"
-link_port = 5051
+link_recv_port = 5051
+sim_recv_port = 5052
 
 class HIL():
     def __init__(self):
+        self.sock_in = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.sock_in.bind( ("", sim_recv_port))
+        self.sock_in.setblocking(0)
+
         self.sock_out = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
         self.last_gps_millis = 0.0
 
         self.batt_ah = 10
@@ -58,14 +64,14 @@ class HIL():
         msg.index = 0
         buf = msg.pack()
         packet = wrap_packet(msg.id, buf)
-        self.sock_out.sendto(packet, (link_host, link_port))
+        self.sock_out.sendto(packet, (link_host, link_recv_port))
 
         msg = imu_v6()
         msg.props2msg(imu_node)
         msg.index = 0
         buf = msg.pack()
         packet = wrap_packet(msg.id, buf)
-        self.sock_out.sendto(packet, (link_host, link_port))
+        self.sock_out.sendto(packet, (link_host, link_recv_port))
 
         msg = inceptors_v2()
         msg.props2msg(inceptors_node)
@@ -73,7 +79,7 @@ class HIL():
         msg.throttle_safety = False
         buf = msg.pack()
         packet = wrap_packet(msg.id, buf)
-        self.sock_out.sendto(packet, (link_host, link_port))
+        self.sock_out.sendto(packet, (link_host, link_recv_port))
         # print("sending inceptors:", msg.id, msg.__dict__)
 
         msg = gps_v5()
@@ -84,19 +90,32 @@ class HIL():
             msg.index = 0
             buf = msg.pack()
             packet = wrap_packet(msg.id, buf)
-            self.sock_out.sendto(packet, (link_host, link_port))
+            self.sock_out.sendto(packet, (link_host, link_recv_port))
 
         msg = power_v1()
         msg.props2msg(power_node)
         msg.index = 0
         buf = msg.pack()
         packet = wrap_packet(msg.id, buf)
-        self.sock_out.sendto(packet, (link_host, link_port))
+        self.sock_out.sendto(packet, (link_host, link_recv_port))
 
     def read(self):
-        pkt_id = self.parser.read(self.ser)
-        if pkt_id >= 0:
-            print("received:", pkt_id)
-            # parse_msg(pkt_id, parser.payload)
-            # log_msg(f, pkt_id, parser.pkt_len, parser.payload,
-                    # parser.cksum_lo, parser.cksum_hi)
+        data = None
+        while True:
+            try:
+                data, addr = self.sock_in.recvfrom(1024)
+            except BlockingIOError:
+                break
+                # print("nothing to receive")
+
+        if data is not None:
+            # trust message integrity because this is a udp link
+            packet_id = data[2]
+            len_lo = data[3]
+            len_hi = data[4]
+            packet_len = len_hi*256 + len_lo
+            print(packet_len)
+            payload = data[5:5+packet_len]
+            if packet_id == effectors_v1_id:
+                msg = effectors_v1(payload)
+                # print("received:", msg.__dict__)
