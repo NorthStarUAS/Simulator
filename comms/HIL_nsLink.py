@@ -1,7 +1,7 @@
 from scipy.interpolate import interp1d
 import socket
 
-from lib.props import airdata_node, fcs_node, gps_node, imu_node, inceptors_node, power_node
+from lib.props import airdata_node, control_node, fcs_node, gps_node, imu_node, inceptors_node, power_node
 
 from .ns_messages import airdata_v8, effectors_v1, effectors_v1_id, gps_v5, imu_v6, inceptors_v2, power_v1
 from .serial_parser import wrap_packet
@@ -118,4 +118,10 @@ class HIL():
             payload = data[5:5+packet_len]
             if packet_id == effectors_v1_id:
                 msg = effectors_v1(payload)
-                # print("received:", msg.__dict__)
+                print("received:", msg.__dict__)
+                inceptors_node.setBool("master_switch", True)  # external FCS control
+                control_node.setDouble("aileron", msg.channel[1])
+                # control_node.setDouble("rudder", yaw_cmd)
+                # control_node.setDouble("elevator", pitch_cmd)
+
+

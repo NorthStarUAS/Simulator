@@ -25,6 +25,12 @@ class FCSMgr():
         self.vc_filt_mps = 25
         self.vtrue_filt_mps = 25
 
+        # fixme: this is a hack to put this here. But for now we start out with
+        # manual/joystick flight control and if we receive remote (HIL) effector
+        # commands we switch to external FCS control.  Would prefer a more
+        # explicite way to do this in a better location.
+        inceptors_node.setBool("master_switch", False)
+
     def compute_stuff(self):
         # update state and filters
 
@@ -85,18 +91,23 @@ class FCSMgr():
         # update state and filters
         self.compute_stuff()
 
-        # pilot commands
-        roll_rate_request = inceptors_node.getDouble("roll") * self.roll_stick_scale
-        pitch_rate_request = -inceptors_node.getDouble("pitch") * self.pitch_stick_scale
-        beta_deg_request = -inceptors_node.getDouble("yaw") * self.yaw_stick_scale
+        print("master switch:", inceptors_node.getBool("master_switch"))
+        if inceptors_node.getBool("master_switch"):
+            # the HIL network interface will relay/set the control_node values
+            pass
+        else:
+            # pilot/joystick commands drive built in FBW control laws
+            roll_rate_request = inceptors_node.getDouble("roll") * self.roll_stick_scale
+            pitch_rate_request = -inceptors_node.getDouble("pitch") * self.pitch_stick_scale
+            beta_deg_request = -inceptors_node.getDouble("yaw") * self.yaw_stick_scale
 
-        # flight control laws
-        roll_cmd, yaw_cmd = self.fcs_lat.update(roll_rate_request, beta_deg_request)
-        pitch_cmd = self.fcs_lon.update(pitch_rate_request)
-        print("integrators: %.2f %.2f %.2f" % (self.fcs_lat.roll_int, self.fcs_lon.pitch_int, self.fcs_lat.yaw_int))
-        control_node.setDouble("aileron", roll_cmd)
-        control_node.setDouble("rudder", yaw_cmd)
-        control_node.setDouble("elevator", pitch_cmd)
+            # flight control laws
+            roll_cmd, yaw_cmd = self.fcs_lat.update(roll_rate_request, beta_deg_request)
+            pitch_cmd = self.fcs_lon.update(pitch_rate_request)
+            print("integrators: %.2f %.2f %.2f" % (self.fcs_lat.roll_int, self.fcs_lon.pitch_int, self.fcs_lat.yaw_int))
+            control_node.setDouble("aileron", roll_cmd)
+            control_node.setDouble("rudder", yaw_cmd)
+            control_node.setDouble("elevator", pitch_cmd)
 
         # pass through flaps and throttle for now
         control_node.setBool("flaps_down", inceptors_node.getBool("flaps_down"))
