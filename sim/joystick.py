@@ -94,7 +94,6 @@ class Joystick():
                 self.mapping["roll"] = ["axis", i, 0, {"expo": 1.05}]
                 self.mapping["pitch"] = ["axis", i, 1, {"expo": 1.1}]
 
-
         print("Joystick structures:", self.joys)
         print("Joystick mapping:", self.mapping)
 
