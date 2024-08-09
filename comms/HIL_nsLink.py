@@ -1,5 +1,6 @@
 from scipy.interpolate import interp1d
 import socket
+import time
 
 from lib.props import airdata_node, control_node, fcs_node, gps_node, imu_node, inceptors_node, power_node
 
@@ -12,6 +13,7 @@ sim_recv_port = 5052
 
 class HIL():
     def __init__(self):
+        self.start_time = None
         self.sock_in = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock_in.bind( ("", sim_recv_port))
         self.sock_in.setblocking(0)
@@ -117,11 +119,14 @@ class HIL():
             print(packet_len)
             payload = data[5:5+packet_len]
             if packet_id == effectors_v1_id:
-                msg = effectors_v1(payload)
-                print("received:", msg.__dict__)
-                inceptors_node.setBool("master_switch", True)  # external FCS control
-                control_node.setDouble("aileron", msg.channel[1])
-                # control_node.setDouble("rudder", yaw_cmd)
-                # control_node.setDouble("elevator", pitch_cmd)
+                if self.start_time is None:
+                    self.start_time = time.time()
+                if time.time() > self.start_time + 30:
+                    msg = effectors_v1(payload)
+                    print("received:", msg.__dict__)
+                    inceptors_node.setBool("master_switch", True)  # external FCS control
+                    control_node.setDouble("aileron", msg.channel[1])
+                    control_node.setDouble("elevator", msg.channel[2])
+                    # control_node.setDouble("rudder", yaw_cmd)
 
 
