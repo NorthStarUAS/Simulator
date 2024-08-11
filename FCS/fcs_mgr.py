@@ -108,9 +108,9 @@ class FCSMgr():
             control_node.setDouble("aileron", roll_cmd)
             control_node.setDouble("rudder", yaw_cmd)
             control_node.setDouble("elevator", pitch_cmd)
+            throttle_cmd = inceptors_node.getDouble("power")
+            control_node.setDouble("throttle", throttle_cmd)
 
         # pass through flaps and throttle for now
         control_node.setBool("flaps_down", inceptors_node.getBool("flaps_down"))
         control_node.setBool("flaps_up", inceptors_node.getBool("flaps_up"))
-        throttle_cmd = inceptors_node.getDouble("power")
-        control_node.setDouble("throttle", throttle_cmd)
