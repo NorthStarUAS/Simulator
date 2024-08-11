@@ -125,6 +125,7 @@ class HIL():
                     msg = effectors_v1(payload)
                     print("received:", msg.__dict__)
                     inceptors_node.setBool("master_switch", True)  # external FCS control
+                    control_node.setDouble("throttle", msg.channel[0])
                     control_node.setDouble("aileron", msg.channel[1])
                     control_node.setDouble("elevator", msg.channel[2])
                     # control_node.setDouble("rudder", yaw_cmd)
