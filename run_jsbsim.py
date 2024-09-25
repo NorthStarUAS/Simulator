@@ -34,18 +34,19 @@ display = Display()
 xp = XPlane()
 hil = HIL()
 
-model = 'SR22T'
+model = 'Rascal110-JSBSim'
 # pathJSB = os.path.join("/home/clolson/Projects/ADD_Simulator/simulation-python-jsbsim", "JSBSim")
 # pathJSB = os.path.join("/Users/Cirrus/Projects/ADD_Simulator/simulation-python-jsbsim", "JSBSim")
-pathJSB = os.path.join("/home/curt/Sync", "JSBSim")
+#pathJSB = os.path.join("/home/curt/Sync", "JSBSim")
+pathJSB = "/home/curt/Projects/FlightGear/flightgear-fgaddon/Aircraft/Rascal"
 sim = JSBSimWrap(model, pathJSB)
 sim.SetupICprops()
 
 if not args.no_trim: # fixme
-    trimType = 1  # 1 = in air, 2 = on the ground
-    sim.RunTrim(trimType=trimType, throttle=0.5, flap=0.0)
+    trimType = 6  # 0 = full, 1 = in air, 2 = on the ground, 6 = no trim! (for ground)
+    sim.RunTrim(trimType=trimType, throttle=0.0, flap=0.0)
     sim.DispTrim()
-sim.SetTurb(turbSeverity=1, vWind20_mps=5, vWindHeading_deg=45) # Trim with wind, no turbulence
+sim.SetTurb(turbSeverity=1, vWind20_mps=2, vWindHeading_deg=45) # Trim with wind, no turbulence
 
 fcs = FCSMgr()
 

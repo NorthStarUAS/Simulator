@@ -33,15 +33,15 @@ class JSBSimWrap:
         self.pathJSB = pathJSB
 
         self.fdm = jsb.FGFDMExec(pathJSB, None)
-
-        self.fdm.load_model(self.model)
+        self.fdm.load_model_with_paths(self.model, pathJSB, pathJSB, pathJSB, False)
+        # self.fdm.load_model(self.model)
         self.fdm.set_dt(self.dt)
 
         self.fileLog = []
 
     def SetupICprops(self):
         # Load IC file
-        self.fdm["ic/vt-kts"] = 120
+        self.fdm["ic/vt-kts"] = 0
         if False:
             # St George, UT
             self.fdm["ic/lat-geod-deg"] = 37.03
@@ -53,7 +53,9 @@ class JSBSimWrap:
             self.fdm["ic/lat-geod-deg"] = 46.866
             self.fdm["ic/long-gc-deg"] = -92.168
             self.fdm["ic/terrain-elevation-ft"] = 1414
-            self.fdm["ic/h-agl-ft"] = 1000
+            self.fdm["ic/h-agl-ft"] = 1.5
+            self.fdm["ic/phi-deg"] = 0.0
+            self.fdm["ic/theta-deg"] = 10
             self.fdm['ic/psi-true-deg'] = -135
         self.fdm["propulsion/set-running"] = -1
 
@@ -86,13 +88,15 @@ class JSBSimWrap:
             i += 1
 
 
-    def RunTrim(self, trimType = 2, throttle = 0.0, flap = 0.0):
+    def RunTrim(self, trimType = 1, throttle = 0.0, flap = 0.0):
+        # trimType 0 = full, 1 = ground, ... https://jsbsim-team.github.io/jsbsim/classJSBSim_1_1FGFDMExec.html
+
         # FDM Initialize
         self.fdm.disable_output() # Disable Output
         self.fdm.run_ic()
 
-        self.fdm['fcs/throttle-cmd-norm[0]'] = throttle
-        self.fdm['fcs/flap-cmd-norm'] = flap
+        # self.fdm['fcs/throttle-cmd-norm[0]'] = throttle
+        # self.fdm['fcs/flap-cmd-norm'] = flap
 
         self.fdm.run()
         self.fdm.do_trim(trimType)
@@ -322,14 +326,14 @@ class JSBSimWrap:
         engine_node.setDouble("thrust_N", self.fdm[ 'propulsion/engine/thrust-lbs'] * lb2N)
 
         # Flight Control System (Actuators)
-        fcs_node.setDouble("cmdAil_deg", self.fdm['fcs/cmdAil_deg'])
-        fcs_node.setDouble("posAil_deg", self.fdm['fcs/posAil_deg'])
-        fcs_node.setDouble("cmdElev_deg", self.fdm['fcs/cmdElev_deg'])
-        fcs_node.setDouble("posElev_deg", self.fdm['fcs/posElev_deg'])
-        fcs_node.setDouble("cmdRud_deg", self.fdm['fcs/cmdRud_deg'])
-        fcs_node.setDouble("posRud_deg", self.fdm['fcs/posRud_deg'])
-        fcs_node.setDouble("cmdFlap_deg", self.fdm['fcs/cmdFlap_deg'])
-        fcs_node.setDouble("posFlap_deg", self.fdm['fcs/posFlap_deg'])
+        fcs_node.setDouble("cmdAil_deg", self.fdm['fcs/aileron-cmd-norm'])
+        fcs_node.setDouble("posAil_deg", self.fdm['fcs/left-aileron-pos-norm'])
+        fcs_node.setDouble("cmdElev_deg", self.fdm['fcs/elevator-cmd-norm'])
+        fcs_node.setDouble("posElev_deg", self.fdm['fcs/elevator-pos-norm'])
+        fcs_node.setDouble("cmdRud_deg", self.fdm['fcs/rudder-cmd-norm'])
+        fcs_node.setDouble("posRud_deg", self.fdm['fcs/rudder-pos-norm'])
+        fcs_node.setDouble("cmdFlap_deg", self.fdm['fcs/flap-cmd-norm'])
+        fcs_node.setDouble("posFlap_deg", self.fdm['fcs/flap-pos-norm'])
         fcs_node.setDouble("cmdThrottle_nd", self.fdm['fcs/throttle-cmd-norm'])
         fcs_node.setDouble("posThrottle_nd", self.fdm['fcs/throttle-pos-norm'])
         fcs_node.setDouble("cmdBrakeLeft_nd", self.fdm['fcs/left-brake-cmd-norm'])
