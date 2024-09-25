@@ -4,7 +4,7 @@ import time
 
 from lib.props import airdata_node, control_node, fcs_node, gps_node, imu_node, inceptors_node, power_node
 
-from .ns_messages import airdata_v8, effectors_v1, effectors_v1_id, gps_v5, imu_v6, inceptors_v2, power_v1
+from .nst_messages import airdata_v8, effectors_v1, effectors_v1_id, gps_v5, imu_v6, inceptors_v2, power_v1
 from .serial_parser import wrap_packet
 
 link_host = "localhost"
@@ -78,7 +78,7 @@ class HIL():
         msg = inceptors_v2()
         msg.props2msg(inceptors_node)
         msg.master_switch = True
-        msg.throttle_safety = False
+        msg.throttle_enable = True
         buf = msg.pack()
         packet = wrap_packet(msg.id, buf)
         self.sock_out.sendto(packet, (link_host, link_recv_port))

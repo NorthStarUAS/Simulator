@@ -2,7 +2,7 @@ from serial import Serial
 
 from lib.props import gps_node, imu_node
 
-from .ns_messages import gps_v5, imu_v6
+from .nst_messages import gps_v5, imu_v6
 from . import serial_parser
 
 class HIL():
