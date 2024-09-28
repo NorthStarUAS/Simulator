@@ -128,6 +128,6 @@ class HIL():
                     control_node.setDouble("throttle", msg.channel[0])
                     control_node.setDouble("aileron", msg.channel[1])
                     control_node.setDouble("elevator", msg.channel[2])
-                    # control_node.setDouble("rudder", yaw_cmd)
+                    control_node.setDouble("rudder", msg.channel[3])
 
 
