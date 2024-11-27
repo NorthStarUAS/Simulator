@@ -4,7 +4,7 @@ import time
 
 from lib.props import airdata_node, control_node, fcs_node, gps_node, imu_node, inceptors_node, power_node
 
-from .nst_messages import airdata_v8, effectors_v1, effectors_v1_id, gps_v5, imu_v6, inceptors_v2, power_v1
+from .nst_messages import airdata_v9, effectors_v1, effectors_v1_id, gps_v5, imu_v6, inceptors_v2, power_v2
 from .serial_parser import wrap_packet
 
 link_host = "localhost"
@@ -55,13 +55,14 @@ class HIL():
         power_node.setDouble("avionics_vcc", 5 - sag*0.1)
         power_node.setDouble("main_vcc", volt)
         power_node.setDouble("cell_vcc", volt/cells)
+        power_node.setDouble("pwm_vcc", 5.25)
         power_node.setDouble("main_amps", thr*self.max_amp)
         power_node.setDouble("total_mah", self.batt_used_ah*1000)
 
     def write(self):
         self.fake_battery()
 
-        msg = airdata_v8()
+        msg = airdata_v9()
         msg.props2msg(airdata_node)
         msg.index = 0
         buf = msg.pack()
@@ -94,7 +95,7 @@ class HIL():
             packet = wrap_packet(msg.id, buf)
             self.sock_out.sendto(packet, (link_host, link_recv_port))
 
-        msg = power_v1()
+        msg = power_v2()
         msg.props2msg(power_node)
         msg.index = 0
         buf = msg.pack()
@@ -121,7 +122,7 @@ class HIL():
             if packet_id == effectors_v1_id:
                 if self.start_time is None:
                     self.start_time = time.time()
-                if time.time() > self.start_time + 30:
+                if time.time() > self.start_time + 10:
                     msg = effectors_v1(payload)
                     print("received:", msg.__dict__)
                     inceptors_node.setBool("master_switch", True)  # external FCS control

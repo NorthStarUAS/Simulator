@@ -1,3 +1,5 @@
+# Note: this file appears to be depricated or at least unused ...
+
 from serial import Serial
 
 from lib.props import gps_node, imu_node

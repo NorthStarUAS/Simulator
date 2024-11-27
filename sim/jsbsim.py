@@ -369,17 +369,18 @@ class JSBSimWrap:
         airdata_node.setDouble("diff_press_pa", 0)
         airdata_node.setDouble("air_temp_C", (self.fdm['atmosphere/T-R'] - 491.67) / 1.8)
         airdata_node.setDouble("airspeed_mps", self.fdm['velocities/vc-fps'] * ft2m)
-        airdata_node.setDouble("altitude_agl_m", self.fdm['position/h-agl-ft'] * ft2m)
-        airdata_node.setDouble("altitude_true_m", self.fdm['position/h-sl-ft'] * ft2m)
-        airdata_node.setDouble("altitude_ground_m", self.fdm["position/terrain-elevation-asl-ft"] * ft2m)
-        airdata_node.setUInt("is_airborne", self.fdm['position/h-agl-ft'] >= 10.0)
-        airdata_node.setUInt("flight_timer_millis", millis)
-        airdata_node.setDouble("wind_dir_deg", self.fdm['atmosphere/psiw-rad'] * rad2deg)
-        airdata_node.setDouble("wind_speed_mps", self.fdm['atmosphere/wind-mag-fps'] * ft2m)
-        if self.fdm['velocities/vc-fps'] > 10:
-            airdata_node.setDouble("pitot_scale_factor", self.fdm['velocities/vtrue-fps'] / self.fdm['velocities/vc-fps'] )
-        else:
-            airdata_node.setDouble("pitot_scale_factor", 1.0)
+        airdata_node.setDouble("altitude_m", self.fdm['position/h-sl-ft'] * ft2m)
+        # airdata_node.setDouble("altitude_agl_m", self.fdm['position/h-agl-ft'] * ft2m)
+        # airdata_node.setDouble("altitude_true_m", self.fdm['position/h-sl-ft'] * ft2m)
+        # airdata_node.setDouble("altitude_ground_m", self.fdm["position/terrain-elevation-asl-ft"] * ft2m)
+        # airdata_node.setUInt("is_airborne", self.fdm['position/h-agl-ft'] >= 10.0)
+        # airdata_node.setUInt("flight_timer_millis", millis)
+        # airdata_node.setDouble("wind_dir_deg", self.fdm['atmosphere/psiw-rad'] * rad2deg)
+        # airdata_node.setDouble("wind_speed_mps", self.fdm['atmosphere/wind-mag-fps'] * ft2m)
+        # if self.fdm['velocities/vc-fps'] > 10:
+        #     airdata_node.setDouble("pitot_scale_factor", self.fdm['velocities/vtrue-fps'] / self.fdm['velocities/vc-fps'] )
+        # else:
+        #     airdata_node.setDouble("pitot_scale_factor", 1.0)
         airdata_node.setUInt("error_count", 0)
 
         # gps
