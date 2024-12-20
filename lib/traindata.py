@@ -43,12 +43,12 @@ class TrainData():
 
             print("imu records:", len(data["imu"]))
             print("gps records:", len(data["gps"]))
-            if "air" in data:
-                print("airdata records:", len(data["air"]))
+            if "airdata" in data:
+                print("airdata records:", len(data["airdata"]))
             if "act" in data:
                 print("actuator records:", len(data["act"]))
-            if "filter" in data:
-                print("filter records:", len(data["filter"]))
+            if "nav" in data:
+                print("nav records:", len(data["nav"]))
             if len(data["imu"]) == 0 and len(data["gps"]) == 0:
                 print("not enough data loaded to continue.")
                 quit()
@@ -65,19 +65,19 @@ class TrainData():
                     if "imu" in record:
                         imupt = record["imu"]
                         if last_time is None:
-                            last_time = imupt["time"]
-                        dt_data.append(imupt["time"] - last_time)
-                        last_time = imupt["time"]
-                    if "air" in record:
-                        airpt = record["air"]
-                        if airpt["airspeed"] > max_airspeed:
-                            max_airspeed = airpt["airspeed"]
+                            last_time = imupt["timestamp"]
+                        dt_data.append(imupt["timestamp"] - last_time)
+                        last_time = imupt["timestamp"]
+                    if "airdata" in record:
+                        airpt = record["airdata"]
+                        if airpt["airspeed_mps"] > max_airspeed:
+                            max_airspeed = airpt["airspeed_mps"]
             dt_data = np.array(dt_data)
             print("IMU mean:", np.mean(dt_data))
             print("IMU median:", np.median(dt_data))
             imu_dt = float("%.4f" % np.median(dt_data))
             print("imu dt:", imu_dt)
-            print("max airspeed in flight:", max_airspeed )
+            print("max airspeed in flight (mps):", max_airspeed )
 
             self.dt = imu_dt
             state_mgr.set_dt(imu_dt)
@@ -115,45 +115,46 @@ class TrainData():
                 record = iter.next()
                 if len(record) == 0:
                     continue
+                # print(i, "record:", record)
 
                 # 1. Do the messy work of cherry picking out the direct measured states from each time sample
-                if "filter" in record:
+                if "nav" in record:
                     # need ahead of air in case we are doing a wind estimate
-                    navpt = record["filter"]
+                    navpt = record["nav"]
                 else:
                     continue
                 if "imu" in record:
                     imupt = record["imu"]
-                    state_mgr.set_time( imupt["time"] )
-                    p = imupt["p"]
-                    q = imupt["q"]
-                    r = imupt["r"]
+                    state_mgr.set_time( imupt["timestamp"] )
+                    p = imupt["p_rps"]
+                    q = imupt["q_rps"]
+                    r = imupt["r_rps"]
                     if "p_bias" in navpt:
                         p -= navpt["p_bias"]
                         q -= navpt["q_bias"]
                         r -= navpt["r_bias"]
                     state_mgr.set_gyros( np.array([p, q, r]) )
-                    ax = imupt["ax"]
-                    ay = imupt["ay"]
-                    az = imupt["az"]
+                    ax = imupt["ax_mps2"]
+                    ay = imupt["ay_mps2"]
+                    az = imupt["az_mps2"]
                     if "ax_bias" in navpt:
                         ax -= navpt["ax_bias"]
                         ay -= navpt["ay_bias"]
                         az -= navpt["az_bias"]
                     state_mgr.set_accels( np.array([ax, ay, az]) )
-                if "act" in record:
-                    actpt = record["act"]
+                if "effectors" in record:
+                    actpt = record["effectors"]
                     if vehicle == "wing":
-                        state_mgr.set_throttle( actpt["throttle"] )
-                        ail = actpt["aileron"]
-                        ele = actpt["elevator"]
-                        rud = actpt["rudder"]
+                        state_mgr.set_throttle( actpt["channel"][0] )
+                        ail = actpt["channel"][1]
+                        ele = actpt["channel"][2]
+                        rud = actpt["channel"][3]
                         if invert_elevator:
                             ele = -ele
                         if invert_rudder:
                             rud = -rud
                         if "flaps" in actpt:
-                            flaps = actpt["flaps"]
+                            flaps = actpt["channel"][4]
                         else:
                             flaps = 0
                         state_mgr.set_flight_surfaces( ail, ele, rud, flaps )
@@ -164,10 +165,10 @@ class TrainData():
                                                     actpt["output[3]"] ] )
                 if "gps" in record:
                     gpspt = record["gps"]
-                if "air" in record:
-                    airpt = record["air"]
+                if "airdata" in record:
+                    airpt = record["airdata"]
 
-                    asi_mps = airpt["airspeed"] * kt2mps
+                    asi_mps = airpt["airspeed_mps"]
                     # add in correction factor if available
                     if pitot_scale is not None:
                         asi_mps *= pitot_scale
@@ -179,8 +180,8 @@ class TrainData():
                         state_mgr.set_airdata( asi_mps )
                     if wn_interp is not None and we_interp is not None:
                         # post process wind estimate
-                        wn = wn_interp(imupt["time"])
-                        we = we_interp(imupt["time"])
+                        wn = wn_interp(imupt["timestamp"])
+                        we = we_interp(imupt["timestamp"])
                         wd = 0
                     elif "wind_dir" in airpt:
                         wind_psi = 0.5 * pi - airpt["wind_dir"] * d2r
@@ -189,24 +190,24 @@ class TrainData():
                         wn = sin(wind_psi) * wind_mps
                         wd = 0
                     elif False and flight_format == "cirrus_pkl" and state_mgr.is_flying():
-                        windest.update(imupt["time"], airpt["airspeed"], navpt["psi"], navpt["vn"], navpt["ve"])
+                        windest.update(imupt["timestamp"], airpt["airspeed"], navpt["psi"], navpt["vn"], navpt["ve"])
                         wn = windest.filt_long_wn.value
                         we = windest.filt_long_we.value
                         wd = 0
                         print("%.2f %.2f" % (wn, we))
-                if "filter" in record:
-                    navpt = record["filter"]
-                    psi = navpt["psi"]
+                if "nav" in record:
+                    navpt = record["nav"]
+                    psi = navpt["yaw_deg"] * d2r
                     if psi_bias is not None:
                         psi += psi_bias
-                    state_mgr.set_orientation( navpt["phi"], navpt["the"], navpt["psi"] )
-                    state_mgr.set_pos(navpt["lon"], navpt["lat"], navpt["alt"])
+                    state_mgr.set_orientation( navpt["roll_deg"]*d2r, navpt["pitch_deg"]*d2r, navpt["yaw_deg"]*d2r )
+                    state_mgr.set_pos(navpt["longitude_raw"]/10000000.0, navpt["latitude_raw"]/10000000.0, navpt["altitude_m"])
                     if vehicle == "wing" or np.linalg.norm([navpt["vn"], navpt["ve"], navpt["vd"]]) > 0.000001:
-                        state_mgr.set_ned_velocity( navpt["vn"], navpt["ve"],
-                                                        navpt["vd"], wn, we, wd )
+                        state_mgr.set_ned_velocity( navpt["vn_mps"], navpt["ve_mps"],
+                                                        navpt["vd_mps"], wn, we, wd )
                     else:
-                        state_mgr.set_ned_velocity( gpspt["vn"], gpspt["ve"],
-                                                        gpspt["vd"], wn, we, wd )
+                        state_mgr.set_ned_velocity( gpspt["vn_mps"], gpspt["ve_mps"],
+                                                        gpspt["vd_mps"], wn, we, wd )
 
                 # Our model is only valid during flight aloft, skip non-flying data points
                 if not state_mgr.is_flying():
