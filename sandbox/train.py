@@ -9,7 +9,7 @@ import random
 from classifier import Classifier
 from lbp import LBP
 
-root = "/home/clolson/.nsWorld/cache/google/17"
+root = "/home/clolson/.nstWorld/cache/google/17"
 pattern = "*.jpg"
 
 file_list = []

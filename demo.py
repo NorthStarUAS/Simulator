@@ -9,14 +9,14 @@ from direct.showbase.ShowBase import ShowBase # pip install panda3d
 from direct.task import Task
 from panda3d.core import *
 
-from nsWorld import world
+from nstWorld import world
 try:
-    if float(importlib.metadata.version("nsWorld")) < 1.1:
-        print("Please upgrade the nsWorld package to v1.1 or higher.")
+    if float(importlib.metadata.version("nstWorld")) < 1.1:
+        print("Please upgrade the nstWorld package to v1.1 or higher.")
         print("Cannot continue.")
         quit()
 except:
-    print("nsWorld package not installed, so using local tree...")
+    print("nstWorld package not installed, so using local tree...")
 
 from comms import comms_mgr
 from lib import cam, fog, light

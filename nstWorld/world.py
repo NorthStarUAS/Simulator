@@ -9,7 +9,7 @@ import navpy
 from . import srtm2
 from . import tile_mgr
 
-dot_root = ".nsWorld"
+dot_root = ".nstWorld"
 srtm_dir = os.path.join(pathlib.Path.home(), dot_root, "cache", "srtm")
 pathlib.Path(srtm_dir).mkdir(parents=True, exist_ok=True)
 

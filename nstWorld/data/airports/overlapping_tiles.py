@@ -4,8 +4,8 @@ import numpy as np
 from Polygon import *
 
 import navpy
-from nsWorld.constants import ft2m, r2d
-from nsWorld import slippy_tiles
+from nstWorld.constants import ft2m, r2d
+from nstWorld import slippy_tiles
 
 # ginormous tree of tiles that have runway overlap
 tiles_with_rwys = {}

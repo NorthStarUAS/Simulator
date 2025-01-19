@@ -8,7 +8,7 @@ from Polygon import *
 from panda3d.core import *
 
 import navpy
-from nsWorld.constants import ft2m, r2d
+from nstWorld.constants import ft2m, r2d
 
 from polygon3d import Polygon3d
 
@@ -36,8 +36,8 @@ rwy_format = GeomVertexFormat.getV3()
 # cutoff_freq = step_size * 0.002  # bigger values == tighter fit
 # b, a = signal.butter(2, cutoff_freq, 'lowpass')
 
-from nsWorld import srtm_old
-dot_root = ".nsWorld"
+from nstWorld import srtm_old
+dot_root = ".nstWorld"
 srtm_dir = os.path.join(pathlib.Path.home(), dot_root, "cache", "srtm")
 pathlib.Path(srtm_dir).mkdir(parents=True, exist_ok=True)
 srtm_cache = srtm_old.Cache(srtm_dir)

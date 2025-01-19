@@ -14,9 +14,9 @@ from direct.stdpy import threading
 
 import navpy
 
-from nsWorld import slippy_tiles
-from nsWorld import srtm2
-from nsWorld import tile_cache
+from nstWorld import slippy_tiles
+from nstWorld import srtm2
+from nstWorld import tile_cache
 
 loadPrcFileData("", "compressed-textures 1") # compress textures when we load/save them
 
@@ -294,7 +294,7 @@ def main():
         # print("got:", line.split(","))
         (zoom, x, y, style) = line.split(",")
         if mybuilder is None:
-            mybuilder = Builder(".nsWorld", style)
+            mybuilder = Builder(".nstWorld", style)
         tile = mybuilder.gen_terrain_node(int(zoom), int(x), int(y))
         print("complete")
         sys.stdout.flush()

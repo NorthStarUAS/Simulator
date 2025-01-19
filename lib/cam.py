@@ -4,7 +4,7 @@ from math import atan2, sin
 
 from panda3d.core import *
 
-from nsWorld.constants import r2d
+from nstWorld.constants import r2d
 
 min_cam_agl_m = 2.5
 

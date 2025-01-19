@@ -6,8 +6,8 @@ import numpy as np
 from scipy import signal
 
 # import navpy
-from nsWorld.constants import ft2m
-from nsWorld import srtm
+from nstWorld.constants import ft2m
+from nstWorld import srtm
 
 # srtm_dir = os.path.join(pathlib.Path.home(), ".scenery_viewer", "cache", "srtm")
 # pathlib.Path(srtm_dir).mkdir(parents=True, exist_ok=True)

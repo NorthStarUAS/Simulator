@@ -26,10 +26,10 @@ prerequisites.
     “cp312”) and feed it to pip install:
     https://buildbot.panda3d.org/downloads/26fae21cb9ffed023a3dda385b88ebe213c5c200/
 
-## Installing the nsWorld module
+## Installing the nstWorld module
 
     $ python -m build
-    $ pip install --user dist/nsworld-1.0-py3-none-any.whl
+    $ pip install --user dist/nstWorld-1.0-py3-none-any.whl
 
 ## Running demo visual system
 

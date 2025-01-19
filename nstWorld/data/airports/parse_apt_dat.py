@@ -8,7 +8,7 @@ import os
 import pathlib
 import pickle
 
-from nsWorld import slippy_tiles, srtm
+from nstWorld import slippy_tiles, srtm
 
 import genapt
 import overlapping_tiles
@@ -29,7 +29,7 @@ do_gen_apt_models = False
 
 def save_airport(node, info):
     x, y = slippy_tiles.deg2num(info["nedref"][0], info["nedref"][1], zoom_level)
-    base_dir = os.path.join(pathlib.Path.home(), ".nsWorld", "cache", "airports")
+    base_dir = os.path.join(pathlib.Path.home(), ".nstWorld", "cache", "airports")
     dir = os.path.join(base_dir, "%d" % zoom_level, "%d" % x, "%d" % y)
     #dir = tiles.get_path(lat, lon, zoom_level)
     pathlib.Path(dir).mkdir(parents=True, exist_ok=True)

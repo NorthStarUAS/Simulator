@@ -8,7 +8,7 @@ from direct.stdpy import threading
 
 import navpy
 
-from nsWorld.constants import ft2m, r2d
+from nstWorld.constants import ft2m, r2d
 
 port_in = 6504
 

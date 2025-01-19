@@ -371,7 +371,7 @@ class SmoothPatch:
 
 if __name__ == "__main__":
     import pathlib
-    fabdem_dir = os.path.join(pathlib.Path.home(), ".nsWorld", "cache", "fabdem")
+    fabdem_dir = os.path.join(pathlib.Path.home(), ".nstWorld", "cache", "fabdem")
     pathlib.Path(fabdem_dir).mkdir(parents=True, exist_ok=True)
 
     fabdem_cache = DEMCache(fabdem_dir)

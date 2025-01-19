@@ -327,7 +327,7 @@ class SmoothPatch:
 
 if __name__ == "__main__":
     import pathlib
-    srtm_dir = os.path.join(pathlib.Path.home(), ".nsWorld", "cache", "srtm")
+    srtm_dir = os.path.join(pathlib.Path.home(), ".nstWorld", "cache", "srtm")
     pathlib.Path(srtm_dir).mkdir(parents=True, exist_ok=True)
 
     srtm_cache = DEMCache(srtm_dir)

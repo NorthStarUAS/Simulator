@@ -25,5 +25,5 @@
 * [2024-02-04] 4x consolodated sub textures instead of 4x sub tiles, but
   recursively done.
 * [2024-02-04] remove personal maptiler key, put in a config file:
-  ~/.nsWorld/maptiler.txt (currently hard coded into tile_builder.py)
+  ~/.nstWorld/maptiler.txt (currently hard coded into tile_builder.py)
 * [2024-02-04] internally cache maptiler images under maptiler/ not satellite/
