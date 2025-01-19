@@ -9,7 +9,7 @@ authors = [
   { name="Curtis L. Olson", email="curtolson@flightgear.org" },
 ]
 description = "Simple tile-based sat + dem visual system."
-readme = "README.md"
+readme = "Visuals/README.md"
 requires-python = ">=3.8"
 classifiers = [
     "Programming Language :: Python :: 3",
@@ -23,5 +23,5 @@ classifiers = [
 "tile_builder" = "nstWorld.tile_builder:main"
 
 [tool.hatch.build.targets.wheel]
-packages = [ "nstWorld" ]
-artifacts = [ "nstWorld/data/*" ]
+packages = [ "Visuals/nstWorld" ]
+artifacts = [ "Visuals/nstWorld/data/*" ]
