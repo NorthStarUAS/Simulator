@@ -11,7 +11,7 @@ Engineering and Mechanics, UAV Lab.
 
 from apscheduler.schedulers.background import BackgroundScheduler   # pip install APScheduler (dnf install python3-APScheduler)
 import argparse
-import os
+from pathlib import Path
 import time
 
 from comms.HIL_nsLink import HIL
@@ -34,13 +34,16 @@ display = Display()
 xp = XPlane()
 hil = HIL()
 
+home = Path.home()
+
 model = 'Rascal110-JSBSim'
 #model = 'SR22T'
-# pathJSB = os.path.join("/home/clolson/Projects/ADD_Simulator/simulation-python-jsbsim", "JSBSim")
-# pathJSB = os.path.join("/Users/Cirrus/Projects/ADD_Simulator/simulation-python-jsbsim", "JSBSim")
+#pathJSB = home / "Projects/ADD_Simulator/simulation-python-jsbsim", "JSBSim")
 #pathJSB = os.path.join("/home/curt/Sync", "JSBSim")
-pathJSB = "/home/clolson/Projects/FlightGear/flightgear-fgaddon/Aircraft/Rascal"
-sim = JSBSimWrap(model, pathJSB)
+pathJSB = home / "Projects/FlightGear/flightgear-fgaddon/Aircraft/Rascal"
+print("JSBSim path:", pathJSB)
+
+sim = JSBSimWrap(model, pathJSB.as_posix())
 sim.SetupICprops()
 
 if not args.no_trim: # fixme
