@@ -32,7 +32,6 @@ class SlippyCache():
         self.ext = ext
         self.options = options
         self.index_scheme = index_scheme
-        self.connect()
 
     def connect(self):
         if self.url == "":
@@ -50,6 +49,7 @@ class SlippyCache():
 
     async def download_tiles(self, path, files, requests):
         print("fetching:", self.url, requests, "to", files)
+        self.connect()
         Path(path).mkdir(parents=True, exist_ok=True)
         success = False
         while not success:
@@ -120,6 +120,7 @@ class SlippyCache():
         for i, [x, y] in enumerate(xys):
             path = self.ensure_path_in_cache(level, x)
             file = os.path.join(path, "%d" % y + self.ext)
+            print("ensuring:", file)
             file_names.append( file )
 
             # check if file exists and has non-zero length
@@ -153,11 +154,11 @@ class SlippyCache():
             # print("fetching:", files, requests)
 
             # documented way (with errors)
-            # asyncio.run(self.download_tiles(path, [file], [request]))
+            asyncio.run(self.download_tiles(path, files, requests))
 
             # stackoverflow way
-            loop = asyncio.get_event_loop()
-            loop.run_until_complete(self.download_tiles(path, files, requests))
+            # loop = asyncio.get_event_loop()
+            # loop.run_until_complete(self.download_tiles(path, files, requests))
 
         return file_names
 
@@ -183,6 +184,7 @@ class SlippyCache():
             file_names = self.ensure_tiles_in_cache(level, xys)
             print("file_names:", file_names)
             for i, file in enumerate(file_names):
+                print("opening:", file)
                 with open(file, "rb") as f:
                     data = f.read()
                     print("here0 image file length:", len(data), str(file))
