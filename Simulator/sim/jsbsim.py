@@ -33,8 +33,8 @@ class JSBSimWrap:
         self.pathJSB = pathJSB
 
         self.fdm = jsb.FGFDMExec(pathJSB, None)
-        self.fdm.load_model_with_paths(self.model, pathJSB, pathJSB, pathJSB, False)
-        # self.fdm.load_model(self.model)
+        # self.fdm.load_model_with_paths(self.model, pathJSB, pathJSB, pathJSB, False)
+        self.fdm.load_model(self.model)
         self.fdm.set_dt(self.dt)
 
         self.fileLog = []

@@ -36,11 +36,15 @@ hil = HIL()
 
 home = Path.home()
 
-model = 'Rascal110-JSBSim'
-#model = 'SR22T'
-#pathJSB = home / "Projects/ADD_Simulator/simulation-python-jsbsim", "JSBSim")
-#pathJSB = os.path.join("/home/curt/Sync", "JSBSim")
-pathJSB = home / "Projects/FlightGear/flightgear-fgaddon/Aircraft/Rascal"
+if False:
+    model = 'Rascal110'
+    pathJSB = Path("./models_jsbsim")
+
+if True:
+    model = 'SR22T'
+    #pathJSB = home / "Projects/ADD_Simulator/simulation-python-jsbsim/JSBSim"
+    pathJSB = home / "Sync/JSBSim"
+
 print("JSBSim path:", pathJSB)
 
 sim = JSBSimWrap(model, pathJSB.as_posix())
