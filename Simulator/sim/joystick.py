@@ -41,8 +41,9 @@ class Joystick():
         pygame.joystick.init()
         self.num_joysticks = pygame.joystick.get_count()
         if not self.num_joysticks:
-            print("no joysticks found")
-            sleep(5)
+            for i in range(10):
+                print("no joysticks found")
+                sleep(0.1)
             return
         print("Detected joysticks:", pygame.joystick.get_count())
 
