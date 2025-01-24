@@ -7,7 +7,7 @@ from direct.stdpy import threading
 
 import navpy
 
-from nstWorld.constants import r2d, m2ft
+from nstSimulator.world.constants import r2d, m2ft
 from .display_messages import display_v1
 
 port_in = 6767

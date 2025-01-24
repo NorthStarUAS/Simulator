@@ -14,9 +14,9 @@ from direct.stdpy import threading
 
 import navpy
 
-from nstWorld import slippy_tiles
-from nstWorld import srtm2
-from nstWorld import tile_cache
+from . import slippy_tiles
+from . import srtm2
+from . import tile_cache
 
 loadPrcFileData("", "compressed-textures 1") # compress textures when we load/save them
 

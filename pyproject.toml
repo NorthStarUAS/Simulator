@@ -3,13 +3,13 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "nstWorld"
+name = "nstSimulator"
 version = "1.3.0"
 authors = [
   { name="Curtis L. Olson", email="curtolson@flightgear.org" },
 ]
-description = "Simple tile-based sat + dem visual system."
-readme = "Visuals/README.md"
+description = "Simulator related modules."
+readme = "nstSimulator/README.md"
 requires-python = ">=3.8"
 classifiers = [
     "Programming Language :: Python :: 3",
@@ -20,8 +20,8 @@ classifiers = [
 "Homepage" = "https://github.com/NorthStarUAS/"
 
 [project.scripts]
-"tile_builder" = "nstWorld.tile_builder:main"
+"tile_builder" = "nstSimulator.world.tile_builder:main"
 
 [tool.hatch.build.targets.wheel]
-packages = [ "Visuals/nstWorld" ]
-artifacts = [ "Visuals/nstWorld/data/*" ]
+packages = [ "nstSimulator" ]
+artifacts = [ "nstSimulator/world/data/*" ]

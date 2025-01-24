@@ -350,7 +350,7 @@ class tile_mgr(threading.Thread):
             return None
 
     def run(self):
-        build_cmd = ["python", "-m", "nstWorld.tile_builder"]
+        build_cmd = ["python", "-m", "nstSimulator.world.tile_builder"]
         self.build_proc = subprocess.Popen(build_cmd, bufsize=1, text=True, stdout=subprocess.PIPE, stdin=subprocess.PIPE)
 
         lat_deg = None

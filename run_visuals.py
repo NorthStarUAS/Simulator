@@ -9,7 +9,7 @@ from direct.showbase.ShowBase import ShowBase # pip install panda3d
 from direct.task import Task
 from panda3d.core import *
 
-from nstWorld import world
+from nstSimulator.world import world
 try:
     if float(importlib.metadata.version("nstWorld")) < 1.1:
         print("Please upgrade the nstWorld package to v1.1 or higher.")
@@ -18,8 +18,8 @@ try:
 except:
     print("nstWorld package not installed, so using local tree...")
 
-from comms import comms_mgr
-from lib import cam, fog, light
+from vis_lib import comms_mgr
+from vis_lib import cam, fog, light
 
 # these are supposedly the options needed for deferred texture loading...
 # loadPrcFileData("", "preload-textures 0")
