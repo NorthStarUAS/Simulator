@@ -42,18 +42,20 @@ class JSBSimWrap:
     def SetupICprops(self):
         # Load IC file
         self.fdm["ic/vt-kts"] = 0
-        if False:
+        if True:
             # St George, UT
             self.fdm["ic/lat-geod-deg"] = 37.03
             self.fdm["ic/long-gc-deg"] = -113.52
             self.fdm["ic/terrain-elevation-ft"] = 2500
-            self.fdm["ic/h-agl-ft"] = 15000
-        if True:
-            # Duluth, MN
+            self.fdm["ic/h-sl-ft"] = 5000
+            self.fdm["ic/vc-kts"] = 120
+            self.fdm['ic/psi-true-deg'] = -135
+        if False:
+            # Near Duluth, MN
             self.fdm["ic/lat-geod-deg"] = 46.866
             self.fdm["ic/long-gc-deg"] = -92.168
             self.fdm["ic/terrain-elevation-ft"] = 1414
-            self.fdm["ic/h-agl-ft"] = 3.0
+            # self.fdm["ic/h-agl-ft"] = 3.0
             self.fdm["ic/phi-deg"] = 0.0
             self.fdm["ic/theta-deg"] = 10
             self.fdm['ic/psi-true-deg'] = -135
@@ -81,19 +83,19 @@ class JSBSimWrap:
         self.fdm["propulsion/set-running"] = -1
 
         # self.fdm.disable_output() # Disable Output
-        self.fdm.run_ic()
+        # self.fdm.run_ic()
         # self.fdm.enable_output()
 
-        self.fdm['fcs/aileron-cmd-norm'] = 0
-        self.fdm['fcs/roll-trim-cmd-norm'] = 0
+        # self.fdm['fcs/aileron-cmd-norm'] = 0
+        # self.fdm['fcs/roll-trim-cmd-norm'] = 0
 
-        self.fdm['fcs/elevator-cmd-norm'] = 0
-        self.fdm['fcs/pitch-trim-cmd-norm'] = 0
+        # self.fdm['fcs/elevator-cmd-norm'] = 0
+        # self.fdm['fcs/pitch-trim-cmd-norm'] = 0
 
-        self.fdm['fcs/rudder-cmd-norm'] = 0
-        self.fdm['fcs/yaw-trim-cmd-norm'] = 0
+        # self.fdm['fcs/rudder-cmd-norm'] = 0
+        # self.fdm['fcs/yaw-trim-cmd-norm'] = 0
 
-        self.fdm['fcs/throttle-cmd-norm'] = 0
+        # self.fdm['fcs/throttle-cmd-norm'] = 0
 
     def SetupICfile(self, icFile):
         # Load IC file

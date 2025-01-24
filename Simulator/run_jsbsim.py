@@ -51,9 +51,10 @@ sim = JSBSimWrap(model, pathJSB.as_posix())
 sim.SetupICprops()
 
 if not args.no_trim: # fixme
-    trimType = 6  # 0 = full, 1 = in air, 2 = on the ground, 6 = no trim! (for ground)
-    sim.RunTrim(trimType=trimType, throttle=0.0, flap=0.0)
-    sim.DispTrim()
+    # setting this property invokes the JSBSim trim routine
+    sim.fdm['simulation/do_simple_trim'] = 0  # In-air trim
+    # sim.fdm['simulation/do_simple_trim'] = 2  # Ground trim (this tells jsbsim to trim before the first iteration)
+
 sim.SetTurb(turbSeverity=1, vWind20_mps=2, vWindHeading_deg=45) # Trim with wind, no turbulence
 
 fcs = FCSMgr()
