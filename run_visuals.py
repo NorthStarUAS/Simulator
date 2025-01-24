@@ -11,12 +11,12 @@ from panda3d.core import *
 
 from nstSimulator.world import world
 try:
-    if float(importlib.metadata.version("nstWorld")) < 1.1:
-        print("Please upgrade the nstWorld package to v1.1 or higher.")
+    if float(importlib.metadata.version("nstSimulator")) < 1.3:
+        print("Please upgrade the nstSimulator package to v1.3 or higher.")
         print("Cannot continue.")
         quit()
 except:
-    print("nstWorld package not installed, so using local tree...")
+    print("nstSimulator package not installed, so using local tree...")
 
 from lib_vis import comms_mgr
 from lib_vis import cam, fog, light
@@ -36,7 +36,6 @@ loadPrcFileData("", "show-frame-rate-meter 1") # uncomment to show FPS meter
 loadPrcFileData("", "want-pstats 1") # uncomment for pstats
 loadPrcFileData("", "pstats-tasks 1") # uncomment for pstats on tasks
 loadPrcFileData("", "pstats-python-profiler 1") # uncomment for pstats on tasks
-
 
 parser = argparse.ArgumentParser(description="Optical flow based velocity vector experiments")
 args = parser.parse_args()

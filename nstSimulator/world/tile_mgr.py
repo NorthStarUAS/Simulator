@@ -69,7 +69,7 @@ class tile_mgr(threading.Thread):
         self.apt_mgr = apt_mgr.apt_mgr(dot_root)
         self.config = config.copy()
         basepath = os.path.dirname(os.path.realpath(__file__))
-        tiles_filename = os.path.join(basepath, "data/airports/tiles_with_runways.pkl")
+        tiles_filename = os.path.join(basepath, "../data/airports/tiles_with_runways.pkl")
         print("Loading list of tiles with runways:", tiles_filename)
         if os.path.exists(tiles_filename):
             with open(tiles_filename, "rb") as f:

@@ -23,7 +23,7 @@ class World():
         self.skybox = None
         if "sky" in config and config["sky"] == "skybox":
             file_path = os.path.dirname(os.path.realpath(__file__))
-            base_path = os.path.join(file_path, "data")
+            base_path = os.path.join(file_path, "../data")
             # Load skybox shaders
             # https://github.com/CJT-Jackton/CJT-Panda3D-demo/tree/master/textures/skybox
             sha = Shader.load(Shader.SLGLSL, Filename.fromOsSpecific(os.path.join(base_path, "shaders/skybox_vert.glsl")),
