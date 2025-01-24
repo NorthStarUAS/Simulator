@@ -14,6 +14,7 @@ import argparse
 from pathlib import Path
 import time
 
+from nstSimulator.sim.init_position import PositionInit
 from nstSimulator.sim.jsbsim import JSBSimWrap
 from nstSimulator.sim.joystick import Joystick
 from nstSimulator.sim.visuals.fgfs import fgfs
@@ -44,26 +45,36 @@ display = Display()
 xp = XPlane()
 hil = HIL()
 
+# initialize JSBSim and load the aircraft model
 home = Path.home()
-
 if False:
     model = 'Rascal110'
     pathJSB = Path("./models_jsbsim")
-
 if True:
     model = 'SR22T'
     #pathJSB = home / "Projects/ADD_Simulator/simulation-python-jsbsim/JSBSim"
     pathJSB = home / "Sync/JSBSim"
-
 print("JSBSim path:", pathJSB)
-
 sim = JSBSimWrap(model, pathJSB.as_posix(), dt=1/jsbsim_hz)
-sim.SetupICprops()
 
-if not args.no_trim: # fixme
+if True:
+    # compute the starting conditions
+    pos_init = PositionInit()
+    pos_lla, hdg_deg = pos_init.takeoff("KDLH", "21")
+    # pos_lla, hdg_deg = pos_init.final_approach("KDLH", "09", 1)
+    sim.setup_initial_conditions(pos_lla, hdg_deg, 120)
+
+    # terrain height
+    apt = pos_init.get_airport("KDLH")
+    sim.set_terrain_height(apt["alt_ft"])
+
+if False:
+    sim.SetupICprops()
+
+if not args.no_trim:
     # setting this property invokes the JSBSim trim routine
-    sim.fdm['simulation/do_simple_trim'] = 0  # In-air trim
-    # sim.fdm['simulation/do_simple_trim'] = 2  # Ground trim
+    # sim.fdm['simulation/do_simple_trim'] = 0  # In-air trim
+    sim.fdm['simulation/do_simple_trim'] = 2  # Ground trim
 
 sim.SetTurb(turbSeverity=1, vWind20_mps=2, vWindHeading_deg=45) # Trim with wind, no turbulence
 
