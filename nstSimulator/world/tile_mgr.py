@@ -15,7 +15,7 @@ from panda3d.core import *
 
 import navpy
 
-from .constants import r2d
+from ..utils.constants import r2d
 
 from . import apt_mgr
 from . import slippy_tiles
