@@ -29,6 +29,10 @@ parser.add_argument('--realtime', action='store_true', help='run sim in realtime
 parser.add_argument('--no-trim', action='store_true', help="don't trim")
 args = parser.parse_args()
 
+# high level sim will run at a 50 hz schedule
+fdm_steps_per_frame = 4
+dt = 1 / (fdm_steps_per_frame * 50)
+
 joystick = Joystick()
 display = Display()
 xp = XPlane()
@@ -47,13 +51,13 @@ if True:
 
 print("JSBSim path:", pathJSB)
 
-sim = JSBSimWrap(model, pathJSB.as_posix())
+sim = JSBSimWrap(model, pathJSB.as_posix(), dt=dt)
 sim.SetupICprops()
 
 if not args.no_trim: # fixme
     # setting this property invokes the JSBSim trim routine
     sim.fdm['simulation/do_simple_trim'] = 0  # In-air trim
-    # sim.fdm['simulation/do_simple_trim'] = 2  # Ground trim (this tells jsbsim to trim before the first iteration)
+    # sim.fdm['simulation/do_simple_trim'] = 2  # Ground trim
 
 sim.SetTurb(turbSeverity=1, vWind20_mps=2, vWindHeading_deg=45) # Trim with wind, no turbulence
 
@@ -64,7 +68,7 @@ def update():
     hil.read()
     fcs.update()
     # hil.read()
-    sim.RunSteps(4, updateWind=True)
+    sim.RunSteps(fdm_steps_per_frame, updateWind=True)
     sim.PublishProps()
     hil.write()
     fgfs.send_to_fgfs()
@@ -73,7 +77,7 @@ def update():
 
 if args.realtime:
     sched = BackgroundScheduler()
-    sched.add_job(update, 'interval', seconds=sim.dt*4)
+    sched.add_job(update, 'interval', seconds=1/50)
     sched.start()
     while True:
         time.sleep(1)
