@@ -57,7 +57,7 @@ class JSBSimWrap:
             self.fdm["ic/terrain-elevation-ft"] = 1414
             # self.fdm["ic/h-agl-ft"] = 3.0
             self.fdm["ic/phi-deg"] = 0.0
-            self.fdm["ic/theta-deg"] = 10
+            # self.fdm["ic/theta-deg"] = 10
             self.fdm['ic/psi-true-deg'] = -135
         if False:
             # North Platte, NE
