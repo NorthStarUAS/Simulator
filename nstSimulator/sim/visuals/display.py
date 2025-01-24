@@ -2,8 +2,8 @@ import socket
 
 import navpy
 
-from lib.props import att_node, pos_node, vel_node
-from visuals.display_messages import display_v1
+from nstSimulator.sim.lib.props import att_node, pos_node, vel_node
+from nstSimulator.sim.visuals.display_messages import display_v1
 
 if False:
     # KANE

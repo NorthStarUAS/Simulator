@@ -18,8 +18,8 @@ try:
 except:
     print("nstWorld package not installed, so using local tree...")
 
-from vis_lib import comms_mgr
-from vis_lib import cam, fog, light
+from lib_vis import comms_mgr
+from lib_vis import cam, fog, light
 
 # these are supposedly the options needed for deferred texture loading...
 # loadPrcFileData("", "preload-textures 0")

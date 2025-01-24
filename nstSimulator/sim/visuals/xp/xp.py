@@ -1,5 +1,5 @@
 from math import pi
-from lib.props import pos_node, vel_node, att_node, fcs_node
+from nstSimulator.sim.lib.props import pos_node, vel_node, att_node, fcs_node
 
 # import navpy
 # from lib.constants import mps2kt, r2d

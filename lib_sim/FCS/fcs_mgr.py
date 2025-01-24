@@ -1,11 +1,11 @@
 from math import cos, pi, sin, tan
-from lib.constants import d2r, gravity
-from lib.props import aero_node, att_node, control_node, fcs_node, inceptors_node, vel_node
+from nstSimulator.utils.constants import d2r, gravity
+from nstSimulator.sim.lib.props import aero_node, att_node, control_node, fcs_node, inceptors_node, vel_node
 
-from FCS.direct_airdata import alpha_func, beta_func
-from FCS.direct_pbeta import pbeta_controller
-from FCS.direct_q import q_controller
-from FCS.util import IsFlying
+from .direct_airdata import alpha_func, beta_func
+from .direct_pbeta import pbeta_controller
+from .direct_q import q_controller
+from .util import IsFlying
 
 rho = 1.225
 

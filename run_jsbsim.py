@@ -14,24 +14,30 @@ import argparse
 from pathlib import Path
 import time
 
-from comms.HIL_nsLink import HIL
-from FCS.fcs_mgr import FCSMgr
-from sim.jsbsim import JSBSimWrap
-from sim.joystick import Joystick
-from visuals.fgfs import fgfs
-from visuals.display import Display
-from visuals.xp.xp import XPlane
+from nstSimulator.sim.jsbsim import JSBSimWrap
+from nstSimulator.sim.joystick import Joystick
+from nstSimulator.sim.visuals.fgfs import fgfs
+from nstSimulator.sim.visuals.display import Display
+from nstSimulator.sim.visuals.xp.xp import XPlane
+
+from lib_sim.comms.HIL_nsLink import HIL
+from lib_sim.FCS.fcs_mgr import FCSMgr
 
 # command line arguments
 parser = argparse.ArgumentParser(description="run the simulation")
 parser.add_argument("model", help="flight model")
+parser.add_argument("--hz", default=60, help="outer loop hz")
+parser.add_argument("--fdm-steps-per-frame", default=4, help="number of jsbsim steps per outer loop frame")
 parser.add_argument('--realtime', action='store_true', help='run sim in realtime')
 parser.add_argument('--no-trim', action='store_true', help="don't trim")
 args = parser.parse_args()
 
-# high level sim will run at a 50 hz schedule
-fdm_steps_per_frame = 4
-dt = 1 / (fdm_steps_per_frame * 50)
+# if main loop hz is 60 and fdm steps per frame is 4, then the JSBSim hz will be
+# 60*4 = 240 hz, while the main program loop steps forward at 60 hz (i.e.
+# matches the graphical update rate, or logging rate preferences.)  The
+# advantage to running JSBSim at a higher rate is slightly better integration
+# accuracy.
+jsbsim_hz = args.fdm_steps_per_frame * args.hz
 
 joystick = Joystick()
 display = Display()
@@ -51,7 +57,7 @@ if True:
 
 print("JSBSim path:", pathJSB)
 
-sim = JSBSimWrap(model, pathJSB.as_posix(), dt=dt)
+sim = JSBSimWrap(model, pathJSB.as_posix(), dt=1/jsbsim_hz)
 sim.SetupICprops()
 
 if not args.no_trim: # fixme
@@ -68,7 +74,7 @@ def update():
     hil.read()
     fcs.update()
     # hil.read()
-    sim.RunSteps(fdm_steps_per_frame, updateWind=True)
+    sim.RunSteps(args.fdm_steps_per_frame, updateWind=True)
     sim.PublishProps()
     hil.write()
     fgfs.send_to_fgfs()

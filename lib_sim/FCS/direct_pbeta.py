@@ -1,8 +1,8 @@
 from math import cos, sin
 import numpy as np
 
-from lib.constants import d2r, gravity
-from lib.props import att_node, fcs_node, imu_node
+from nstSimulator.utils.constants import d2r, gravity
+from nstSimulator.sim.lib.props import att_node, fcs_node, imu_node
 
 from .util import NotaPID
 

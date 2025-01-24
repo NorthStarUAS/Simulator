@@ -13,7 +13,7 @@ except:
     print("or pip install pygame")
     sleep(5)
 
-from lib.props import inceptors_node
+from .lib.props import inceptors_node
 
 class Joystick():
     def __init__(self):

@@ -4,7 +4,7 @@ import navpy
 import socket
 import struct
 
-from lib.props import pos_node, vel_node, att_node, fcs_node
+from nstSimulator.sim.lib.props import pos_node, vel_node, att_node, fcs_node
 
 # KANE
 # lat_deg = 45.13841697

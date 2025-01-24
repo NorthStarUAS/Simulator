@@ -2,7 +2,7 @@ from scipy.interpolate import interp1d
 import socket
 import time
 
-from lib.props import airdata_node, control_node, fcs_node, gps_node, imu_node, inceptors_node, power_node
+from nstSimulator.sim.lib.props import airdata_node, control_node, fcs_node, gps_node, imu_node, inceptors_node, power_node
 
 from .nst_messages import airdata_v9, effectors_v1, effectors_v1_id, gps_v5, imu_v6, inceptors_v2, power_v2
 from .serial_parser import wrap_packet
@@ -50,7 +50,7 @@ class HIL():
             self.batt_used_ah = 0
         sag = thr * 0.1
         volt = (batf(batt_perc) - sag) * cells
-        print("dt: %.2f" % dt, "batt: %.3f" % batt_perc, "dah:", dah, "volt: %.2f" % volt)
+        print("dt: %.3f" % dt, "batt: %.3f" % batt_perc, "dah:", dah, "volt: %.2f" % volt)
         power_node.setUInt("millis", imu_millis)
         power_node.setDouble("avionics_vcc", 5 - sag*0.1)
         power_node.setDouble("main_vcc", volt)
