@@ -76,7 +76,9 @@ class PositionInit:
         takeoff_lla = list(navpy.ned2lla(takeoff_ned, nedref[0], nedref[1], nedref[2]))
         takeoff_lla[2] = alt_m
         print("takeoff lla: %.8f %.8f %.1f" % (takeoff_lla[0], takeoff_lla[1], takeoff_lla[2]))
-        return takeoff_lla, (angle+pi)*r2d
+        angle_deg = angle * r2d
+        if reversed: angle_deg += 180
+        return takeoff_lla, angle_deg
 
     def touchdown(self, id, rwy):
         alt_m, lat1, lon1, lat2, lon2, reverse = self.find_runway(id, rwy)
@@ -111,7 +113,9 @@ class PositionInit:
         pt_lla = list(navpy.ned2lla(pt_ned, nedref[0], nedref[1], nedref[2]))
         pt_lla[2] = alt_m + sin(gs_deg*d2r)*dist_m
         print("%.1f nm final lla: %.8f %.8f %.1f" % (dist_nm, pt_lla[0], pt_lla[1], pt_lla[2]), "AGL: %.1f" % ((pt_lla[2]-alt_m)*m2ft))
-        return pt_lla, angle*r2d
+        angle_deg = angle * r2d
+        if reversed: angle_deg += 180
+        return pt_lla, angle_deg
 
     def pattern_entry(self, id, rwy):
         alt_m, lat1, lon1, lat2, lon2, reverse = self.find_runway(id, rwy)

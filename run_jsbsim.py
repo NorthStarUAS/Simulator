@@ -60,12 +60,13 @@ sim = JSBSimWrap(model, pathJSB.as_posix(), dt=1/jsbsim_hz)
 if True:
     # compute the starting conditions
     pos_init = PositionInit()
-    pos_lla, hdg_deg = pos_init.takeoff("KDLH", "21")
+    # pos_lla, hdg_deg = pos_init.takeoff("KDLH", "21")
     # pos_lla, hdg_deg = pos_init.final_approach("KDLH", "09", 1)
+    pos_lla, hdg_deg = pos_init.final_approach("P13", "27", 5)
     sim.setup_initial_conditions(pos_lla, hdg_deg, 120)
 
     # terrain height
-    apt = pos_init.get_airport("KDLH")
+    apt = pos_init.get_airport("P13")
     sim.set_terrain_height(apt["alt_ft"])
 
 if False:
@@ -73,8 +74,8 @@ if False:
 
 if not args.no_trim:
     # setting this property invokes the JSBSim trim routine
-    # sim.fdm['simulation/do_simple_trim'] = 0  # In-air trim
-    sim.fdm['simulation/do_simple_trim'] = 2  # Ground trim
+    sim.fdm['simulation/do_simple_trim'] = 0  # In-air trim
+    # sim.fdm['simulation/do_simple_trim'] = 2  # Ground trim
 
 sim.SetTurb(turbSeverity=1, vWind20_mps=2, vWindHeading_deg=45) # Trim with wind, no turbulence
 
