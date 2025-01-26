@@ -21,8 +21,10 @@ async def get(session: aiohttp.ClientSession, url, file):
             print("read:", len(data))
             with open(file, "wb") as f:
                 f.write(data)
+        return True
     except:
         print("failed ...")
+        return False
 
 class SlippyCache():
     def __init__(self, rootpath, url=None, root=None, ext=".png", options="", index_scheme="slippy"):
@@ -55,7 +57,7 @@ class SlippyCache():
         while not success:
             try:
                 # async with aiohttp.ClientSession() as session:
-                await asyncio.gather(
+                results = await asyncio.gather(
                     *[get(self.session, request, file) for request, file in zip(requests, files)]
                 )
                 # if self.index_scheme == "google":
@@ -68,7 +70,8 @@ class SlippyCache():
                 # data = response.read()  # This will return entire content.
                 # with open(file, "wb") as f:
                 #     f.write(data)
-                success = True
+                # print("gather results:", results)
+                success = all(results)  # all results have to be true to succeed.
             except Exception:
                 print(traceback.format_exc())
                 # or
