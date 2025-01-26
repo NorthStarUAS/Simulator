@@ -57,16 +57,19 @@ if True:
 print("JSBSim path:", pathJSB)
 sim = JSBSimWrap(model, pathJSB.as_posix(), dt=1/jsbsim_hz)
 
+apt_id = "KRNO"
+rwy_id = "25"
+
 if True:
     # compute the starting conditions
     pos_init = PositionInit()
     # pos_lla, hdg_deg = pos_init.takeoff("KDLH", "21")
     # pos_lla, hdg_deg = pos_init.final_approach("KDLH", "09", 1)
-    pos_lla, hdg_deg = pos_init.final_approach("P13", "27", 5)
+    pos_lla, hdg_deg = pos_init.final_approach(apt_id, rwy_id, 0.5)
     sim.setup_initial_conditions(pos_lla, hdg_deg, 120)
 
     # terrain height
-    apt = pos_init.get_airport("P13")
+    apt = pos_init.get_airport(apt_id)
     sim.set_terrain_height(apt["alt_ft"])
 
 if False:

@@ -42,6 +42,7 @@ class PositionInit:
                 reverse = True
                 found = True
             if found:
+                print("rwy:", rwy)
                 return apt["alt_ft"]*ft2m, rwy["lat1"], rwy["lon1"], rwy["lat2"], rwy["lon2"], reverse
         # we didn't find the requested airport/rwy so die!
         print("Request not found in database.  apt_id:", apt_id, "rwy_id:", rwy_id)
@@ -55,11 +56,12 @@ class PositionInit:
         ned2 = navpy.lla2ned(lat2, lon2, alt_m, nedref[0], nedref[1], nedref[2])
         angle = atan2(ned2[0]-ned1[0], ned2[1]-ned1[1])
         length = np.linalg.norm(ned1-ned2)
+        hdg_deg = (0.5*pi - angle) * r2d
         print("end1: %.2f %.2f %.2f" % (ned1[0], ned1[1], ned1[2]))
         print("end2: %.2f %.2f %.2f" % (ned2[0], ned2[1], ned2[2]))
         print("length (m):", length)
         print("angle:", angle*r2d)
-        print("heading (true):", (0.5*pi - angle) * r2d)
+        print("heading (true):", hdg_deg)
         return nedref, ned1, ned2, angle
 
     def takeoff(self, id, rwy):
@@ -76,13 +78,14 @@ class PositionInit:
         takeoff_lla = list(navpy.ned2lla(takeoff_ned, nedref[0], nedref[1], nedref[2]))
         takeoff_lla[2] = alt_m
         print("takeoff lla: %.8f %.8f %.1f" % (takeoff_lla[0], takeoff_lla[1], takeoff_lla[2]))
-        angle_deg = angle * r2d
-        if reversed: angle_deg += 180
-        return takeoff_lla, angle_deg
+        hdg_deg = (0.5*pi - angle) * r2d
+        if reverse: hdg_deg += 180
+        return takeoff_lla, hdg_deg
 
     def touchdown(self, id, rwy):
         alt_m, lat1, lon1, lat2, lon2, reverse = self.find_runway(id, rwy)
         nedref, ned1, ned2, angle = self.runway_stats(lat1, lon1, lat2, lon2, alt_m)
+        print("reverse:", reverse)
 
         # assume TD is 1000' from end of runway
         dist = 1000 * ft2m
@@ -94,7 +97,9 @@ class PositionInit:
         td_lla = list(navpy.ned2lla(td_ned, nedref[0], nedref[1], nedref[2]))
         td_lla[2] = alt_m
         print("td lla: %.8f %.8f %.1f" % (td_lla[0], td_lla[1], td_lla[2]))
-        return td_lla, td_ned, angle*r2d
+        hdg_deg = (0.5*pi - angle) * r2d
+        if reverse: hdg_deg += 180
+        return td_lla, td_ned, hdg_deg
 
     def final_approach(self, id, rwy, dist_nm, gs_deg=3 ):
         dist_m = dist_nm * 1852
@@ -102,8 +107,7 @@ class PositionInit:
         alt_m, lat1, lon1, lat2, lon2, reverse = self.find_runway(id, rwy)
         nedref, ned1, ned2, angle = self.runway_stats(lat1, lon1, lat2, lon2, alt_m)
 
-        td_lla, td_ned, angle_deg = self.touchdown(id, rwy)
-        angle = angle_deg*d2r
+        td_lla, td_ned, hdg_deg = self.touchdown(id, rwy)
 
         if not reverse:
             pt_ned = [ td_ned[0] - sin(angle)*dist_m, td_ned[1] - cos(angle)*dist_m, 0 ]
@@ -113,9 +117,8 @@ class PositionInit:
         pt_lla = list(navpy.ned2lla(pt_ned, nedref[0], nedref[1], nedref[2]))
         pt_lla[2] = alt_m + sin(gs_deg*d2r)*dist_m
         print("%.1f nm final lla: %.8f %.8f %.1f" % (dist_nm, pt_lla[0], pt_lla[1], pt_lla[2]), "AGL: %.1f" % ((pt_lla[2]-alt_m)*m2ft))
-        angle_deg = angle * r2d
-        if reversed: angle_deg += 180
-        return pt_lla, angle_deg
+        print("Heading: %.2f" % hdg_deg)
+        return pt_lla, hdg_deg
 
     def pattern_entry(self, id, rwy):
         alt_m, lat1, lon1, lat2, lon2, reverse = self.find_runway(id, rwy)

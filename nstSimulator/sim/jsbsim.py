@@ -43,7 +43,7 @@ class JSBSimWrap:
         self.fdm["ic/lat-geod-deg"] = lla[0]
         self.fdm["ic/long-gc-deg"] = lla[1]
         self.fdm["ic/h-sl-ft"] = lla[2]*m2ft
-        self.fdm['ic/psi-true-deg'] = 90 - hdg_deg
+        self.fdm['ic/psi-true-deg'] = hdg_deg
         if vc_kts > 0:
             self.fdm["ic/vc-kts"] = vc_kts
         self.fdm["propulsion/set-running"] = -1
