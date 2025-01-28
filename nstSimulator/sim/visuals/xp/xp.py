@@ -141,4 +141,4 @@ class XPlane():
             # print(values)
             ground_elev_m = (msl - agl) - 4.7*ft2m
             # print("AGL (ft):", agl*m2ft, "Ground (ft):", ground_elev_ft)
-            pos_node.setDouble("visual_terrain_elevation_m", ground_elev_m)
+            pos_node.setDouble("xp_terrain_elevation_m", ground_elev_m)

@@ -28,11 +28,10 @@ from lib_sim.FCS.fcs_mgr import FCSMgr
 
 # command line arguments
 parser = argparse.ArgumentParser(description="run the simulation")
-parser.add_argument("model", help="flight model")
+# parser.add_argument("model", help="flight model")
 parser.add_argument("--hz", default=60, help="outer loop hz")
 parser.add_argument("--fdm-steps-per-frame", default=4, help="number of jsbsim steps per outer loop frame")
-parser.add_argument('--realtime', action='store_true', help='run sim in realtime')
-parser.add_argument('--no-trim', action='store_true', help="don't trim")
+# parser.add_argument('--realtime', default=True, action='store_true', help='run sim in realtime')
 args = parser.parse_args()
 
 # if main loop hz is 60 and fdm steps per frame is 4, then the JSBSim hz will be
@@ -59,73 +58,47 @@ if True:
 print("JSBSim path:", pathJSB)
 sim = JSBSimWrap(model, pathJSB.as_posix(), dt=1/jsbsim_hz)
 
-apt_id = "64S"
-rwy_id = "02"
+apt_id = "P13"
+rwy_id = "27"
 
 if True:
     # compute the starting conditions
     pos_init = PositionInit()
-    # pos_lla, hdg_deg = pos_init.takeoff("KDLH", "21")
-    # pos_lla, hdg_deg = pos_init.final_approach("KDLH", "09", 1)
-    pos_lla, hdg_deg = pos_init.final_approach(apt_id, rwy_id, 2)
-    sim.setup_initial_conditions(pos_lla, hdg_deg, 120)
+    pos_lla, hdg_deg = pos_init.takeoff(apt_id, rwy_id)
+    # pos_lla, hdg_deg = pos_init.final_approach(apt_id, rwy_id, 2)
+    sim.setup_initial_conditions(pos_lla, hdg_deg, 0)
 
-    # terrain height
-    apt = pos_init.get_airport(apt_id)
-    sim.set_terrain_height(apt["alt_ft"])
+    if False:
+        # set initial terrain height from apt db
+        apt = pos_init.get_airport(apt_id)
+        sim.set_terrain_height(apt["alt_ft"])
 
 if False:
     sim.SetupICprops()
-
-if not args.no_trim:
-    # setting this property invokes the JSBSim trim routine
-    print("before trim:")
-    print("propeller_rpm", sim.fdm['propulsion/engine/propeller-rpm'])
-    print("power_hp", sim.fdm['propulsion/engine/power-hp'])
-    print("power_W", sim.fdm['propulsion/engine/power-hp'])
-    print("blade_angle", sim.fdm[ 'propulsion/engine/blade-angle'])
-    print("advance_ratio", sim.fdm[ 'propulsion/engine/advance-ratio'])
-    print("thrust_lb", sim.fdm[ 'propulsion/engine/thrust-lbs'])
-    print("thrust_N", sim.fdm[ 'propulsion/engine/thrust-lbs'])
-    try:
-        sim.fdm['simulation/do_simple_trim'] = 0  # In-air trim
-        # sim.fdm['simulation/do_simple_trim'] = 2  # Ground trim
-    except:
-        print("after failed trim:")
-        print("propeller_rpm", sim.fdm['propulsion/engine/propeller-rpm'])
-        print("power_hp", sim.fdm['propulsion/engine/power-hp'])
-        print("power_W", sim.fdm['propulsion/engine/power-hp'])
-        print("blade_angle", sim.fdm[ 'propulsion/engine/blade-angle'])
-        print("advance_ratio", sim.fdm[ 'propulsion/engine/advance-ratio'])
-        print("thrust_lb", sim.fdm[ 'propulsion/engine/thrust-lbs'])
-        print("thrust_N", sim.fdm[ 'propulsion/engine/thrust-lbs'])
-        quit()
 
 sim.SetTurb(turbSeverity=1, vWind20_mps=2, vWindHeading_deg=45) # Trim with wind, no turbulence
 
 fcs = FCSMgr()
 
+start_time = time.time()
+
 def update():
     joystick.update()
     hil.read()
-    fcs.update()
-    # hil.read()
-    sim.RunSteps(args.fdm_steps_per_frame, updateWind=True)
-    sim.PublishProps()
+    if sim.trimmed:
+        fcs.update()
+    sim.UpdateTerrainElevation()
+    if time.time() - start_time >= 1:
+        print("calling sim.update()")
+        sim.update(args.fdm_steps_per_frame, updateWind=True)
     hil.write()
     fgfs.send_to_fgfs()
     display.update()
     xp.update()
 
-if args.realtime:
-    sched = BackgroundScheduler()
-    sched.add_job(update, 'interval', seconds=1/50)
-    sched.start()
-    while True:
-        time.sleep(1)
-    sched.shutdown()
-else:
-    while sim.time <= run_time:
-        sim.update()
+sched = BackgroundScheduler()
+sched.add_job(update, 'interval', seconds=1/50)
+sched.start()
 
-sim.plot()
+while True:
+    time.sleep(1)

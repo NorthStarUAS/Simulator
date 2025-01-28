@@ -8,7 +8,7 @@ from direct.stdpy import threading
 import navpy
 
 from nstSimulator.utils.constants import r2d, m2ft
-from .display_messages import display_v1, terrain_v1
+from .display_messages import display_v1, terrain_v2
 
 port_in = 6767
 port_out = 6768
@@ -139,7 +139,9 @@ class CommsManager():
     def send(self, ground_elev_m):
         if self.return_ip_addr is not None:
             # reply with terrain height
-            msg_out = terrain_v1()
+            msg_out = terrain_v2()
+            msg_out.latitude_deg = self.lla[0]
+            msg_out.longitude_deg = self.lla[1]
             msg_out.terrain_height_m = ground_elev_m
             self.sock_out.sendto(msg_out.pack(), (self.return_ip_addr, port_out))
             # print("(send) sending: %.1f" % ground_elev_m)

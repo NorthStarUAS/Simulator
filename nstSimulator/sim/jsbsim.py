@@ -8,6 +8,8 @@ Modifications: Curtis Olson
 '''
 
 #%% JSBSim
+
+from math import sqrt
 import numpy as np
 import time
 
@@ -31,6 +33,9 @@ class JSBSimWrap:
         self.model = model
         self.dt = dt
         self.pathJSB = pathJSB
+        self.trimmed = False
+        self.have_ground_elev = False
+        self.terrain_latch = False
 
         self.fdm = jsb.FGFDMExec(pathJSB, None)
         # self.fdm.load_model_with_paths(self.model, pathJSB, pathJSB, pathJSB, False)
@@ -48,150 +53,57 @@ class JSBSimWrap:
             self.fdm["ic/vc-kts"] = vc_kts
         self.fdm["propulsion/set-running"] = -1
 
-    def set_terrain_height(self, terrain_ft):
+        # seed the pos/hdg output properties so our messages to the visual
+        # system have our initial position. (Then we can get a terrain altitude
+        # back.)
+        pos_node.setDouble("long_gc_deg", lla[1])
+        pos_node.setDouble("lat_geod_deg", lla[0])
+        pos_node.setDouble("geod_alt_m", lla[2])
+        att_node.setDouble("psi_deg", hdg_deg)
+
+    def set_initial_terrain_height(self, terrain_ft):
+        print("initial terrain elevation: %.3f" % terrain_ft)
         self.fdm["ic/terrain-elevation-ft"] = terrain_ft
+        self.have_ground_elev = True
 
-    def SetupICprops(self):
-        # Load IC file
-        self.fdm["ic/vt-kts"] = 0
-        if True:
-            # St George, UT
-            self.fdm["ic/lat-geod-deg"] = 37.03
-            self.fdm["ic/long-gc-deg"] = -113.52
-            self.fdm["ic/terrain-elevation-ft"] = 2500
-            self.fdm["ic/h-sl-ft"] = 5000
-            self.fdm["ic/vc-kts"] = 120
-            self.fdm['ic/psi-true-deg'] = -135
-        if False:
-            # Near Duluth, MN
-            self.fdm["ic/lat-geod-deg"] = 46.866
-            self.fdm["ic/long-gc-deg"] = -92.168
-            self.fdm["ic/terrain-elevation-ft"] = 1414
-            # self.fdm["ic/h-agl-ft"] = 3.0
-            self.fdm["ic/phi-deg"] = 0.0
-            # self.fdm["ic/theta-deg"] = 10
-            self.fdm['ic/psi-true-deg'] = -135
-        if False:
-            # North Platte, NE
-            self.fdm["ic/lat-geod-deg"] = 41.12
-            self.fdm["ic/long-gc-deg"] = -100.68
-            self.fdm["ic/terrain-elevation-ft"] = 2777
-            self.fdm["ic/h-agl-ft"] = 1000
-            self.fdm['ic/psi-true-deg'] = -135
-        if False:
-            # Land Airport, CO
-            self.fdm["ic/lat-geod-deg"] = 40.09
-            self.fdm["ic/long-gc-deg"] = -104.62
-            self.fdm["ic/terrain-elevation-ft"] = 5000
-            self.fdm["ic/h-agl-ft"] = 1000
-            self.fdm['ic/psi-true-deg'] = -135
-        if False:
-            # Alamosa, NM
-            self.fdm["ic/lat-geod-deg"] = 37.47
-            self.fdm["ic/long-gc-deg"] = -105.85
-            self.fdm["ic/terrain-elevation-ft"] = 7539
-            self.fdm["ic/h-agl-ft"] = 1000
-            self.fdm['ic/psi-true-deg'] = -135
-        self.fdm["propulsion/set-running"] = -1
-
-        # self.fdm.disable_output() # Disable Output
-        # self.fdm.run_ic()
-        # self.fdm.enable_output()
-
-        # self.fdm['fcs/aileron-cmd-norm'] = 0
-        # self.fdm['fcs/roll-trim-cmd-norm'] = 0
-
-        # self.fdm['fcs/elevator-cmd-norm'] = 0
-        # self.fdm['fcs/pitch-trim-cmd-norm'] = 0
-
-        # self.fdm['fcs/rudder-cmd-norm'] = 0
-        # self.fdm['fcs/yaw-trim-cmd-norm'] = 0
-
-        # self.fdm['fcs/throttle-cmd-norm'] = 0
-
-    def SetupICfile(self, icFile):
-        # Load IC file
-        self.fdm.load_ic(icFile, True)
-
-        self.fdm.disable_output() # Disable Output
-        self.fdm.run_ic()
-        self.fdm.enable_output()
-
-    def SetupOutput(self, outList = ['scripts/OutputFgfs.xml', 'scripts/OutputLog.xml']):
-        for outFile in outList:
-            self.fdm.set_output_directive(outFile)
-
-    def DispOutput(self):
-        # Display the Output
-        i = 0
-        while (self.fdm.get_output_filename(i) != ''):
-            outStr = self.fdm.get_output_filename(i)
-            if '/UDP' in outStr:
-                print('Output FGFS: ', outStr)
-            elif '.csv' in outStr:
-                self.fileLog = outStr
-                print('Output Log: ', outStr)
-            i += 1
-
-
-    def RunTrim(self, trimType = 1, throttle = 0.0, flap = 0.0):
-        # trimType 0 = full, 1 = ground, ... https://jsbsim-team.github.io/jsbsim/classJSBSim_1_1FGFDMExec.html
-
-        # FDM Initialize
-        self.fdm.disable_output() # Disable Output
-        self.fdm.run_ic()
-
-        # self.fdm['fcs/throttle-cmd-norm[0]'] = throttle
-        # self.fdm['fcs/flap-cmd-norm'] = flap
-
-        self.fdm.run()
-        self.fdm.do_trim(trimType)
-        self.fdm.get_trim_status()
-
-        self.fdm.enable_output()
-
-        # Purge JSBSim Trim
-        self.fdm['fcs/aileron-cmd-norm'] = 0
-        self.fdm['fcs/roll-trim-cmd-norm'] = 0
-
-        self.fdm['fcs/elevator-cmd-norm'] = 0
-        self.fdm['fcs/pitch-trim-cmd-norm'] = 0
-
-        self.fdm['fcs/rudder-cmd-norm'] = 0
-        self.fdm['fcs/yaw-trim-cmd-norm'] = 0
-
-
-    def DispTrim(self):
-        print('Altitude :', self.fdm['position/geod-alt-ft'] * ft2m)
-
-        print('Nx :', self.fdm['accelerations/Nx'])
-        print('Ny :', self.fdm['accelerations/Ny'])
-        print('Nz :', self.fdm['accelerations/Nz'])
-
-        print('Phi :', self.fdm['attitude/phi-deg'])
-        print('Theta :', self.fdm['attitude/theta-deg'])
-        print('Psi :', self.fdm['attitude/psi-deg'])
-        print('Alpha :', self.fdm['aero/alpha-deg'])
-
-        print('Throttle :', self.fdm['fcs/throttle-cmd-norm'])
-        print('Pitch :', self.fdm['fcs/pitch-trim-cmd-norm'])
+    def do_trim(self):
+        # setting this property invokes the JSBSim trim routine
+        print("before trim:")
+        print("propeller_rpm", self.fdm['propulsion/engine/propeller-rpm'])
+        print("power_hp", self.fdm['propulsion/engine/power-hp'])
+        print("power_W", self.fdm['propulsion/engine/power-hp'])
+        print("blade_angle", self.fdm[ 'propulsion/engine/blade-angle'])
+        print("advance_ratio", self.fdm[ 'propulsion/engine/advance-ratio'])
+        print("thrust_lb", self.fdm[ 'propulsion/engine/thrust-lbs'])
+        print("thrust_N", self.fdm[ 'propulsion/engine/thrust-lbs'])
+        try:
+            if self.fdm["ic/vc-kts"] > 0.1:
+                print("In air trim")
+                self.fdm['simulation/do_simple_trim'] = 0  # In-air trim
+            else:
+                print("ground trim")
+                self.fdm['simulation/do_simple_trim'] = 2  # Ground trim
+            self.trimmed = True
+        except:
+            print("after failed trim:")
+            print("propeller_rpm", self.fdm['propulsion/engine/propeller-rpm'])
+            print("power_hp", self.fdm['propulsion/engine/power-hp'])
+            print("power_W", self.fdm['propulsion/engine/power-hp'])
+            print("blade_angle", self.fdm[ 'propulsion/engine/blade-angle'])
+            print("advance_ratio", self.fdm[ 'propulsion/engine/advance-ratio'])
+            print("thrust_lb", self.fdm[ 'propulsion/engine/thrust-lbs'])
+            print("thrust_N", self.fdm[ 'propulsion/engine/thrust-lbs'])
+            quit()
 
     def SetWindNED(self, vWind_mps = [0.0, 0.0, 0.0]):
-
-        self.vWind_mps = vWind_mps
-
         self.fdm['atmosphere/wind-north-fps'] = vWind_mps[0] * m2ft
         self.fdm['atmosphere/wind-east-fps'] = vWind_mps[1] * m2ft
         self.fdm['atmosphere/wind-down-fps'] = vWind_mps[2] * m2ft
 
     def GetWindNED(self):
-
-        self.vWind_mps = [self.fdm['atmosphere/wind-north-fps'] * ft2m, self.fdm['atmosphere/wind-east-fps'] * ft2m, self.fdm['atmosphere/wind-down-fps'] * ft2m]
-
-        return self.vWind_mps
+        return [self.fdm['atmosphere/wind-north-fps'] * ft2m, self.fdm['atmosphere/wind-east-fps'] * ft2m, self.fdm['atmosphere/wind-down-fps'] * ft2m]
 
     def SetWind(self, vWindMag_mps = 0.0, vWindHeading_deg = 0.0, vWindDown_mps = 0.0):
-
         self.fdm['atmosphere/wind-mag-fps'] = vWindMag_mps * m2ft
         self.fdm['atmosphere/psiw-rad'] = vWindHeading_deg * deg2rad
         self.fdm['atmosphere/wind-down-fps'] = vWindDown_mps * m2ft
@@ -205,7 +117,6 @@ class JSBSimWrap:
         self.fdm['atmosphere/wind-mag-fps'] = vWind20_fps * (0.46 * np.log10(h_ft) + 0.4)
 
         self.vWind20_mps = vWind20_fps * ft2m
-        self.vWind_mps = self.GetWindNED()
 
     def SetTurb(self, turbType = 3, turbSeverity = 0, vWind20_mps = None, vWindHeading_deg = 0.0):
         self.vWind20_mps = vWind20_mps
@@ -226,6 +137,39 @@ class JSBSimWrap:
         self.fdm['atmosphere/turbulence/milspec/windspeed_at_20ft_AGL-fps'] = vWind20_mps * m2ft
         self.fdm['atmosphere/psiw-rad'] = vWindHeading_deg * deg2rad
         self.UpdateWind()
+
+    def UpdateTerrainElevation(self):
+        # honor visual system ground elevation if set
+        xp_ground_m = pos_node.getDouble("xp_terrain_elevation_m")
+        vis_ground_m = pos_node.getDouble("visual_terrain_elevation_m")
+        if xp_ground_m > 0:
+            ground_m = xp_ground_m
+        elif vis_ground_m > 0:
+            ground_m = vis_ground_m
+        else:
+            return
+
+        current_ground_m = self.fdm["position/terrain-elevation-asl-ft"] * ft2m
+
+        if ground_m > 0:
+            if not self.trimmed:
+                self.set_initial_terrain_height(ground_m * m2ft)
+            else:
+                if self.terrain_latch:
+                    # set terrain height directly
+                    self.fdm["position/terrain-elevation-asl-ft"] = ground_m * m2ft
+                    print("terrain elevation latched, terrain set to: %.3f" % (ground_m * m2ft))
+                else:
+                    # slew ground elevation slowly to avoid chaos
+                    max_delta = 0.02
+                    diff = ground_m - current_ground_m
+                    if diff < -max_delta: diff = -max_delta
+                    if diff > max_delta: diff = max_delta
+                    self.fdm["position/terrain-elevation-asl-ft"] = (current_ground_m + diff) * m2ft
+                    print("ground_m:", ground_m, "cur ground_m:", current_ground_m)
+                    print("terrain elevation not latched, set to: %.3f" % ((current_ground_m + diff) * m2ft))
+                    if abs(current_ground_m - ground_m) < 0.1:
+                        self.terrain_latch = True
 
     def RunTo(self, time_s, updateWind = None):
         # honor visual system ground elevation if set
@@ -261,15 +205,26 @@ class JSBSimWrap:
                 # print("flaps up:", flap_pos)
                 self.fdm['fcs/flap-cmd-norm'] = flap_pos
 
-
         # honor visual system ground elevation if set
-        vis_ground_m = pos_node.getDouble("visual_terrain_elevation_m")
-        if vis_ground_m > 0:
-            self.fdm["position/terrain-elevation-asl-ft"] = vis_ground_m * m2ft
+        self.UpdateTerrainElevation()
+        # vis_ground_m = pos_node.getDouble("visual_terrain_elevation_m")
+        # xp_ground_m = pos_node.getDouble("xp_terrain_elevation_m")
+        # if xp_ground_m > 0:
+        #     self.fdm["position/terrain-elevation-asl-ft"] = xp_ground_m * m2ft
+        # elif vis_ground_m > 0:
+        #     self.fdm["position/terrain-elevation-asl-ft"] = vis_ground_m * m2ft
+
         for i in range(steps):
             if updateWind ==  True:
                 self.UpdateWind()
             self.fdm.run()
+
+    def update(self, steps, updateWind=True):
+        if not self.trimmed and self.have_ground_elev:
+            self.do_trim()
+        if self.trimmed:
+            self.RunSteps(steps, updateWind)
+            self.PublishProps()
 
     # estimate the 'ideal' magnetometer reading in body coordinates
     def EstMagBody(self, lat_deg, lon_deg, phi_rad, the_rad, psi_rad):
@@ -391,6 +346,7 @@ class JSBSimWrap:
         pos_node.setDouble("geod_alt_m", self.fdm['position/geod-alt-ft'] * ft2m)
         pos_node.setDouble("h_sl_m", self.fdm['position/h-sl-ft'] * ft2m)
         pos_node.setDouble("h_agl_m", self.fdm['position/h-agl-ft'] * ft2m)
+        pos_node.setDouble("WOW", self.fdm['gear/wow']) # for lack of a better place for now
 
         # Velocities
         vel_node.setDouble("vtrue_mps", self.fdm['velocities/vtrue-fps'] * ft2m)
@@ -460,42 +416,6 @@ class JSBSimWrap:
         imu_node.setDouble("hy", mag_body[1])
         imu_node.setDouble("hz", mag_body[2])
         imu_node.setDouble("temp_C", 15)
-
-    # def InitLog(self, logList=None):
-    #     self.dataLog = {}
-
-    #     if logList is None:
-    #         logList = ['simulation/sim-time-sec', \
-    #                    'position/lat-geod-rad', 'position/long-gc-rad', 'position/geod-alt-ft', 'position/h-sl-ft', 'position/h-agl-ft',\
-    #                    'fcs/throttle-cmd-norm', 'fcs/throttle-pos-norm', 'velocities/vtrue-kts', 'velocities/vc-kts', 'velocities/vtrue-fps', 'velocities/vc-fps', 'velocities/h-dot-fps', \
-    #                    'propulsion/engine/propeller-rpm', 'propulsion/engine/power-hp', 'propulsion/engine/blade-angle', 'propulsion/engine/advance-ratio', \
-    #                    'aero/beta-rad', 'aero/alpha-rad', 'aero/betadot-rad_sec', 'aero/alphadot-rad_sec', \
-    #                    'aero/beta-deg', 'aero/alpha-deg', 'aero/betadot-deg_sec', 'aero/alphadot-deg_sec', \
-    #                    'atmosphere/p-turb-rad_sec', 'atmosphere/q-turb-rad_sec', 'atmosphere/r-turb-rad_sec', \
-    #                    'atmosphere/turb-north-fps', 'atmosphere/turb-east-fps', 'atmosphere/turb-down-fps', \
-    #                    'atmosphere/total-wind-north-fps', 'atmosphere/total-wind-east-fps', 'atmosphere/total-wind-down-fps', \
-    #                    'attitude/phi-rad', 'attitude/theta-rad', 'attitude/psi-rad', 'attitude/roll-rad', 'attitude/pitch-rad', \
-    #                    'attitude/phi-deg', 'attitude/theta-deg', 'attitude/psi-deg', \
-    #                    'velocities/p-rad_sec', 'velocities/q-rad_sec', 'velocities/r-rad_sec', 'velocities/psidot-rad_sec', \
-    #                    'flight-path/gamma-rad', 'flight-path/gamma-deg',
-    #                    'accelerations/Nx', 'accelerations/Ny', 'accelerations/Nz', \
-    #                    'accelerations/pdot-rad_sec2', 'accelerations/qdot-rad_sec2', 'accelerations/rdot-rad_sec2', \
-    #                    'fcs/cmdAil_deg', 'fcs/cmdElev_deg', 'fcs/cmdRud_deg', 'fcs/cmdFlap_deg', \
-    #                    'fcs/posAil_deg', 'fcs/posElev_deg', 'fcs/posRud_deg', 'fcs/posFlap_deg', \
-    #                    'fcs/left-brake-cmd-norm', 'fcs/right-brake-cmd-norm', \
-    #                    'velocities/v-fps', 'velocities/v-down-fps', 'velocities/w-fps', 'velocities/w-aero-fps', \
-    #                    'inertia/pointmass-weight-lbs', 'inertia/pointmass-weight-lbs[1]', 'inertia/pointmass-weight-lbs[2]', 'inertia/pointmass-weight-lbs[3]', 'inertia/pointmass-weight-lbs[4]', 'inertia/pointmass-weight-lbs[5]']
-
-    #     for sig in logList:
-    #         self.dataLog[sig] = []
-
-    # def UpdateLog(self):
-    #     for sig in self.dataLog.keys():
-    #         self.dataLog[sig].append(self.fdm[sig])
-
-    # def LogLists2Array(self):
-    #     for sig in self.dataLog.keys():
-    #         self.dataLog[sig] = np.array(self.dataLog[sig])
 
     def __del__(self):
         del self.fdm

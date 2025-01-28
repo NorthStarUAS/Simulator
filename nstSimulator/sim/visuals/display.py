@@ -1,7 +1,7 @@
 import socket
 
 from nstSimulator.sim.lib.props import att_node, pos_node, vel_node
-from .display_messages import display_v1, terrain_v1
+from .display_messages import display_v1, terrain_v2
 
 display_host = "localhost"
 display_port_in = 6768
@@ -43,11 +43,15 @@ class Display():
                 # burn through all pending packets so we don't get behind
                 data, addr = self.sock_in.recvfrom(1024)
                 if data is not None:
-                    values = terrain_v1()
+                    values = terrain_v2()
                     values.unpack(data)
-                    self.terrain_height_m = values.terrain_height_m
-                    # print("received: %.1f" % self.terrain_height_m)
-                    pos_node.setDouble("visual_terrain_elevation_m", self.terrain_height_m)
+                    diff_lat = abs(pos_node.getDouble("lat_geod_deg") - values.latitude_deg)
+                    diff_lon = abs(pos_node.getDouble("long_gc_deg") - values.longitude_deg)
+                    if diff_lat < 0.01 and diff_lon < 0.01:
+                        # print("set terrain elevation from visual system: %.1f" % self.terrain_height_m)
+                        pos_node.setDouble("visual_terrain_elevation_m", values.terrain_height_m)
+                    else:
+                        print("ignoring elevation from previous position")
         except:
             pass # no more pending data
 
