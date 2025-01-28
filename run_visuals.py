@@ -129,6 +129,7 @@ class SceneryViewer(ShowBase):
 
         ground_elev_m = self.world.get_elevation(self.comms_mgr.lla[0], self.comms_mgr.lla[1])
         self.mycam.update(self.comms_mgr.nedpos, self.comms_mgr.nedvel, self.comms_mgr.hpr_deg, ground_elev_m)
+        self.comms_mgr.send(ground_elev_m)
 
         self.fog.update(-self.comms_mgr.nedpos[2])
 

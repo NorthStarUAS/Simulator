@@ -21,6 +21,8 @@ from nstSimulator.sim.visuals.fgfs import fgfs
 from nstSimulator.sim.visuals.display import Display
 from nstSimulator.sim.visuals.xp.xp import XPlane
 
+from nstSimulator.sim.lib.props import engine_node
+
 from lib_sim.comms.HIL_nsLink import HIL
 from lib_sim.FCS.fcs_mgr import FCSMgr
 
@@ -49,7 +51,7 @@ hil = HIL()
 home = Path.home()
 if False:
     model = 'Rascal110'
-    pathJSB = Path("./models_jsbsim")
+    pathJSB = Path("./Simulator/models_jsbsim")
 if True:
     model = 'SR22T'
     #pathJSB = home / "Projects/ADD_Simulator/simulation-python-jsbsim/JSBSim"
@@ -57,15 +59,15 @@ if True:
 print("JSBSim path:", pathJSB)
 sim = JSBSimWrap(model, pathJSB.as_posix(), dt=1/jsbsim_hz)
 
-apt_id = "KRNO"
-rwy_id = "25"
+apt_id = "64S"
+rwy_id = "02"
 
 if True:
     # compute the starting conditions
     pos_init = PositionInit()
     # pos_lla, hdg_deg = pos_init.takeoff("KDLH", "21")
     # pos_lla, hdg_deg = pos_init.final_approach("KDLH", "09", 1)
-    pos_lla, hdg_deg = pos_init.final_approach(apt_id, rwy_id, 0.5)
+    pos_lla, hdg_deg = pos_init.final_approach(apt_id, rwy_id, 2)
     sim.setup_initial_conditions(pos_lla, hdg_deg, 120)
 
     # terrain height
@@ -77,8 +79,27 @@ if False:
 
 if not args.no_trim:
     # setting this property invokes the JSBSim trim routine
-    sim.fdm['simulation/do_simple_trim'] = 0  # In-air trim
-    # sim.fdm['simulation/do_simple_trim'] = 2  # Ground trim
+    print("before trim:")
+    print("propeller_rpm", sim.fdm['propulsion/engine/propeller-rpm'])
+    print("power_hp", sim.fdm['propulsion/engine/power-hp'])
+    print("power_W", sim.fdm['propulsion/engine/power-hp'])
+    print("blade_angle", sim.fdm[ 'propulsion/engine/blade-angle'])
+    print("advance_ratio", sim.fdm[ 'propulsion/engine/advance-ratio'])
+    print("thrust_lb", sim.fdm[ 'propulsion/engine/thrust-lbs'])
+    print("thrust_N", sim.fdm[ 'propulsion/engine/thrust-lbs'])
+    try:
+        sim.fdm['simulation/do_simple_trim'] = 0  # In-air trim
+        # sim.fdm['simulation/do_simple_trim'] = 2  # Ground trim
+    except:
+        print("after failed trim:")
+        print("propeller_rpm", sim.fdm['propulsion/engine/propeller-rpm'])
+        print("power_hp", sim.fdm['propulsion/engine/power-hp'])
+        print("power_W", sim.fdm['propulsion/engine/power-hp'])
+        print("blade_angle", sim.fdm[ 'propulsion/engine/blade-angle'])
+        print("advance_ratio", sim.fdm[ 'propulsion/engine/advance-ratio'])
+        print("thrust_lb", sim.fdm[ 'propulsion/engine/thrust-lbs'])
+        print("thrust_N", sim.fdm[ 'propulsion/engine/thrust-lbs'])
+        quit()
 
 sim.SetTurb(turbSeverity=1, vWind20_mps=2, vWindHeading_deg=45) # Trim with wind, no turbulence
 

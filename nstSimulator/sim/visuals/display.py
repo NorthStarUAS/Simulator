@@ -1,30 +1,26 @@
 import socket
 
-import navpy
-
 from nstSimulator.sim.lib.props import att_node, pos_node, vel_node
-from nstSimulator.sim.visuals.display_messages import display_v1
-
-if False:
-    # KANE
-    # lat_deg = 45.13841697
-    # lon_deg = -93.2101002
-    # altitude_m = 400.0
-
-    #64S
-    lat_deg = 42.744
-    lon_deg = -122.487
-    altitude_m = 900
-    lla = navpy.ned2lla(state.pos_ned, lat_deg, lon_deg, altitude_m)
+from .display_messages import display_v1, terrain_v1
 
 display_host = "localhost"
-display_port = 6767
+display_port_in = 6768
+display_port_out = 6767
 
 class Display():
     def __init__(self):
+        # outgoing
         self.sock_out = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
-    def update(self):
+        # incoming
+        hostname = socket.gethostname()
+        self.ip_addr = socket.gethostbyname(hostname)
+        print(hostname, self.ip_addr)
+        self.sock_in = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.sock_in.bind( ("", display_port_in))
+        self.sock_in.setblocking(False)
+
+    def send(self):
         msg_out = display_v1()
         msg_out.longitude_deg = pos_node.getDouble("long_gc_deg")
         msg_out.latitude_deg = pos_node.getDouble("lat_geod_deg")
@@ -37,6 +33,29 @@ class Display():
         msg_out.pitch_deg = att_node.getDouble("theta_deg")
         msg_out.yaw_deg = att_node.getDouble("psi_deg")
         msg_out.airspeed_kt = vel_node.getDouble("vc_kts")
+        msg_out.return_ip_addr = self.ip_addr
         # print(msg_out.__dict__)
+        self.sock_out.sendto(msg_out.pack(), (display_host, display_port_out))
 
-        self.sock_out.sendto(msg_out.pack(), (display_host, display_port))
+    def receive(self):
+        try:
+            while True:
+                # burn through all pending packets so we don't get behind
+                data, addr = self.sock_in.recvfrom(1024)
+                if data is not None:
+                    values = terrain_v1()
+                    values.unpack(data)
+                    self.terrain_height_m = values.terrain_height_m
+                    # print("received: %.1f" % self.terrain_height_m)
+                    pos_node.setDouble("visual_terrain_elevation_m", self.terrain_height_m)
+        except:
+            pass # no more pending data
+
+    def update(self):
+        self.send()
+        self.receive()
+
+    def __del__(self):
+        self.sock_in.close()
+        self.sock_out.close()
+        print("deleting self: svo")

@@ -8,9 +8,10 @@ from direct.stdpy import threading
 import navpy
 
 from nstSimulator.utils.constants import r2d, m2ft
-from .display_messages import display_v1
+from .display_messages import display_v1, terrain_v1
 
 port_in = 6767
+port_out = 6768
 
 comms_lock = threading.Lock()
 comms_queue = []
@@ -35,6 +36,7 @@ class CommsWorker(threading.Thread):
 
 class CommsManager():
     def __init__(self):
+        self.sock_out = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.nedref = None
         self.nedref_time = -1
         self.lla = [0, 0, 0]  # order: lat_deg, lon_deg, alt_m
@@ -50,6 +52,7 @@ class CommsManager():
         self.dlon = 0
         self.dalt = 0
         self.psiDot_dps_est = None
+        self.return_ip_addr = None
 
         self.msg_prev = None
 
@@ -102,6 +105,7 @@ class CommsManager():
             self.ele_cmd_norm = msg.ele_cmd_norm
             self.rud_cmd_norm = msg.rud_cmd_norm
             self.flap_cmd_norm = msg.flap_cmd_norm
+            self.return_ip_addr = msg.return_ip_addr
 
             if self.msg_prev is not None:
                 self.dt = msg.time_sec - self.msg_prev.time_sec
@@ -131,6 +135,14 @@ class CommsManager():
         # print("course_deg:", self.course_deg)
         #print(msg.ned_velocity)
         self.gs_mps = sqrt(self.nedvel[0]**2 + self.nedvel[1]**2)
+
+    def send(self, ground_elev_m):
+        if self.return_ip_addr is not None:
+            # reply with terrain height
+            msg_out = terrain_v1()
+            msg_out.terrain_height_m = ground_elev_m
+            self.sock_out.sendto(msg_out.pack(), (self.return_ip_addr, port_out))
+            # print("(send) sending: %.1f" % ground_elev_m)
 
     def get_ned_from_lla(self, lat, lon, alt):
         if self.nedref is not None:
