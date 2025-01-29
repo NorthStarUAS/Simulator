@@ -29,6 +29,9 @@ from lib_sim.FCS.fcs_mgr import FCSMgr
 # command line arguments
 parser = argparse.ArgumentParser(description="run the simulation")
 # parser.add_argument("model", help="flight model")
+parser.add_argument("--takeoff", help="takeoff from APT:RWY")
+parser.add_argument("--final", help="final approach to APT:RWY:dist_nm")
+parser.add_argument("--vc", help="initial airspeed for in-air starts")
 parser.add_argument("--hz", default=60, help="outer loop hz")
 parser.add_argument("--fdm-steps-per-frame", default=4, help="number of jsbsim steps per outer loop frame")
 # parser.add_argument('--realtime', default=True, action='store_true', help='run sim in realtime')
@@ -58,23 +61,40 @@ if True:
 print("JSBSim path:", pathJSB)
 sim = JSBSimWrap(model, pathJSB.as_posix(), dt=1/jsbsim_hz)
 
-apt_id = "P13"
-rwy_id = "27"
+# setup initial position and velocity for trimmming
+pos_init = PositionInit()
 
-if True:
-    # compute the starting conditions
-    pos_init = PositionInit()
-    pos_lla, hdg_deg = pos_init.takeoff(apt_id, rwy_id)
-    # pos_lla, hdg_deg = pos_init.final_approach(apt_id, rwy_id, 2)
-    sim.setup_initial_conditions(pos_lla, hdg_deg, 0)
+apt_id = "KPAN"
+rwy_id = "06"
+dist_nm = 0
+vc_kts = 0
+pos_lla = None
+hdg_deg = 0
 
-    if False:
-        # set initial terrain height from apt db
-        apt = pos_init.get_airport(apt_id)
-        sim.set_terrain_height(apt["alt_ft"])
+if args.takeoff:
+    if ":" in args.takeoff:
+        apt_id, rwy_id = args.takeoff.split(":", 1)
+        pos_lla, hdg_deg = pos_init.takeoff(apt_id, rwy_id)
+    else:
+        print("Please use the form APT_ID:RWY_ID")
+        quit()
+
+if args.final:
+    if ":" in args.final and args.vc:
+        apt_id, rwy_id, dist_str = args.final.split(":", 2)
+        dist_nm = float(dist_str)
+        vc_kts = float(args.vc)
+        pos_lla, hdg_deg = pos_init.final_approach(apt_id, rwy_id, dist_nm)
+    else:
+        print("Please use the form --final APT_ID:RWY_ID:dist_nm --vc airspeed_kts")
+        quit()
+
+sim.setup_initial_conditions(pos_lla, hdg_deg, vc_kts)
 
 if False:
-    sim.SetupICprops()
+    # set initial terrain height from apt db
+    apt = pos_init.get_airport(apt_id)
+    sim.set_terrain_height(apt["alt_ft"])
 
 sim.SetTurb(turbSeverity=1, vWind20_mps=2, vWindHeading_deg=45) # Trim with wind, no turbulence
 
