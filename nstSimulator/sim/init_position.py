@@ -136,4 +136,7 @@ class PositionInit:
         pt_lla = list(navpy.ned2lla(pt_ned, nedref[0], nedref[1], nedref[2]))
         pt_lla[2] = alt_m + 1000*ft2m
         print("45 (left) downwind entry lla: %.8f %.8f %.1f" % (pt_lla[0], pt_lla[1], pt_lla[2]))
-        return pt_lla, a*r2d
+        hdg_deg = (0.5*pi - a) * r2d
+        if reverse:
+            hdg_deg += 180
+        return pt_lla, hdg_deg

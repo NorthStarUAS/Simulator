@@ -31,6 +31,7 @@ parser = argparse.ArgumentParser(description="run the simulation")
 # parser.add_argument("model", help="flight model")
 parser.add_argument("--takeoff", help="takeoff from APT:RWY")
 parser.add_argument("--final", help="final approach to APT:RWY:dist_nm")
+parser.add_argument("--pattern", help="45 degree downwind entry to pattern APT:RWY")
 parser.add_argument("--vc", help="initial airspeed for in-air starts")
 parser.add_argument("--hz", default=60, help="outer loop hz")
 parser.add_argument("--fdm-steps-per-frame", default=4, help="number of jsbsim steps per outer loop frame")
@@ -85,6 +86,15 @@ if args.final:
         dist_nm = float(dist_str)
         vc_kts = float(args.vc)
         pos_lla, hdg_deg = pos_init.final_approach(apt_id, rwy_id, dist_nm)
+    else:
+        print("Please use the form --final APT_ID:RWY_ID:dist_nm --vc airspeed_kts")
+        quit()
+
+if args.pattern:
+    if ":" in args.pattern and args.vc:
+        apt_id, rwy_id = args.pattern.split(":", 1)
+        vc_kts = float(args.vc)
+        pos_lla, hdg_deg = pos_init.pattern_entry(apt_id, rwy_id)
     else:
         print("Please use the form --final APT_ID:RWY_ID:dist_nm --vc airspeed_kts")
         quit()
