@@ -52,10 +52,10 @@ hil = HIL()
 
 # initialize JSBSim and load the aircraft model
 home = Path.home()
-if False:
-    model = 'Rascal110'
-    pathJSB = Path("./Simulator/models_jsbsim")
 if True:
+    model = 'Rascal110'
+    pathJSB = Path("./nstSimulator/data/models_jsbsim")
+if False:
     model = 'SR22T'
     #pathJSB = home / "Projects/ADD_Simulator/simulation-python-jsbsim/JSBSim"
     pathJSB = home / "Sync/JSBSim"
