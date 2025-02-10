@@ -1,10 +1,11 @@
 from math import cos, pi, sin, tan
 from nstSimulator.utils.constants import d2r, gravity
-from nstSimulator.sim.lib.props import aero_node, att_node, control_node, fcs_node, inceptors_node, vel_node
+from nstSimulator.sim.lib.props import aero_node, att_node, control_node, fcs_node, imu_node, inceptors_node, vel_node
 
 from .direct_airdata import alpha_func, beta_func
-from .direct_pbeta import pbeta_controller
+from .direct_p import p_controller
 from .direct_q import q_controller
+from .direct_r import r_controller
 from .util import IsFlying
 
 rho = 1.225
@@ -12,12 +13,13 @@ rho = 1.225
 class FCSMgr():
     def __init__(self):
         # stick -> rate command scaling
-        self.roll_stick_scale = 30 * d2r   # rad
+        self.roll_stick_scale = 40 * d2r   # rad
         self.pitch_stick_scale = 20 * d2r  # rad
         self.yaw_stick_scale = 20          # maps to beta_deg
 
-        self.fcs_lat = pbeta_controller()
+        self.fcs_lat = p_controller()
         self.fcs_lon = q_controller()
+        self.fcs_yaw = r_controller()
         self.is_flying = IsFlying(on_ground_for_sure_mps=30, flying_for_sure_mps=40)
 
         # filtered state (clamp to minimum of 25 mps because we need to divide
@@ -52,16 +54,21 @@ class FCSMgr():
 
         # alpha / beta estimates (or direct from sim model)
         if flying_confidence > 0.5:
-            if True:
+            if False:
                 # sensed directly (or from sim model)
                 alpha_deg = aero_node.getDouble("alpha_deg")
                 beta_deg = aero_node.getDouble("beta_deg")
             else:
-                # inertial+airdata estimate (behaves very wrong at low airspeeds, ok in flight!)
-                rudder_cmd = inceptor_node.getDouble("yaw")
-                throttle_cmd = inceptor_node.getDouble("power")
-                alpha_deg = alpha_func(qbar, az, p, q, ax)
-                beta_deg = beta_func(qbar, ay, r, rudder_cmd, throttle_cmd)  # this functions drifts and can get stuck!
+                # inertial+airdata estimate fit from flight data
+                rudder_cmd = inceptors_node.getDouble("yaw")
+                throttle_cmd = inceptors_node.getDouble("power")
+                flaps_norm = fcs_node.getDouble("posFlap_norm")
+                az_mps2 = imu_node.getDouble("az_mps2")
+                print("accels: %.2f %.2f %.2f" % (imu_node.getDouble("ax_mps2"), imu_node.getDouble("ay_mps2"), az_mps2))
+                alpha_deg = alpha_func(flaps_norm, qbar, az_mps2)
+                print("alpha true: %.1f  est: %.1f diff: %.1f" % (aero_node.getDouble("alpha_deg"), alpha_deg, aero_node.getDouble("alpha_deg") - alpha_deg))
+                # beta_deg = beta_func(qbar, ay, r, rudder_cmd, throttle_cmd)  # this functions drifts and can get stuck!
+                beta_deg = aero_node.getDouble("beta_deg")
         else:
             alpha_deg = att_node.getDouble("theta_deg")
             beta_deg = 0
@@ -99,14 +106,18 @@ class FCSMgr():
             # pilot/joystick commands drive built in FBW control laws
             roll_rate_request = inceptors_node.getDouble("roll") * self.roll_stick_scale
             pitch_rate_request = -inceptors_node.getDouble("pitch") * self.pitch_stick_scale
+            yaw_rate_request = 0
             beta_deg_request = -inceptors_node.getDouble("yaw") * self.yaw_stick_scale
 
             # flight control laws
-            roll_cmd, yaw_cmd = self.fcs_lat.update(roll_rate_request, beta_deg_request)
+            roll_cmd = self.fcs_lat.update(roll_rate_request)
             pitch_cmd = self.fcs_lon.update(pitch_rate_request)
-            print("integrators: %.2f %.2f %.2f" % (self.fcs_lat.roll_int, self.fcs_lon.pitch_int, self.fcs_lat.yaw_int))
+            yaw_cmd = self.fcs_yaw.update(yaw_rate_request)
+            print("integrators: %.2f %.2f" % (self.fcs_lat.roll_int, self.fcs_lon.pitch_int))
             control_node.setDouble("aileron", roll_cmd)
             control_node.setDouble("rudder", yaw_cmd)
+            # control_node.setDouble("rudder", 0)
+            # control_node.setDouble("rudder", inceptors_node.getDouble("yaw"))
             control_node.setDouble("elevator", pitch_cmd)
             throttle_cmd = inceptors_node.getDouble("power")
             control_node.setDouble("throttle", throttle_cmd)

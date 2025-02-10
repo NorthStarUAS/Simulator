@@ -14,44 +14,39 @@ class q_controller():
         theta_soft_limit = 15
 
         # helper
-        self.pitch_helper = NotaPID("pitch", -theta_soft_limit, theta_soft_limit, integral_gain=-4.0, antiwindup=0.5, neutral_tolerance=0.03)
+        self.pitch_helper = NotaPID("pitch", -theta_soft_limit, theta_soft_limit, integral_gain=-4.0, antiwindup=1.0, neutral_tolerance=0.03)
 
         # integrators
         self.pitch_int = 0.0
 
         # damper gains
-        self.pitch_damp_gain = 1500.0
+        self.pitch_damp_gain = 2000.0
 
     # compute model-based pitch command to achieve the reference pitch rate.
     # This functions is fit from the original flight data and involves a matrix
     # inversion that is precomputed offlin.  Here we use the inverted matrix
     # directly and never needs to be recomputed.
-    def lon_func(self, ref_q, qbar, ay, gbody_y, vc_mps):
-        Ainv = np.array(
-            [[-4996.77049111088]]
+    def lon_func(self, ref_q, qbar, aileron, rudder, ay, az):
+        A = np.array(
+            [[-1.79754412e+02, -2.05735090e+03, 8.66518876e-03, 1.08625576e-01, -1.39143682e+02, 1.05951379e+00]]
         )
-        B = np.array(
-            [[0.15640149796443698, -0.00043212705017340664, 0.01596103011849002, -0.00017520759288595494, -0.0016056595485786098, -5.957540570227146]]
-        )
-        x = np.array([ref_q])
-        b = np.array([1, ay, abs(ay), gbody_y, vc_mps, 1/vc_mps])
-        y = (Ainv @ x - B @ b) / qbar
+        x = np.array([1, ref_q, abs(aileron)*qbar, abs(rudder)*qbar, abs(ay), az])
+        y = (A @ x) / qbar
         # print("lon y:", y)
         return y[0]
 
     def update(self, pitch_rate_request):
         # fetch and compute all the values needed by the control laws
         flying_confidence = fcs_node.getDouble("flying_confidence")
-        phi_rad = att_node.getDouble("phi_deg") * d2r
         theta_deg = att_node.getDouble("theta_deg")
-        theta_rad = theta_deg * d2r
         q_rps = imu_node.getDouble("q_rps")
         baseline_q = fcs_node.getDouble("baseline_q")
         ay = imu_node.getDouble("ay_mps2")
-        gbody_y = sin(phi_rad) * cos(theta_rad) * gravity
-        vc_mps = fcs_node.getDouble("vc_filt_mps")
+        az = imu_node.getDouble("az_mps2")
         qbar = fcs_node.getDouble("qbar")
         alpha_deg = fcs_node.getDouble("alpha_deg")
+        aileron = fcs_node.getDouble("posAil_norm")
+        rudder = fcs_node.getDouble("posRud_norm")
 
         # envelope protection (needs to move after or into the controller or at
         # least incorporate the ff term (and dampers?))  This must consider more
@@ -65,7 +60,7 @@ class q_controller():
         ref_q = self.pitch_helper.get_ref_value(pitch_rate_request, baseline_q, None, max_q, theta_deg, flying_confidence)
 
         # compute the direct surface position to achieve the command
-        raw_pitch_cmd = self.lon_func(ref_q, qbar, ay, gbody_y, vc_mps)
+        raw_pitch_cmd = self.lon_func(ref_q, qbar, aileron, rudder, ay, az)
 
         # run the integrators.
         self.pitch_int = self.pitch_helper.integrator(ref_q, q_rps, flying_confidence)

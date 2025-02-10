@@ -158,7 +158,7 @@ class JSBSimWrap:
                 if self.terrain_latch:
                     # set terrain height directly
                     self.fdm["position/terrain-elevation-asl-ft"] = ground_m * m2ft
-                    print("terrain elevation latched, terrain set to: %.3f" % (ground_m * m2ft))
+                    # print("terrain elevation latched, terrain set to: %.3f" % (ground_m * m2ft))
                 else:
                     # slew ground elevation slowly to avoid chaos
                     max_delta = 0.02
@@ -166,8 +166,8 @@ class JSBSimWrap:
                     if diff < -max_delta: diff = -max_delta
                     if diff > max_delta: diff = max_delta
                     self.fdm["position/terrain-elevation-asl-ft"] = (current_ground_m + diff) * m2ft
-                    print("ground_m:", ground_m, "cur ground_m:", current_ground_m)
-                    print("terrain elevation not latched, set to: %.3f" % ((current_ground_m + diff) * m2ft))
+                    # print("ground_m:", ground_m, "cur ground_m:", current_ground_m)
+                    # print("terrain elevation not latched, set to: %.3f" % ((current_ground_m + diff) * m2ft))
                     if abs(current_ground_m - ground_m) < 0.1:
                         self.terrain_latch = True
 
@@ -327,14 +327,14 @@ class JSBSimWrap:
         engine_node.setDouble("thrust_N", self.fdm[ 'propulsion/engine/thrust-lbs'] * lb2N)
 
         # Flight Control System (Actuators)
-        fcs_node.setDouble("cmdAil_deg", self.fdm['fcs/aileron-cmd-norm'])
-        fcs_node.setDouble("posAil_deg", self.fdm['fcs/left-aileron-pos-norm'])
-        fcs_node.setDouble("cmdElev_deg", self.fdm['fcs/elevator-cmd-norm'])
-        fcs_node.setDouble("posElev_deg", self.fdm['fcs/elevator-pos-norm'])
-        fcs_node.setDouble("cmdRud_deg", self.fdm['fcs/rudder-cmd-norm'])
-        fcs_node.setDouble("posRud_deg", self.fdm['fcs/rudder-pos-norm'])
-        fcs_node.setDouble("cmdFlap_deg", self.fdm['fcs/flap-cmd-norm'])
-        fcs_node.setDouble("posFlap_deg", self.fdm['fcs/flap-pos-norm'])
+        fcs_node.setDouble("cmdAil_norm", self.fdm['fcs/aileron-cmd-norm'])
+        fcs_node.setDouble("posAil_norm", self.fdm['fcs/left-aileron-pos-norm'])
+        fcs_node.setDouble("cmdElev_norm", self.fdm['fcs/elevator-cmd-norm'])
+        fcs_node.setDouble("posElev_nrom", self.fdm['fcs/elevator-pos-norm'])
+        fcs_node.setDouble("cmdRud_norm", self.fdm['fcs/rudder-cmd-norm'])
+        fcs_node.setDouble("posRud_norm", self.fdm['fcs/rudder-pos-norm'])
+        fcs_node.setDouble("cmdFlap_norm", self.fdm['fcs/flap-cmd-norm'])
+        fcs_node.setDouble("posFlap_norm", self.fdm['fcs/flap-pos-norm'])
         fcs_node.setDouble("cmdThrottle_nd", self.fdm['fcs/throttle-cmd-norm'])
         fcs_node.setDouble("posThrottle_nd", self.fdm['fcs/throttle-pos-norm'])
         fcs_node.setDouble("cmdBrakeLeft_nd", self.fdm['fcs/left-brake-cmd-norm'])
@@ -400,15 +400,15 @@ class JSBSimWrap:
          # imu
         mag_body = self.EstMagBody(self.fdm['position/lat-geod-deg'], self.fdm['position/long-gc-deg'], self.fdm['attitude/phi-rad'], self.fdm['attitude/theta-rad'], self.fdm['attitude/psi-rad'])
         imu_node.setUInt("millis", millis)
-        imu_node.setDouble("ax_raw", -self.fdm['accelerations/Nx'] * gravity)
+        imu_node.setDouble("ax_raw", self.fdm['accelerations/Nx'] * gravity)
         imu_node.setDouble("ay_raw", self.fdm['accelerations/Ny'] * gravity)
-        imu_node.setDouble("az_raw", self.fdm['accelerations/Nz'] * gravity)
+        imu_node.setDouble("az_raw", -self.fdm['accelerations/Nz'] * gravity)
         imu_node.setDouble("hx_raw", mag_body[0])
         imu_node.setDouble("hy_raw", mag_body[1])
         imu_node.setDouble("hz_raw", mag_body[2])
-        imu_node.setDouble("ax_mps2", -self.fdm['accelerations/Nx'] * gravity)
+        imu_node.setDouble("ax_mps2", self.fdm['accelerations/Nx'] * gravity)
         imu_node.setDouble("ay_mps2", self.fdm['accelerations/Ny'] * gravity)
-        imu_node.setDouble("az_mps2", self.fdm['accelerations/Nz'] * gravity)
+        imu_node.setDouble("az_mps2", -self.fdm['accelerations/Nz'] * gravity)
         imu_node.setDouble("p_rps", self.fdm['velocities/p-rad_sec'])
         imu_node.setDouble("q_rps", self.fdm['velocities/q-rad_sec'])
         imu_node.setDouble("r_rps", self.fdm['velocities/r-rad_sec'])

@@ -38,30 +38,6 @@ parser.add_argument("--fdm-steps-per-frame", default=4, help="number of jsbsim s
 # parser.add_argument('--realtime', default=True, action='store_true', help='run sim in realtime')
 args = parser.parse_args()
 
-# if main loop hz is 60 and fdm steps per frame is 4, then the JSBSim hz will be
-# 60*4 = 240 hz, while the main program loop steps forward at 60 hz (i.e.
-# matches the graphical update rate, or logging rate preferences.)  The
-# advantage to running JSBSim at a higher rate is slightly better integration
-# accuracy.
-jsbsim_hz = args.fdm_steps_per_frame * args.hz
-
-joystick = Joystick()
-display = Display()
-xp = XPlane()
-hil = HIL()
-
-# initialize JSBSim and load the aircraft model
-home = Path.home()
-if True:
-    model = 'Rascal110'
-    pathJSB = Path("./nstSimulator/data/models_jsbsim")
-if False:
-    model = 'SR22T'
-    #pathJSB = home / "Projects/ADD_Simulator/simulation-python-jsbsim/JSBSim"
-    pathJSB = home / "Sync/JSBSim"
-print("JSBSim path:", pathJSB)
-sim = JSBSimWrap(model, pathJSB.as_posix(), dt=1/jsbsim_hz)
-
 # setup initial position and velocity for trimmming
 pos_init = PositionInit()
 
@@ -99,6 +75,35 @@ if args.pattern:
         print("Please use the form --final APT_ID:RWY_ID:dist_nm --vc airspeed_kts")
         quit()
 
+if not pos_lla:
+    print("Need to provide an initial position.")
+    parser.print_usage()
+    quit()
+
+# if main loop hz is 60 and fdm steps per frame is 4, then the JSBSim hz will be
+# 60*4 = 240 hz, while the main program loop steps forward at 60 hz (i.e.
+# matches the graphical update rate, or logging rate preferences.)  The
+# advantage to running JSBSim at a higher rate is slightly better integration
+# accuracy.
+jsbsim_hz = args.fdm_steps_per_frame * args.hz
+
+joystick = Joystick()
+display = Display()
+xp = XPlane()
+hil = HIL()
+
+# initialize JSBSim and load the aircraft model
+home = Path.home()
+if False:
+    model = 'Rascal110'
+    pathJSB = Path("./nstSimulator/data/models_jsbsim")
+if True:
+    model = 'SR22T'
+    #pathJSB = home / "Projects/ADD_Simulator/simulation-python-jsbsim/JSBSim"
+    pathJSB = home / "Sync/JSBSim"
+print("JSBSim path:", pathJSB)
+sim = JSBSimWrap(model, pathJSB.as_posix(), dt=1/jsbsim_hz)
+
 sim.setup_initial_conditions(pos_lla, hdg_deg, vc_kts)
 
 if False:
@@ -106,7 +111,8 @@ if False:
     apt = pos_init.get_airport(apt_id)
     sim.set_terrain_height(apt["alt_ft"])
 
-sim.SetTurb(turbSeverity=1, vWind20_mps=2, vWindHeading_deg=45) # Trim with wind, no turbulence
+sim.SetTurb(turbSeverity=0, vWind20_mps=2, vWindHeading_deg=45) # Trim with wind, no turbulence
+# sim.SetTurb(turbSeverity=1, vWind20_mps=2, vWindHeading_deg=45) # Trim with wind, no turbulence
 
 fcs = FCSMgr()
 

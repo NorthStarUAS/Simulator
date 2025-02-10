@@ -15,6 +15,7 @@
 #    and as an added bonus, the integrator is feathered off/on based on the
 #    value of flying_confidence (0-1) which the up-stream controller also is
 #    responsible for providing.
+
 class NotaPID():
     def __init__(self, name, min_hold, max_hold, integral_gain, antiwindup, neutral_tolerance):
         self.dt = 0.02
@@ -44,7 +45,7 @@ class NotaPID():
             self.hold_cmd = self.max_hold
         if self.cmd_neutral:
             error = (self.hold_cmd - cur_val) * flying_confidence
-            ref_val = error * 0.05 + ff_cmd
+            ref_val = error * 0.1 + ff_cmd
             # print(self.name, ref_rate)
         else:
             ref_val = input_cmd + ff_cmd
