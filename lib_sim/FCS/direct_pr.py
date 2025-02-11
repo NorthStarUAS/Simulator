@@ -1,8 +1,8 @@
 from math import cos, sin
 import numpy as np
 
-from lib.constants import d2r, gravity
-from lib.props import att_node, fcs_node, imu_node
+from nstSimulator.utils.constants import d2r, g
+from nstSimulator.sim.lib.props import att_node, fcs_node, imu_node
 
 from .util import NotaPID
 
@@ -57,7 +57,7 @@ class pr_controller():
         r_rps = imu_node.getDouble("r_rps")
         baseline_r = fcs_node.getDouble("baseline_r")
         self.ay = imu_node.getDouble("ay_mps2")
-        gbody_y = sin(phi_rad) * cos(theta_rad) * gravity
+        gbody_y = sin(phi_rad) * cos(theta_rad) * g
         vc_mps = fcs_node.getDouble("vc_filt_mps")
         qbar = fcs_node.getDouble("qbar")
         beta_deg = fcs_node.getDouble("beta_deg")

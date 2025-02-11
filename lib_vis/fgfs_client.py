@@ -8,7 +8,7 @@ from direct.stdpy import threading
 
 import navpy
 
-from nstWorld.constants import ft2m, r2d
+from nstSimulator.utils.constants import ft2m, r2d
 
 port_in = 6504
 

@@ -14,7 +14,7 @@ import numpy as np
 from scipy.optimize import least_squares
 
 from lib import quaternion
-from lib.constants import d2r, r2d, gravity
+from nstSimulator.utils.constants import r2d
 from lib.state_mgr import StateManager
 
 class Simulator():

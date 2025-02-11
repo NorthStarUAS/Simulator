@@ -5,7 +5,7 @@
 from math import atan2, cos, sin, sqrt
 import numpy as np
 
-from lib.constants import gravity, d2r, r2d
+from nstSimulator.utils.constants import g, d2r, r2d
 from lib import quaternion
 
 num = 4 # length of history to maintain in state mgr
@@ -64,7 +64,7 @@ class StateManager():
         self.alpha_dot = 0
         self.flying = False
         self.ground_alt = None
-        self.g_ned = np.array( [0.0, 0.0, gravity] )
+        self.g_ned = np.array( [0.0, 0.0, g] )
         self.g_body = np.array( [0.0, 0.0, 0.0] )
         self.vel_body = np.array( [0.0, 0.0, 0.0] )
 
@@ -104,7 +104,7 @@ class StateManager():
         if throttle > 1: throttle = 1
         self.throttle = [throttle] + self.throttle[:num]
         # max thrust is 0.75 gravity, so we can't quite hover on full power
-        self.thrust = sqrt(self.throttle[0]) * 0.75 * abs(gravity)
+        self.thrust = sqrt(self.throttle[0]) * 0.75 * abs(g)
 
     def set_flight_surfaces(self, aileron, elevator, rudder, flaps=0):
         if aileron < -1: aileron = -1
@@ -296,7 +296,7 @@ class StateManager():
         self.alpha_dot_term2 = (self.qbar * self.wing_area) / (self.mass_kg * self.vc_mps * cos(self.beta[0]))
 
         # alpha_dot_term3: contribution from gravity forces
-        self.alpha_dot_term3 = gravity * (cos(self.alpha[0]) * cos(self.phi_rad) * cos(self.the_rad) + sin(self.alpha[0]) * sin(self.the_rad)) / (self.vc_mps * cos(self.beta[0]))
+        self.alpha_dot_term3 = g * (cos(self.alpha[0]) * cos(self.phi_rad) * cos(self.the_rad) + sin(self.alpha[0]) * sin(self.the_rad)) / (self.vc_mps * cos(self.beta[0]))
 
         # q_term1: account for pitch bias in turns
         self.q_term1 = sin(self.phi_rad) * (sin(self.phi_rad) / cos(self.phi_rad)) / self.vc_mps

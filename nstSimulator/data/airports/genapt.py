@@ -8,7 +8,7 @@ from Polygon import *
 from panda3d.core import *
 
 import navpy
-from nstWorld.constants import ft2m, r2d
+from nstSimulator.utils.constants import ft2m, r2d
 
 from polygon3d import Polygon3d
 

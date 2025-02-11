@@ -1,9 +1,6 @@
 from math import pi
 from nstSimulator.sim.lib.props import pos_node, vel_node, att_node, fcs_node
 
-# import navpy
-# from lib.constants import mps2kt, r2d
-
 from .XPlaneUdp import *
 
 # units
@@ -92,8 +89,8 @@ class XPlane():
 
             # visible ailerons and flaps
             self.send_data_ref("sim/operation/override/override_control_surfaces", 1)
-            self.send_data_ref("sim/flightmodel/controls/wing3l_ail1def", fcs_node.getDouble("posAil_deg"))
-            self.send_data_ref("sim/flightmodel/controls/wing3r_ail1def", -fcs_node.getDouble("posAil_deg"))
+            self.send_data_ref("sim/flightmodel/controls/wing3l_ail1def", fcs_node.getDouble("posAil_norm")*12.5)
+            self.send_data_ref("sim/flightmodel/controls/wing3r_ail1def", -fcs_node.getDouble("posAil_norm")*12.5)
             self.send_data_ref("sim/flightmodel/controls/wing2l_fla1def", fcs_node.getDouble("posFlap_deg"))
             self.send_data_ref("sim/flightmodel/controls/wing2r_fla1def", fcs_node.getDouble("posFlap_deg"))
 
