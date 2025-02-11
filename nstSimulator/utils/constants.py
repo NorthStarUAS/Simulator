@@ -9,5 +9,4 @@ m2ft = 1 / ft2m
 kt2mps = 0.5144444444444444444
 mps2kt = 1.0 / kt2mps
 
-gravity = 9.81                 # mps^2 # ugh, want this to be -g
 g = -9.81

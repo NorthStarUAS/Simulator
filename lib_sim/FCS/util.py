@@ -17,7 +17,7 @@
 #    responsible for providing.
 
 class NotaPID():
-    def __init__(self, name, min_hold, max_hold, integral_gain, antiwindup, neutral_tolerance):
+    def __init__(self, name, min_hold, max_hold, integral_gain, antiwindup, neutral_tolerance, hold_gain=0.1, debug=False):
         self.dt = 0.02
         self.name = name
         self.int_gain = integral_gain
@@ -28,6 +28,8 @@ class NotaPID():
         self.max_hold = max_hold
         self.hold_cmd = 0.0
         self.error_sum = 0.0
+        self.hold_gain = hold_gain
+        self.debug = debug
 
     def get_ref_value(self, input_cmd, ff_cmd, min_val, max_val, cur_val, flying_confidence):
         if flying_confidence < 0.01:
@@ -44,16 +46,18 @@ class NotaPID():
         if self.hold_cmd > self.max_hold:
             self.hold_cmd = self.max_hold
         if self.cmd_neutral:
-            error = (self.hold_cmd - cur_val) * flying_confidence
-            ref_val = error * 0.1 + ff_cmd
+            hold_error = (self.hold_cmd - cur_val) * flying_confidence
+            if self.debug: print("hold_cmd: %.2f" % self.hold_cmd, "cur_val: %.2f" % cur_val)
+            if self.debug: print("hold_error = %.2f" % hold_error)
+            ref_val = hold_error * self.hold_gain + ff_cmd
             # print(self.name, ref_rate)
         else:
             ref_val = input_cmd + ff_cmd
 
-        if max_val is not None and ref_val > max_val:
-            ref_val = max_val
-        if min_val is not None and ref_val < min_val:
-            ref_val = min_val
+        if max_val is not None and ref_val > max_val + ff_cmd:
+            ref_val = max_val + ff_cmd
+        if min_val is not None and ref_val < min_val + ff_cmd:
+            ref_val = min_val + ff_cmd
         return ref_val
 
     # Tip of the hat to imperfect models vs the real world.  The integrators

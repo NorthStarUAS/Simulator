@@ -16,7 +16,7 @@ class p_controller():
         self.roll_helper = NotaPID("roll", -phi_soft_limit_deg, phi_soft_limit_deg, integral_gain=1.0, antiwindup=0.5, neutral_tolerance=0.02)
 
         # integrators
-        self.roll_int = 0.0
+        self.integrator = 0.0
 
         # damper gains
         self.roll_damp_gain = 2000.0
@@ -58,7 +58,7 @@ class p_controller():
         # print("roll_cmd:", raw_roll_cmd)
 
         # run the integrators
-        self.roll_int = self.roll_helper.integrator(ref_p, p_rps, flying_confidence)
+        self.integrator = self.roll_helper.integrator(ref_p, p_rps, flying_confidence)
         print("(dps) ref: %.2f  act: %.2f" % (ref_p*r2d, p_rps*r2d))
 
         # dampers, these can be tuned to pilot preference for lighter finger tip
@@ -66,7 +66,7 @@ class p_controller():
         roll_damp = p_rps * self.roll_damp_gain / qbar
 
         # final output command
-        roll_cmd = raw_roll_cmd + self.roll_int - roll_damp
+        roll_cmd = raw_roll_cmd + self.integrator - roll_damp
         # print("inc_q: %.3f" % pitch_rate_cmd, "bl_q: %.3f" % baseline_q, "ref_q: %.3f" % ref_q,
         #       "raw ele: %.3f" % raw_elevator_cmd, "final ele: %.3f" % elevator_cmd)
 

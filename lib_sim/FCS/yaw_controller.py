@@ -67,7 +67,7 @@ class r_controller():
 
         # final output command
         yaw_cmd = raw_yaw_cmd + self.yaw_int - yaw_damp
-        print("inc_r: %.3f" % yaw_rate_request, "bl_r: %.3f" % baseline_r, "ref_r: %.3f" % ref_r,
-              "raw rud: %.3f" % raw_yaw_cmd, "final ele: %.3f" % yaw_cmd)
+        # print("inc_r: %.3f" % yaw_rate_request, "bl_r: %.3f" % baseline_r, "ref_r: %.3f" % ref_r,
+        #       "raw rud: %.3f" % raw_yaw_cmd, "final rud: %.3f" % yaw_cmd)
 
         return yaw_cmd

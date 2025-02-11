@@ -163,5 +163,5 @@ class Joystick():
 
         inceptors_node.setDouble("yaw", self.get_input_value("yaw"))
 
-        inceptors_node.setBool("flaps_down",  self.get_input_value("flaps_down"))
-        inceptors_node.setBool("flaps_up",  self.get_input_value("flaps_up"))
+        inceptors_node.setBool("flaps_down", self.get_input_value("flaps_down"))
+        inceptors_node.setBool("flaps_up", self.get_input_value("flaps_up"))

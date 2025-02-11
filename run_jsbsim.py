@@ -103,7 +103,6 @@ if True:
     pathJSB = home / "Sync/JSBSim"
 print("JSBSim path:", pathJSB)
 sim = JSBSimWrap(model, pathJSB.as_posix(), dt=1/jsbsim_hz)
-
 sim.setup_initial_conditions(pos_lla, hdg_deg, vc_kts)
 
 if False:

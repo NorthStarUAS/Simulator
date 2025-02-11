@@ -1,11 +1,11 @@
 from math import cos, pi, sin, tan
-from nstSimulator.utils.constants import d2r, gravity
+from nstSimulator.utils.constants import d2r, g
 from nstSimulator.sim.lib.props import aero_node, att_node, control_node, fcs_node, imu_node, inceptors_node, vel_node
 
-from .direct_airdata import alpha_func, beta_func
-from .direct_p import p_controller
-from .direct_q import q_controller
-from .direct_r import r_controller
+from .inertial_airdata_est import alpha_func, beta_func
+from .roll_controller import p_controller
+from .nzu_controller import nzu_controller
+from .yaw_controller import r_controller
 from .util import IsFlying
 
 rho = 1.225
@@ -14,11 +14,12 @@ class FCSMgr():
     def __init__(self):
         # stick -> rate command scaling
         self.roll_stick_scale = 40 * d2r   # rad
-        self.pitch_stick_scale = 20 * d2r  # rad
+        self.az_stick_scale = -1.5
         self.yaw_stick_scale = 20          # maps to beta_deg
 
         self.fcs_lat = p_controller()
-        self.fcs_lon = q_controller()
+        # self.fcs_lon = q_controller()
+        self.fcs_lon = nzu_controller()
         self.fcs_yaw = r_controller()
         self.is_flying = IsFlying(on_ground_for_sure_mps=30, flying_for_sure_mps=40)
 
@@ -83,7 +84,7 @@ class FCSMgr():
         # all fixed wing aircraft.
         phi_rad = att_node.getDouble("phi_deg") * d2r
         if abs(phi_rad) < pi * 0.5 * 0.9:
-            turn_rate_rps = tan(phi_rad) * -gravity / self.vtrue_filt_mps
+            turn_rate_rps = tan(phi_rad) * g / self.vtrue_filt_mps
         else:
             turn_rate_rps = 0
         # compute a baseline q and r for the presumed steady state level turn,
@@ -105,15 +106,17 @@ class FCSMgr():
         else:
             # pilot/joystick commands drive built in FBW control laws
             roll_rate_request = inceptors_node.getDouble("roll") * self.roll_stick_scale
-            pitch_rate_request = -inceptors_node.getDouble("pitch") * self.pitch_stick_scale
+            # pitch_rate_request = -inceptors_node.getDouble("pitch") * self.pitch_stick_scale
+            load_factor_request = 1 + inceptors_node.getDouble("pitch") * self.az_stick_scale
             yaw_rate_request = 0
-            beta_deg_request = -inceptors_node.getDouble("yaw") * self.yaw_stick_scale
+            # beta_deg_request = -inceptors_node.getDouble("yaw") * self.yaw_stick_scale
 
             # flight control laws
             roll_cmd = self.fcs_lat.update(roll_rate_request)
-            pitch_cmd = self.fcs_lon.update(pitch_rate_request)
+            # pitch_cmd = self.fcs_lon.update(pitch_rate_request)
+            pitch_cmd = self.fcs_lon.update(load_factor_request)
             yaw_cmd = self.fcs_yaw.update(yaw_rate_request)
-            print("integrators: %.2f %.2f" % (self.fcs_lat.roll_int, self.fcs_lon.pitch_int))
+            print("integrators: %.2f %.2f" % (self.fcs_lat.integrator, self.fcs_lon.integrator))
             control_node.setDouble("aileron", roll_cmd)
             control_node.setDouble("rudder", yaw_cmd)
             # control_node.setDouble("rudder", 0)

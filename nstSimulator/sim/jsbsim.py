@@ -15,7 +15,7 @@ import time
 
 import jsbsim as jsb    # pip install jsbsim
 
-from ..utils.constants import gravity
+from ..utils.constants import g
 from .lib.props import accel_node, aero_node, airdata_node, att_node, control_node, engine_node, environment_node, fcs_node, gps_node, imu_node, mass_node, pos_node, root_node, vel_node
 
 slug2kg = 14.5939029
@@ -400,15 +400,15 @@ class JSBSimWrap:
          # imu
         mag_body = self.EstMagBody(self.fdm['position/lat-geod-deg'], self.fdm['position/long-gc-deg'], self.fdm['attitude/phi-rad'], self.fdm['attitude/theta-rad'], self.fdm['attitude/psi-rad'])
         imu_node.setUInt("millis", millis)
-        imu_node.setDouble("ax_raw", self.fdm['accelerations/Nx'] * gravity)
-        imu_node.setDouble("ay_raw", self.fdm['accelerations/Ny'] * gravity)
-        imu_node.setDouble("az_raw", -self.fdm['accelerations/Nz'] * gravity)
+        imu_node.setDouble("ax_raw", -self.fdm['accelerations/Nx'] * g)
+        imu_node.setDouble("ay_raw", -self.fdm['accelerations/Ny'] * g)
+        imu_node.setDouble("az_raw", self.fdm['accelerations/Nz'] * g)
         imu_node.setDouble("hx_raw", mag_body[0])
         imu_node.setDouble("hy_raw", mag_body[1])
         imu_node.setDouble("hz_raw", mag_body[2])
-        imu_node.setDouble("ax_mps2", self.fdm['accelerations/Nx'] * gravity)
-        imu_node.setDouble("ay_mps2", self.fdm['accelerations/Ny'] * gravity)
-        imu_node.setDouble("az_mps2", -self.fdm['accelerations/Nz'] * gravity)
+        imu_node.setDouble("ax_mps2", -self.fdm['accelerations/Nx'] * g)
+        imu_node.setDouble("ay_mps2", -self.fdm['accelerations/Ny'] * g)
+        imu_node.setDouble("az_mps2", self.fdm['accelerations/Nz'] * g)
         imu_node.setDouble("p_rps", self.fdm['velocities/p-rad_sec'])
         imu_node.setDouble("q_rps", self.fdm['velocities/q-rad_sec'])
         imu_node.setDouble("r_rps", self.fdm['velocities/r-rad_sec'])
