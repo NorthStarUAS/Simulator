@@ -1,0 +1,32 @@
+{
+    "CLSE Joystick Infinity": {
+        "roll": ["axis", 0], "pitch": ["axis", 1], "pitch_trim": ["hat", 0, 1]
+    },
+    "TWCS Throttle": {
+        "power": ["axis", 2], "yaw": ["axis", 7, {"expo": 2.5}], "flaps_down": ["button", 4], "flaps_up": ["button", 3]
+    },
+    "Thrustmaster T.16000M": {
+        "roll": ["axis", 0],
+        "pitch": ["axis", 1, {"deadband": 0.05}],
+        "yaw": ["axis", 2, {"expo": 2}],
+        "power": ["axis", 3],
+        "pitch_trim_down": ["button", 4],
+        "pitch_trim_up": ["button", 9],
+        "flaps_down": ["button", 15],
+        "flaps_up": ["button", 10]
+    },
+    "Logitech Extreme 3D pro": {
+        "roll": ["axis", 0],
+        "pitch": ["axis", 1],
+        "yaw": ["axis", 2, {"expo": 2}],
+        "power": ["axis", 3],
+        "pitch_trim_down": ["button", 4],
+        "pitch_trim_up": ["button", 2],
+        "flaps_down": ["button", 3],
+        "flaps_up": ["button", 5]
+    },
+    "VPC Stick MT-50CM3": {
+        "roll": ["axis", 0, {"expo": 1.05}],
+        "pitch": ["axis", 1, {"expo": 1.1}]
+    }
+}

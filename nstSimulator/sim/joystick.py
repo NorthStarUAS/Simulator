@@ -1,6 +1,8 @@
 # a simple locally connected (pc) joystick interface
 
+import json
 from math import exp
+from pathlib import Path
 from time import sleep
 
 have_pygame = False
@@ -16,7 +18,7 @@ except:
 from .lib.props import inceptors_node
 
 class Joystick():
-    def __init__(self):
+    def __init__(self, joysticks_config=None):
         # physical values
         self.num_joysticks = 0
         self.joys = []
@@ -47,6 +49,13 @@ class Joystick():
             return
         print("Detected joysticks:", pygame.joystick.get_count())
 
+        # load joysticks config
+        if joysticks_config is None:
+            joysticks_config = Path(__file__).parent / "joysticks.json"
+        print("loading joystick config file:", joysticks_config)
+        f = open(joysticks_config, "r")
+        configs = json.load(f)
+
         for i in range(self.num_joysticks):
             name = pygame.joystick.Joystick(i).get_name()
             handle = pygame.joystick.Joystick(i)
@@ -64,39 +73,31 @@ class Joystick():
             joy["hats"] = [0] * joy["num_hats"]
             self.joys.append(joy)
 
-            if name == "CLSE Joystick Infinity":
-                self.mapping["roll"] = ["axis", i, 0]
-                self.mapping["pitch"] = ["axis", i, 1]
-                self.mapping["pitch_trim"] = ["hat", i, 0, 1]
-            elif name == "TWCS Throttle":
-                self.mapping["power"] = ["axis", i, 2]
-                self.mapping["yaw"] = ["axis", i, 7, {"expo": 2.5}]
-                self.mapping["flaps_down"] = ["button", i, 4]
-                self.mapping["flaps_up"] = ["button", i, 3]
-            elif name == "Thrustmaster T.16000M":
-                self.mapping["roll"] = ["axis", i, 0]
-                self.mapping["pitch"] = ["axis", i, 1]
-                self.mapping["yaw"] = ["axis", i, 2, {"expo": 2}]
-                self.mapping["power"] = ["axis", i, 3]
-                self.mapping["pitch_trim_down"] = ["button", i, 4]
-                self.mapping["pitch_trim_up"] = ["button", i, 9]
-                self.mapping["flaps_down"] = ["button", i, 15]
-                self.mapping["flaps_up"] = ["button", i, 10]
-            elif name == "Logitech Extreme 3D pro":
-                self.mapping["roll"] = ["axis", i, 0]
-                self.mapping["pitch"] = ["axis", i, 1]
-                self.mapping["yaw"] = ["axis", i, 2, {"expo": 2}]
-                self.mapping["power"] = ["axis", i, 3]
-                self.mapping["pitch_trim_down"] = ["button", i, 4]
-                self.mapping["pitch_trim_up"] = ["button", i, 2]
-                self.mapping["flaps_down"] = ["button", i, 3]
-                self.mapping["flaps_up"] = ["button", i, 5]
-            elif name == "VPC Stick MT-50CM3":
-                self.mapping["roll"] = ["axis", i, 0, {"expo": 1.05}]
-                self.mapping["pitch"] = ["axis", i, 1, {"expo": 1.1}]
+            if name in configs:
+                for key in configs[name]:
+                    print("   ", key, configs[name][key])
+                    vals = configs[name][key]
+                    if len(vals) == 2:
+                        self.mapping[key] = [ vals[0], i, vals[1] ]
+                    elif len(vals) == 3:
+                        self.mapping[key] = [ vals[0], i, vals[1], vals[2] ]
+                    else:
+                        print("wrong len of vals")
 
         print("Joystick structures:", self.joys)
         print("Joystick mapping:", self.mapping)
+
+    def deadband(self, x, val):
+        if val < 0: val = 0
+        if val > 0.9: val = 0.9
+        if False:
+            if x >= val: result = (x - val) / (1 - val)
+            elif x <= -val: result = (x + val) / (1 - val)
+            else: result = 0.0
+            print("deadband:", x, "->", result)
+        if x >= val: return (x - val) / (1 - val)
+        elif x <= -val: return (x + val) / (1 - val)
+        else: return 0.0
 
     # reference: https://www.rcgroups.com/forums/showthread.php?375044-what-is-the-formula-for-the-expo-function
     def expo(self, x, val):
@@ -115,6 +116,8 @@ class Joystick():
                     val = self.joys[joy_num]["axes"][element_num]
                     if len(mapping) > 3:
                         options = mapping[3]
+                        if "deadband" in options:
+                            val = self.deadband(val, options["deadband"])
                         if "expo" in options:
                             val = self.expo(val, options["expo"])
                 elif source == "hat":
