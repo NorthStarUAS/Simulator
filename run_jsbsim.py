@@ -28,14 +28,14 @@ from lib_sim.FCS.fcs_mgr import FCSMgr
 
 # command line arguments
 parser = argparse.ArgumentParser(description="run the simulation")
-# parser.add_argument("model", help="flight model")
+parser.add_argument("--model", default="Rascal110", help="flight dynamics model")
+parser.add_argument("--modelpath", default="Rascal110", help="flight dynamics model")
 parser.add_argument("--takeoff", help="takeoff from APT:RWY")
 parser.add_argument("--final", help="final approach to APT:RWY:dist_nm")
 parser.add_argument("--pattern", help="45 degree downwind entry to pattern APT:RWY")
 parser.add_argument("--vc", help="initial airspeed for in-air starts")
 parser.add_argument("--hz", default=60, help="outer loop hz")
 parser.add_argument("--fdm-steps-per-frame", default=4, help="number of jsbsim steps per outer loop frame")
-# parser.add_argument('--realtime', default=True, action='store_true', help='run sim in realtime')
 args = parser.parse_args()
 
 # setup initial position and velocity for trimmming
@@ -93,16 +93,12 @@ xp = XPlane()
 hil = HIL()
 
 # initialize JSBSim and load the aircraft model
-home = Path.home()
-if False:
-    model = 'Rascal110'
-    pathJSB = Path("./nstSimulator/data/models_jsbsim")
-if True:
-    model = 'SR22T'
-    #pathJSB = home / "Projects/ADD_Simulator/simulation-python-jsbsim/JSBSim"
-    pathJSB = home / "Sync/JSBSim"
+if args.modelpath is None:
+    pathJSB = Path(__file__).parent / "./nstSimulator/data/models_jsbsim"
+else:
+    pathJSB = Path(args.modelpath)
 print("JSBSim path:", pathJSB)
-sim = JSBSimWrap(model, pathJSB.as_posix(), dt=1/jsbsim_hz)
+sim = JSBSimWrap(args.model, pathJSB.as_posix(), dt=1/jsbsim_hz)
 sim.setup_initial_conditions(pos_lla, hdg_deg, vc_kts)
 
 if False:
