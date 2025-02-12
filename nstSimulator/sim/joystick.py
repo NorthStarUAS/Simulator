@@ -99,7 +99,8 @@ class Joystick():
 
         pygame.event.pump()
 
-
+        # for each configuration mapping, fetch and process the value and store
+        # it in inceptors_node with the same config name.
         for name in self.mapping.keys():
             if len(self.mapping[name]) == 3:
                 [input_type, joy_num, element_num] = self.mapping[name]
@@ -127,6 +128,7 @@ class Joystick():
                 inceptors_node.setBool(name, value)
             # print("  name:", name, "val:", value)
 
+        # Special handling of trim (for now?)
         trim_cmd = 0
         trim_cmd += inceptors_node.getDouble("pitch_trim_down")
         trim_cmd -= inceptors_node.getDouble("pitch_trim_up")
