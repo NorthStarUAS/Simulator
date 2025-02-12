@@ -51,10 +51,10 @@ class Joystick():
 
         # load joysticks config
         if joysticks_config is None:
-            joysticks_config = Path(__file__).parent / "joysticks.json"
-        print("loading joystick config file:", joysticks_config)
-        f = open(joysticks_config, "r")
-        configs = json.load(f)
+            joysticks_path = Path(__file__).parent / "joysticks.json"
+            print("loading joystick config file:", joysticks_config)
+            f = open(joysticks_path, "r")
+            joysticks_config = json.load(f)
 
         for i in range(self.num_joysticks):
             name = pygame.joystick.Joystick(i).get_name()
@@ -73,10 +73,10 @@ class Joystick():
             joy["hats"] = [0] * joy["num_hats"]
             self.joys.append(joy)
 
-            if name in configs:
-                for key in configs[name]:
-                    print("   ", key, configs[name][key])
-                    vals = configs[name][key]
+            if name in joysticks_config:
+                for key in joysticks_config[name]:
+                    print("   ", key, joysticks_config[name][key])
+                    vals = joysticks_config[name][key]
                     if len(vals) == 2:
                         self.mapping[key] = [ vals[0], i, vals[1] ]
                     elif len(vals) == 3:
