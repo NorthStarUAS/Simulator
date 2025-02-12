@@ -7,9 +7,9 @@
     },
     "Thrustmaster T.16000M": {
         "roll": ["axis", 0],
-        "pitch": ["axis", 1, {"deadband": 0.05}],
+        "pitch": ["axis", 1, {"reverse": 1, "deadband": 0.05}],
         "yaw": ["axis", 2, {"expo": 2}],
-        "power": ["axis", 3],
+        "power": ["axis", 3, {"reverse": 1, "normalize_0_1": 1}],
         "pitch_trim_down": ["button", 4],
         "pitch_trim_up": ["button", 9],
         "flaps_down": ["button", 15],
@@ -17,9 +17,9 @@
     },
     "Logitech Extreme 3D pro": {
         "roll": ["axis", 0],
-        "pitch": ["axis", 1],
+        "pitch": ["axis", 1, {"reverse": 1}],
         "yaw": ["axis", 2, {"expo": 2}],
-        "power": ["axis", 3],
+        "power": ["axis", 3, {"reverse": 1, "normalize_0_1": 1}],
         "pitch_trim_down": ["button", 4],
         "pitch_trim_up": ["button", 2],
         "flaps_down": ["button", 3],
