@@ -18,10 +18,10 @@ except:
 from .lib.props import inceptors_node
 
 class Joystick():
-    def __init__(self, joysticks_config=None):
+    def __init__(self, joysticks_user={}):
         self.mapping = {}
 
-        # internally tracked trim values
+        # internally tracked trim values (move out of here, and up a level?)
         self.yaw_trim = 0.0
         self.pitch_trim = 0.0
 
@@ -31,19 +31,24 @@ class Joystick():
         pygame.init()
         pygame.joystick.init()
         if not pygame.joystick.get_count():
+            indent = ""
             for i in range(10):
-                print("no joysticks found")
+                print(indent, "no joysticks found")
+                indent += " "
                 sleep(0.1)
             return
         print("Detected joysticks:", pygame.joystick.get_count())
 
-        # load joysticks config
-        if joysticks_config is None:
-            joysticks_path = Path(__file__).parent / "joysticks.json"
-            print("loading joystick config file:", joysticks_path)
-            f = open(joysticks_path, "r")
-            joysticks_config = json.load(f)
+        # load included joysticks config
+        joysticks_path = Path(__file__).parent / "joysticks.json"
+        print("loading joystick config file:", joysticks_path)
+        f = open(joysticks_path, "r")
+        joysticks_config = json.load(f)
 
+        # merge any upstream (aka user) joystick definitions if provided
+        joysticks_config.update(joysticks_user)
+
+        # parse config for any sections that match a detected joystick
         for i in range(pygame.joystick.get_count()):
             name = pygame.joystick.Joystick(i).get_name()
             print("Joystick:", name, "- checking for a config:")
@@ -58,17 +63,11 @@ class Joystick():
                         self.mapping[key] = [ vals[0], i, vals[1], vals[2] ]
                     else:
                         print("wrong len of vals")
-
         print("Joystick mapping:", self.mapping)
 
     def deadband(self, x, val):
         if val < 0: val = 0
         if val > 0.9: val = 0.9
-        if False:
-            if x >= val: result = (x - val) / (1 - val)
-            elif x <= -val: result = (x + val) / (1 - val)
-            else: result = 0.0
-            print("deadband:", x, "->", result)
         if x >= val: return (x - val) / (1 - val)
         elif x <= -val: return (x + val) / (1 - val)
         else: return 0.0
@@ -128,7 +127,9 @@ class Joystick():
                 inceptors_node.setBool(name, value)
             # print("  name:", name, "val:", value)
 
-        # Special handling of trim (for now?)
+        # Special handling of trim (for now, but should really move to a higher
+        # level. Trim might mean different things to different airplanes or
+        # flight control laws.)
         trim_cmd = 0
         trim_cmd += inceptors_node.getDouble("pitch_trim_down")
         trim_cmd -= inceptors_node.getDouble("pitch_trim_up")
