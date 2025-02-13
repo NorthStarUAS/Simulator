@@ -34,7 +34,7 @@ parser.add_argument("--takeoff", help="takeoff from APT:RWY")
 parser.add_argument("--final", help="final approach to APT:RWY:dist_nm")
 parser.add_argument("--pattern", help="45 degree downwind entry to pattern APT:RWY")
 parser.add_argument("--vc", help="initial airspeed for in-air starts")
-parser.add_argument("--hz", default=60, help="outer loop hz")
+parser.add_argument("--hz", default=60, type=int, help="outer loop hz")
 parser.add_argument("--fdm-steps-per-frame", default=4, help="number of jsbsim steps per outer loop frame")
 args = parser.parse_args()
 
@@ -118,7 +118,7 @@ def update():
     hil.read()
     if sim.trimmed:
         fcs.update()
-    sim.UpdateTerrainElevation()
+    # sim.UpdateTerrainElevation()
     if time.time() - start_time >= 1:
         print("calling sim.update()")
         sim.update(args.fdm_steps_per_frame, updateWind=True)
@@ -128,7 +128,7 @@ def update():
     xp.update()
 
 sched = BackgroundScheduler()
-sched.add_job(update, 'interval', seconds=1/50)
+sched.add_job(update, 'interval', seconds=1/args.hz)
 sched.start()
 
 while True:
