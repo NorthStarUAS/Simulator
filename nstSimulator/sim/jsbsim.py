@@ -177,9 +177,9 @@ class JSBSimWrap:
         if vis_ground_m > 0:
             self.fdm["position/terrain-elevation-asl-ft"] = vis_ground_m * m2ft
 
+        if updateWind:
+            self.UpdateWind()
         while (self.fdm.get_sim_time() <= time_s): # Run the FDM
-            if updateWind ==  True:
-                self.UpdateWind()
             self.fdm.run()
 
     def RunSteps(self, steps, updateWind = None):
@@ -205,21 +205,14 @@ class JSBSimWrap:
                 # print("flaps up:", flap_pos)
                 self.fdm['fcs/flap-cmd-norm'] = flap_pos
 
-        # honor visual system ground elevation if set
-        self.UpdateTerrainElevation()
-        # vis_ground_m = pos_node.getDouble("visual_terrain_elevation_m")
-        # xp_ground_m = pos_node.getDouble("xp_terrain_elevation_m")
-        # if xp_ground_m > 0:
-        #     self.fdm["position/terrain-elevation-asl-ft"] = xp_ground_m * m2ft
-        # elif vis_ground_m > 0:
-        #     self.fdm["position/terrain-elevation-asl-ft"] = vis_ground_m * m2ft
+        if updateWind:
+            self.UpdateWind()
 
         for i in range(steps):
-            if updateWind ==  True:
-                self.UpdateWind()
             self.fdm.run()
 
     def update(self, steps, updateWind=True):
+        self.UpdateTerrainElevation()
         if not self.trimmed and self.have_ground_elev:
             self.do_trim()
         if self.trimmed:
