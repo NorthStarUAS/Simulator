@@ -45,24 +45,36 @@ class Joystick():
         f = open(joysticks_path, "r")
         joysticks_config = json.load(f)
 
-        # merge any upstream (aka user) joystick definitions if provided
-        joysticks_config.update(joysticks_user)
+        # append any upstream (aka user) joystick definitions if provided, these
+        # will supercede any default definition for the same name joystick
+        joysticks_config.extend(joysticks_user)
 
         # parse config for any sections that match a detected joystick
         for i in range(pygame.joystick.get_count()):
-            name = pygame.joystick.Joystick(i).get_name()
-            print("Joystick:", name, "- checking for a config:")
+            handle = pygame.joystick.Joystick(i)
+            name = handle.get_name()
+            print("Detected joystick:", name, "axis:", handle.get_numaxes(), " buttons:", handle.get_numbuttons(), " hats:", handle.get_numhats())
 
-            if name in joysticks_config:
-                for key in joysticks_config[name]:
-                    print(" ", key, joysticks_config[name][key])
-                    vals = joysticks_config[name][key]
+            config_num = None
+            for j, entry in enumerate(joysticks_config):
+                if name in entry["names"]:
+                    print("  Found config:", entry["names"])
+                    config_num = j
+
+            if config_num is not None:
+                for key in joysticks_config[config_num]:
+                    if key == "names":
+                        continue
+                    print(" ", key, joysticks_config[config_num][key])
+                    vals = joysticks_config[config_num][key]
                     if len(vals) == 2:
                         self.mapping[key] = [ vals[0], i, vals[1] ]
                     elif len(vals) == 3:
                         self.mapping[key] = [ vals[0], i, vals[1], vals[2] ]
                     else:
                         print("wrong len of vals")
+            else:
+                print("  No config found.")
         print("Joystick mapping:", self.mapping)
 
     def deadband(self, x, val):
@@ -77,26 +89,30 @@ class Joystick():
         # print(x, val, x * exp(abs(val*x))/exp(val))
         return x * exp(abs(val*x))/exp(val)
 
-    # this needs to get rewritten to access the data directly
     def debug(self):
-        # read all the raw input data
-        for joy in self.joys:
-            handle = joy["handle"]
-            for i in range(joy["num_axes"]):
-                joy["axes"][i] = handle.get_axis(i)
-            # print(joy["axes"])
-            for i in range(joy["num_buttons"]):
-                joy["buttons"][i] = handle.get_button(i)
-            # print(joy["buttons"])
-            for i in range(joy["num_hats"]):
-                joy["hats"][i] = handle.get_hat(i)
-            # print(joy)
+        # display all the raw joystick input data
+        for i in range(pygame.joystick.get_count()):
+            handle = pygame.joystick.Joystick(i)
+            print(handle.get_name())
+            print("  axes: ", end="")
+            for i in range(handle.get_numaxes()):
+                print("%d: %.2f " % (i, handle.get_axis(i)), end="")
+            print()
+            print("  buttons: ", end="")
+            for i in range(handle.get_numbuttons()):
+                print("%d: %d " % (i, handle.get_button(i)), end="")
+            print()
+            print("  hats: ", end="")
+            for i in range(handle.get_numhats()):
+                print("%d: " % i, handle.get_hat(i), end="")
+            print()
 
     def update(self):
         if not pygame.joystick.get_count():
             return
 
         pygame.event.pump()
+        # self.debug()
 
         # for each configuration mapping, fetch and process the value and store
         # it in inceptors_node with the same config name.
@@ -116,7 +132,6 @@ class Joystick():
                 if "reverse" in filters:
                     value = -value
                 if "normalize_0_1" in filters:
-                    # print("raw power:", value)
                     value = (value + 1) * 0.5
                 inceptors_node.setDouble(name, value)
             elif input_type == "button":
@@ -124,8 +139,9 @@ class Joystick():
                 inceptors_node.setBool(name, value)
             elif input_type == "hat":
                 value = handle.get_hat(element_num)
-                inceptors_node.setBool(name, value)
-            # print("  name:", name, "val:", value)
+                inceptors_node.setInt(name, value[0], 0)
+                inceptors_node.setInt(name, value[1], 1)
+        # inceptors_node.pretty_print()
 
         # Special handling of trim (for now, but should really move to a higher
         # level. Trim might mean different things to different airplanes or
