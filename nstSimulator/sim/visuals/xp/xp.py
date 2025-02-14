@@ -1,5 +1,5 @@
 from math import pi
-from nstSimulator.sim.lib.props import pos_node, vel_node, att_node, fcs_node
+from nstSimulator.sim.lib.props import att_node, fcs_node, pos_node, vel_node
 
 from .XPlaneUdp import *
 
@@ -89,17 +89,14 @@ class XPlane():
 
             # visible ailerons and flaps
             self.send_data_ref("sim/operation/override/override_control_surfaces", 1)
-            self.send_data_ref("sim/flightmodel/controls/wing3l_ail1def", fcs_node.getDouble("posAil_norm")*12.5)
-            self.send_data_ref("sim/flightmodel/controls/wing3r_ail1def", -fcs_node.getDouble("posAil_norm")*12.5)
+            self.send_data_ref("sim/flightmodel/controls/wing3l_ail1def", fcs_node.getDouble("posAil_deg"))
+            self.send_data_ref("sim/flightmodel/controls/wing3r_ail1def", -fcs_node.getDouble("posAil_deg"))
             self.send_data_ref("sim/flightmodel/controls/wing2l_fla1def", fcs_node.getDouble("posFlap_deg"))
             self.send_data_ref("sim/flightmodel/controls/wing2r_fla1def", fcs_node.getDouble("posFlap_deg"))
 
-            # not tested elevator/rudder ...
-            # self.send_data_ref("sim/aircraft/parts/acf_elev", sim.fdm['fcs/left-aileron-pos-norm'])
-            # self.send_data_ref("sim/flightmodel/controls/hstab1_elv1def", sim.fdm['fcs/elevator-pos-norm'])
-            # self.send_data_ref("sim/flightmodel/controls/hstab1_elv2def", sim.fdm['fcs/elevator-pos-norm'])
-            # self.send_data_ref("sim/flightmodel/controls/hstab2_elv1def", sim.fdm['fcs/elevator-pos-norm'])
-            # self.send_data_ref("sim/flightmodel/controls/hstab2_elv2def", sim.fdm['fcs/elevator-pos-norm'])
+            # elevator/rudder ...
+            self.send_data_ref("sim/flightmodel/controls/hstab1_elv1def", fcs_node.getDouble("posElev_deg"))
+            self.send_data_ref("sim/flightmodel/controls/vstab1_rud1def", -fcs_node.getDouble("posRud_deg"))
 
             # prop disk
             self.send_data_ref("sim/flightmodel2/engines/prop_disc/override", 1)
