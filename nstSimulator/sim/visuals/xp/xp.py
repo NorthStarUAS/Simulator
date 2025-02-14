@@ -1,5 +1,5 @@
 from math import pi
-from nstSimulator.sim.lib.props import att_node, fcs_node, pos_node, vel_node
+from nstSimulator.sim.lib.props import aero_node, att_node, engine_node,  fcs_node, pos_node, vel_node
 
 from .XPlaneUdp import *
 
@@ -28,6 +28,9 @@ class XPlane():
         self.xp_port = None
         self.sock = None
 
+        self.vc_filt = 0
+        self.vtrue_filt = 0
+        self.power_filt = 0
         self.prop_rotation_angle_deg = 0
 
         print("Searching for x-plane on the LAN...")
@@ -79,13 +82,21 @@ class XPlane():
             the_deg = att_node.getDouble("theta_deg")
             psi_deg = att_node.getDouble("psi_deg")
             vc = vel_node.getDouble("vc_kts")
+            self.vc_filt = 0.9 * self.vc_filt + 0.1 * vc
+            vtrue = vel_node.getDouble("vtrue_kts")
+            self.vtrue_filt = 0.9 * self.vtrue_filt + 0.1 * vtrue
             vd = vel_node.getDouble("vd_mps") * m2ft
 
-            # engine power (estimate/hack) // does not work :-(
+            # engine power (estimate/hack)
+            power = fcs_node.getDouble("posThrottle_nd")*232207
+            self.power_filt = 0.95 * self.power_filt + 0.05 * power
             self.send_data_ref("sim/operation/override/override_engine_forces", 1)
-            self.send_data_ref("sim/flightmodel/engine/ENGN_power", fcs_node.getDouble("posThrottle_nd")*100)
+            self.send_data_ref("sim/flightmodel/engine/ENGN_power[0]", self.power_filt)
+            self.send_data_ref("sim/cockpit2/engine/indicators/engine_speed_rpm[0]", engine_node.getDouble("propeller_rpm"))
+            # print("rpm:", engine_node.getFloat("propeller_rpm"))
 
             # https://www.siminnovations.com/xplane/dataref/?name=sim%2Fcockpit&type=float&writable=y&units=&description=&submit=Search
+
 
             # visible ailerons and flaps
             self.send_data_ref("sim/operation/override/override_control_surfaces", 1)
@@ -114,9 +125,12 @@ class XPlane():
             self.send_data_ref("sim/cockpit/gyros/phi_ind_ahars_pilot_deg", phi_deg)
             self.send_data_ref("sim/cockpit/gyros/the_ind_ahars_pilot_deg", the_deg)
             self.send_data_ref("sim/cockpit/gyros/psi_ind_ahars_pilot_degm", psi_deg) # fixme: sending true, but calling it mag
-            self.send_data_ref("sim/flightmodel/position/indicated_airspeed", vc)
+            self.send_data_ref("sim/flightmodel/position/indicated_airspeed", self.vc_filt)
+            self.send_data_ref("sim/cockpit2/gauges/indicators/true_airspeed_kts_pilot", self.vtrue_filt)
             self.send_data_ref("sim/flightmodel/misc/h_ind", alt_ft)
             self.send_data_ref("sim/flightmodel/position/vh_ind_fpm", -vd*60)
+            self.send_data_ref("sim/cockpit2/gauges/indicators/slip_deg", -aero_node.getDouble("beta_deg"))
+
             msg = struct.pack('<4sxidddfff', b'VEHX',
                   0,              # The index of the airplane you want to control.
                   lat_deg,        # latitude, in degrees

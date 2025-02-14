@@ -16,7 +16,7 @@ import time
 import jsbsim as jsb    # pip install jsbsim
 
 from ..utils.constants import g
-from .lib.props import accel_node, aero_node, airdata_node, att_node, control_node, engine_node, environment_node, fcs_node, gps_node, imu_node, mass_node, pos_node, root_node, vel_node
+from .lib.props import accel_node, aero_node, airdata_node, att_node, control_node, engine_node, environment_node, fcs_node, gps_node, imu_node, inceptors_node, mass_node, pos_node, root_node, vel_node
 
 slug2kg = 14.5939029
 in2m = 0.0254
@@ -204,6 +204,7 @@ class JSBSimWrap:
                 if flap_pos < 0.0: flap_pos = 0.0
                 # print("flaps up:", flap_pos)
                 self.fdm['fcs/flap-cmd-norm'] = flap_pos
+        self.fdm['fcs/flap-cmd-norm'] = inceptors_node.getDouble("cmdFlap_norm")
 
         if updateWind:
             self.UpdateWind()
