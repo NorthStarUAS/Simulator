@@ -6,17 +6,17 @@ from nstSimulator.sim.lib.props import att_node, fcs_node, imu_node, vel_node
 
 from .util import NotaPID
 
-class nzu_controller():
+class nzthe_controller():
     def __init__(self):
         # envelope protection
         self.alpha_limit_deg = 13.0
         self.vne_mps = 80
         theta_soft_limit = 15
-        min_vc = 30
-        max_vc = 90
+        min_the = -15
+        max_the = 15
 
         # helper
-        self.az_helper = NotaPID("pitch", min_vc, max_vc, integral_gain=0.01, antiwindup=1.0, neutral_tolerance=0.03, hold_gain=-0.02, debug=True)
+        self.az_helper = NotaPID("pitch", min_the, max_the, integral_gain=0.01, antiwindup=1.0, neutral_tolerance=0.03, hold_gain=0.1, debug=True)
 
         # integrators
         self.integrator = 0.0
@@ -40,11 +40,11 @@ class nzu_controller():
     def update(self, load_factor_request):
         # fetch and compute all the values needed by the control laws
         flying_confidence = fcs_node.getDouble("flying_confidence")
+        theta_deg = att_node.getDouble("theta_deg")
         q_rps = imu_node.getDouble("q_rps")
         baseline_q = fcs_node.getDouble("baseline_q")
         az = imu_node.getDouble("az_mps2")
         qbar = fcs_node.getDouble("qbar")
-        vc_mps = vel_node.getDouble("vc_mps")
         alpha_deg = fcs_node.getDouble("alpha_deg")
 
         az_request = g * load_factor_request
@@ -59,7 +59,7 @@ class nzu_controller():
         print("max/min az:", min_lf, max_lf)
 
         # Condition and limit the pilot request
-        ref_az = g * (1 + self.az_helper.get_ref_value(load_factor_request-1, 0, min_lf, max_lf, vc_mps, flying_confidence))
+        ref_az = g * (1 + self.az_helper.get_ref_value(load_factor_request-1, 0, min_lf, max_lf, theta_deg, flying_confidence))
         #ref_az = az_request
 
         # compute the direct surface position to achieve the command

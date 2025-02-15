@@ -4,6 +4,7 @@ from nstSimulator.sim.lib.props import aero_node, att_node, control_node, fcs_no
 
 from .inertial_airdata_est import alpha_func, beta_func
 from .roll_controller import p_controller
+from .nzthe_controller import nzthe_controller
 from .nzu_controller import nzu_controller
 from .yaw_controller import r_controller
 from .util import IsFlying
@@ -19,7 +20,8 @@ class FCSMgr():
 
         self.fcs_lat = p_controller()
         # self.fcs_lon = q_controller()
-        self.fcs_lon = nzu_controller()
+        self.fcs_lon = nzthe_controller()
+        # self.fcs_lon = nzu_controller()
         self.fcs_yaw = r_controller()
         self.is_flying = IsFlying(on_ground_for_sure_mps=30, flying_for_sure_mps=40)
 
