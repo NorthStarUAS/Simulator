@@ -1,7 +1,7 @@
 from math import cos, sin, tan
 import numpy as np
 
-from nstSimulator.utils.constants import d2r, r2d
+from nstSimulator.utils.constants import d2r
 from nstSimulator.sim.lib.props import att_node, fcs_node, imu_node
 
 from .pid import ap_pid_t
@@ -20,14 +20,11 @@ class p_controller():
         self.pid.Ti = 3.0
         self.pid.u_min = -1
         self.pid.u_max = 1
-        self.pid.debug = True
+        self.pid.debug = False
         self.pid.enable = True
 
         # helper
         self.roll_helper = NotaPID("roll", -phi_soft_limit_deg, phi_soft_limit_deg, integral_gain=1.0, antiwindup=0.5, neutral_tolerance=0.02)
-
-        # integrators
-        self.integrator = 0.0
 
         # damper gains
         self.roll_damp_gain = 2000.0
@@ -40,7 +37,6 @@ class p_controller():
         A = np.array(
             [[-8.05125235e+01, 4.28489185e+03, 4.30885143e-02, -2.18118187e-01, -2.61807779e+02, -2.49792949e+01]]
         )
-        print("")
         x = np.array([1, ref_p, elevator*qbar, rudder*qbar, ay, az])
         y = (A @ x) / qbar
         # print("lon y:", y)
@@ -54,7 +50,6 @@ class p_controller():
         ay = imu_node.getDouble("ay_mps2")
         az = imu_node.getDouble("az_mps2")
         qbar = fcs_node.getDouble("qbar")
-        print("qbar:", qbar)
         elevator = fcs_node.getDouble("posElev_norm")
         rudder = fcs_node.getDouble("posRud_norm")
 

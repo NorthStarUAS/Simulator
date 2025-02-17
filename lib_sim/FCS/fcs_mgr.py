@@ -118,9 +118,9 @@ class FCSMgr():
             # flight control laws
             roll_cmd = self.fcs_lat.update(roll_rate_request, dt)
             # pitch_cmd = self.fcs_lon.update(pitch_rate_request)
-            pitch_cmd = self.fcs_lon.update(load_factor_request)
+            pitch_cmd = self.fcs_lon.update(load_factor_request, dt)
             yaw_cmd = self.fcs_yaw.update(yaw_rate_request)
-            print("integrators: %.2f %.2f" % (self.fcs_lat.integrator, self.fcs_lon.integrator))
+            print("pids: %.2f %.2f" % (self.fcs_lat.pid.output, self.fcs_lon.pid.output))
             control_node.setDouble("aileron", roll_cmd)
             control_node.setDouble("rudder", yaw_cmd)
             # control_node.setDouble("rudder", 0)
