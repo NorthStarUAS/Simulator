@@ -1,11 +1,13 @@
 from math import cos, pi, sin, tan
+
 from nstSimulator.utils.constants import d2r, g
 from nstSimulator.sim.lib.props import aero_node, att_node, control_node, fcs_node, imu_node, inceptors_node, vel_node
+from PropertyTree import PropertyNode
 
 from .inertial_airdata_est import alpha_func, beta_func
 from .roll_controller import p_controller
 from .nzthe_controller import nzthe_controller
-from .nzu_controller import nzu_controller
+# from .nzu_controller import nzu_controller
 from .yaw_controller import r_controller
 from .util import IsFlying
 
@@ -79,7 +81,7 @@ class FCSMgr():
         fcs_node.setDouble("beta_deg", beta_deg)
         print("beta: %.1f" % beta_deg)
 
-        # Feed forward steady state q and r basd on bank angle/turn rate.
+        # Feed forward steady state q and r based on bank angle/turn rate.
         # Presuming a steady state level turn, compute turn rate =
         # func(velocity, bank angle).  This is the one feed forward term used in
         # this set of control laws and it is purely physics based and works for
@@ -97,7 +99,7 @@ class FCSMgr():
         fcs_node.setDouble("baseline_q", baseline_q)
         fcs_node.setDouble("baseline_r", baseline_r)
 
-    def update(self):
+    def update(self, dt):
         # update state and filters
         self.compute_stuff()
 
@@ -114,7 +116,7 @@ class FCSMgr():
             # beta_deg_request = -inceptors_node.getDouble("yaw") * self.yaw_stick_scale
 
             # flight control laws
-            roll_cmd = self.fcs_lat.update(roll_rate_request)
+            roll_cmd = self.fcs_lat.update(roll_rate_request, dt)
             # pitch_cmd = self.fcs_lon.update(pitch_rate_request)
             pitch_cmd = self.fcs_lon.update(load_factor_request)
             yaw_cmd = self.fcs_yaw.update(yaw_rate_request)

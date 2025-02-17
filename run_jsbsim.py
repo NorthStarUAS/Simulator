@@ -21,8 +21,6 @@ from nstSimulator.sim.visuals.fgfs import fgfs
 from nstSimulator.sim.visuals.display import Display
 from nstSimulator.sim.visuals.xp.xp import XPlane
 
-from nstSimulator.sim.lib.props import engine_node
-
 from lib_sim.comms.HIL_nsLink import HIL
 from lib_sim.FCS.fcs_mgr import FCSMgr
 
@@ -117,7 +115,7 @@ def update():
     joystick.update()
     hil.read()
     if sim.trimmed:
-        fcs.update()
+        fcs.update(dt=1/args.hz)
     # sim.UpdateTerrainElevation()
     if time.time() - start_time >= 1:
         print("calling sim.update()")

@@ -4,6 +4,7 @@ import numpy as np
 from nstSimulator.utils.constants import d2r, r2d
 from nstSimulator.sim.lib.props import att_node, fcs_node, imu_node
 
+from .pid import ap_pid_t
 from .util import NotaPID
 
 class p_controller():
@@ -11,6 +12,16 @@ class p_controller():
         # envelope protection
         self.phi_hard_limit_deg = 60.0
         phi_soft_limit_deg = 45.0
+
+        # pid
+        self.pid = ap_pid_t("roll")
+        self.pid.Kp = 3.0
+        self.pid.Td = 0.0
+        self.pid.Ti = 3.0
+        self.pid.u_min = -1
+        self.pid.u_max = 1
+        self.pid.debug = True
+        self.pid.enable = True
 
         # helper
         self.roll_helper = NotaPID("roll", -phi_soft_limit_deg, phi_soft_limit_deg, integral_gain=1.0, antiwindup=0.5, neutral_tolerance=0.02)
@@ -35,7 +46,7 @@ class p_controller():
         # print("lon y:", y)
         return y[0]
 
-    def update(self, roll_rate_request):
+    def update(self, roll_rate_request, dt):
         # fetch and compute all the values needed by the control laws
         flying_confidence = fcs_node.getDouble("flying_confidence")
         phi_deg = att_node.getDouble("phi_deg")
@@ -43,6 +54,7 @@ class p_controller():
         ay = imu_node.getDouble("ay_mps2")
         az = imu_node.getDouble("az_mps2")
         qbar = fcs_node.getDouble("qbar")
+        print("qbar:", qbar)
         elevator = fcs_node.getDouble("posElev_norm")
         rudder = fcs_node.getDouble("posRud_norm")
 
@@ -54,19 +66,20 @@ class p_controller():
         ref_p = self.roll_helper.get_ref_value(roll_rate_request, 0, min_p, max_p, phi_deg, flying_confidence)
 
         # compute the direct surface position to achieve the command
-        raw_roll_cmd = self.lat_func(ref_p, qbar, elevator, rudder, ay, az)
+        model_roll_cmd = self.lat_func(ref_p, qbar, elevator, rudder, ay, az)
         # print("roll_cmd:", raw_roll_cmd)
 
-        # run the integrators
-        self.integrator = self.roll_helper.integrator(ref_p, p_rps, flying_confidence)
-        print("(dps) ref: %.2f  act: %.2f" % (ref_p*r2d, p_rps*r2d))
+        self.pid.Kp = 3000 / qbar # gain schedule on qbar
+        self.pid.max_integrator = 0.1 * flying_confidence
+        pid_roll_cmd = self.pid.update(dt, p_rps, ref_p)
 
         # dampers, these can be tuned to pilot preference for lighter finger tip
         # flying vs heavy stable flying.
         roll_damp = p_rps * self.roll_damp_gain / qbar
 
         # final output command
-        roll_cmd = raw_roll_cmd + self.integrator - roll_damp
+        roll_cmd = model_roll_cmd + pid_roll_cmd - roll_damp
+
         # print("inc_q: %.3f" % pitch_rate_cmd, "bl_q: %.3f" % baseline_q, "ref_q: %.3f" % ref_q,
         #       "raw ele: %.3f" % raw_elevator_cmd, "final ele: %.3f" % elevator_cmd)
 

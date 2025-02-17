@@ -54,10 +54,10 @@ class NotaPID():
         else:
             ref_val = input_cmd + ff_cmd
 
-        if max_val is not None and ref_val > max_val + ff_cmd:
-            ref_val = max_val + ff_cmd
-        if min_val is not None and ref_val < min_val + ff_cmd:
-            ref_val = min_val + ff_cmd
+        if max_val is not None and ref_val > max_val:
+            ref_val = max_val
+        if min_val is not None and ref_val < min_val:
+            ref_val = min_val
         return ref_val
 
     # Tip of the hat to imperfect models vs the real world.  The integrators
