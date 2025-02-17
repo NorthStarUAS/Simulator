@@ -16,7 +16,7 @@ class nzthe_controller():
         max_the = 15
 
         # helper
-        self.az_helper = NotaPID("pitch", min_the, max_the, integral_gain=0.01, antiwindup=1.0, neutral_tolerance=0.03, hold_gain=0.1, debug=True)
+        self.az_helper = NotaPID("pitch", min_the, max_the, integral_gain=0.005, antiwindup=1.0, neutral_tolerance=0.03, hold_gain=0.1, debug=True)
 
         # integrators
         self.integrator = 0.0
