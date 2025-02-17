@@ -22,7 +22,7 @@
     {
         "names": [ "Logitech Extreme 3D pro", "Extreme 3D pro" ],
         "roll": ["axis", 0],
-        "pitch": ["axis", 1, {"reverse": 1}],
+        "pitch": ["axis", 1, {"reverse": 1, "deadband": 0.02}],
         "yaw": ["axis", 2, {"expo": 2}],
         "power": ["axis", 3, {"reverse": 1, "normalize_0_1": 1}],
         "trim": ["hat", 0],
