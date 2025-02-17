@@ -29,7 +29,7 @@ from lib_sim.FCS.fcs_mgr import FCSMgr
 # command line arguments
 parser = argparse.ArgumentParser(description="run the simulation")
 parser.add_argument("--model", default="Rascal110", help="flight dynamics model")
-parser.add_argument("--modelpath", default="Rascal110", help="flight dynamics model")
+parser.add_argument("--modelpath", help="flight dynamics model")
 parser.add_argument("--takeoff", help="takeoff from APT:RWY")
 parser.add_argument("--final", help="final approach to APT:RWY:dist_nm")
 parser.add_argument("--pattern", help="45 degree downwind entry to pattern APT:RWY")
@@ -106,8 +106,8 @@ if False:
     apt = pos_init.get_airport(apt_id)
     sim.set_terrain_height(apt["alt_ft"])
 
-sim.SetTurb(turbSeverity=0, vWind20_mps=2, vWindHeading_deg=45) # Trim with wind, no turbulence
-# sim.SetTurb(turbSeverity=1, vWind20_mps=2, vWindHeading_deg=45) # Trim with wind, no turbulence
+# sim.SetTurb(turbSeverity=0, vWind20_mps=2, vWindHeading_deg=45) # Trim with wind, no turbulence
+sim.SetTurb(turbSeverity=1, vWind20_mps=2, vWindHeading_deg=45) # Trim with wind, no turbulence
 
 fcs = FCSMgr()
 
