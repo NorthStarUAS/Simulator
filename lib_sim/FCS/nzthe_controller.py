@@ -5,16 +5,20 @@ from nstSimulator.utils.constants import d2r, g
 from nstSimulator.sim.lib.props import att_node, fcs_node, imu_node, vel_node
 
 from .pid import ap_pid_t
-from .util import NotaPID
+from .util import HoldOrPassThrough
 
 class nzthe_controller():
     def __init__(self):
         # envelope protection
         self.alpha_limit_deg = 13.0
         self.vne_mps = 80
-        theta_soft_limit = 15
-        min_the = -15
-        max_the = 15
+        min_theta_hold = -15
+        max_theta_hold = 15
+        # note: lf (load factor) is shifted by -1 when calling get_ref_value()
+        # so that zero inceptor = zero (lf-1).  The returned ref value is
+        # shifted back to real lf/az before continuing on.
+        self.min_lf = -1
+        self.max_lf = 2.5
 
         # pid
         self.pid = ap_pid_t("pitch")
@@ -27,7 +31,7 @@ class nzthe_controller():
         self.pid.enable = True
 
         # helper
-        self.az_helper = NotaPID("pitch", min_the, max_the, integral_gain=0.005, antiwindup=1.0, neutral_tolerance=0.03, hold_gain=0.1, debug=True)
+        self.az_helper = HoldOrPassThrough("pitch", min_theta_hold, max_theta_hold, self.min_lf-1, self.max_lf-1, neutral_tolerance=0.03, hold_gain=0.1, debug=True)
 
         # damper gains
         self.pitch_damp_gain = 1000
@@ -51,11 +55,14 @@ class nzthe_controller():
         theta_deg = att_node.getDouble("theta_deg")
         q_rps = imu_node.getDouble("q_rps")
         baseline_q = fcs_node.getDouble("baseline_q")
+        baseline_lf = fcs_node.getDouble("baseline_lf")
         az = imu_node.getDouble("az_mps2")
         qbar = fcs_node.getDouble("qbar")
         alpha_deg = fcs_node.getDouble("alpha_deg")
 
-        az_request = g * load_factor_request
+        # Condition and limit the pilot request
+        ref_az = g * (1 + self.az_helper.get_ref_value(load_factor_request-1, baseline_lf-1, theta_deg, flying_confidence))
+        #ref_az = az_request
 
         # envelope protection (needs to move after or into the controller or at
         # least incorporate the ff term (and dampers?))  This must consider more
@@ -66,20 +73,13 @@ class nzthe_controller():
         max_lf = 2.5
         # print("max/min az:", min_lf, max_lf)
 
-        # Condition and limit the pilot request
-        ref_az = g * (1 + self.az_helper.get_ref_value(load_factor_request-1, 0, min_lf-1, max_lf-1, theta_deg, flying_confidence))
-        #ref_az = az_request
-
-        # compute the direct surface position to achieve the command
+        # model-based estimate of direct surface position to achieve the command
         model_pitch_cmd = self.lon_func(ref_az, qbar)
 
+        # pid controller accounts for model errors
         self.pid.Kp = 30 / qbar # gain schedule on qbar
         self.pid.max_integrator = 0.5 * flying_confidence
         pid_pitch_cmd = self.pid.update(dt, az, ref_az)
-
-        # run the integrators.
-        # self.integrator = self.az_helper.integrator(ref_az, az, flying_confidence)
-        # print("pitch integrators: %.2f %.2f %.2f" % (aileron_int, self.pitch_int, rudder_int))  # move outside
 
         # dampers, these can be tuned to pilot preference for lighter finger tip
         # flying vs heavy stable flying.

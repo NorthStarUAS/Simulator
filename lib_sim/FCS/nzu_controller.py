@@ -4,7 +4,7 @@ import numpy as np
 from nstSimulator.utils.constants import d2r, g
 from nstSimulator.sim.lib.props import att_node, fcs_node, imu_node, vel_node
 
-from .util import NotaPID
+from .util import HoldOrPass
 
 class nzu_controller():
     def __init__(self):
@@ -16,7 +16,7 @@ class nzu_controller():
         max_vc = 90
 
         # helper
-        self.az_helper = NotaPID("pitch", min_vc, max_vc, integral_gain=0.01, antiwindup=1.0, neutral_tolerance=0.03, hold_gain=-0.02, debug=True)
+        self.az_helper = HoldOrPass("pitch", min_vc, max_vc, integral_gain=0.01, antiwindup=1.0, neutral_tolerance=0.03, hold_gain=-0.02, debug=True)
 
         # integrators
         self.integrator = 0.0

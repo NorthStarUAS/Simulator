@@ -1,39 +1,40 @@
-# Just to be clear: this is not a PID implementation!
-
-# This a very specialized supporting class that implments two helper functions:
+# This a very specialized supporting class that implments a helper function:
 #
-# 1. A complex function to take a command request as input.  It condition the
-#    cmd against limits and when the command is 0, holds the separately provide
-#    target value.  This can be used to implement a rate-command, position-hold
-#    system.
+# Takes a command request as input.  It conditions the cmd against limits and
+# when the command is 0, holds the separately provide target value.  When the
+# system is in hold mode, the command is the output of a basic "P" controller
+# implicitely implimented here.
 #
-# 2. An integrator.  The reality is the up-stream controller model is not
-#    perfect so this class offers an integrator (essentially the "I" from a PID)
-#    to suck up all the unaccounted for errors.  In addition the up-stream
-#    controller can set a very conservative anti-windup threshold to limit the
-#    overall effectiveness of the integrator (so pilot would win a force fight)
-#    and as an added bonus, the integrator is feathered off/on based on the
-#    value of flying_confidence (0-1) which the up-stream controller also is
-#    responsible for providing.
+# The hold limits set the range of the hold command.  When the inceptor is
+# centered (hold) the aircraft will return to within this range.  The function
+# could be configured so it would be possible to command reference value that
+# would take the aircraft outside this range (while under active control.)
+#
+# The ref limits set the range of the actual reference command. (ex: max roll
+# rate or max load factor.)
+#
+# Note that the feed forward command is included in the math, so that the ref
+# limits can be applied /after/ the feed forward is added to avoid over
+# stressing the airframe.
 
-class NotaPID():
-    def __init__(self, name, min_hold, max_hold, integral_gain, antiwindup, neutral_tolerance, hold_gain=0.1, debug=False):
-        self.dt = 0.02
+class HoldOrPassThrough():
+    def __init__(self, name, min_hold_limit, max_hold_limit, min_ref_limit, max_ref_limit, neutral_tolerance, hold_gain=0.1, debug=False):
         self.name = name
-        self.int_gain = integral_gain
-        self.antiwindup = antiwindup
         self.tol = neutral_tolerance
         self.cmd_neutral = True
-        self.min_hold = min_hold
-        self.max_hold = max_hold
+        self.min_hold_limit = min_hold_limit
+        self.max_hold_limit = max_hold_limit
+        self.min_ref_limit = min_ref_limit
+        self.max_ref_limit = max_ref_limit
         self.hold_cmd = 0.0
         self.error_sum = 0.0
         self.hold_gain = hold_gain
         self.debug = debug
 
-    def get_ref_value(self, input_cmd, ff_cmd, min_val, max_val, cur_val, flying_confidence):
+    def get_ref_value(self, input_cmd, ff_cmd, cur_val, flying_confidence):
         if flying_confidence < 0.01:
             self.hold_cmd = cur_val
+
         if abs(input_cmd) < self.tol:
             if not self.cmd_neutral:
                 # print("set neutral:", self.name)
@@ -41,36 +42,27 @@ class NotaPID():
                 self.cmd_neutral = True
         else:
             self.cmd_neutral = False
-        if self.hold_cmd < self.min_hold:
-            self.hold_cmd = self.min_hold
-        if self.hold_cmd > self.max_hold:
-            self.hold_cmd = self.max_hold
+
+        if self.hold_cmd < self.min_hold_limit: self.hold_cmd = self.min_hold_limit
+        if self.hold_cmd > self.max_hold_limit: self.hold_cmd = self.max_hold_limit
+
         if self.cmd_neutral:
             hold_error = (self.hold_cmd - cur_val) * flying_confidence
             if self.debug: print("hold_cmd: %.2f" % self.hold_cmd, "cur_val: %.2f" % cur_val)
             if self.debug: print("hold_error = %.2f" % hold_error)
-            ref_val = hold_error * self.hold_gain + ff_cmd
+            ref_val = hold_error * self.hold_gain
             # print(self.name, ref_rate)
         else:
-            ref_val = input_cmd + ff_cmd
+            ref_val = input_cmd
 
-        if max_val is not None and ref_val > max_val:
-            ref_val = max_val
-        if min_val is not None and ref_val < min_val:
-            ref_val = min_val
+        ref_val += ff_cmd
+        if ref_val > self.max_ref_limit: ref_val = self.max_ref_limit
+        if ref_val < self.min_ref_limit: ref_val = self.min_ref_limit
+
+        # if max_ref_limit is not None and ref_val > max_ref_limit: ref_val = max_ref_limit
+        # if min_ref_limit is not None and ref_val < min_ref_limit: ref_val = min_ref_limit
+
         return ref_val
-
-    # Tip of the hat to imperfect models vs the real world.  The integrators
-    # suck up any difference between the model and the real aircraft. Imperfect
-    # models can be due to linear fit limits, change in aircraft weight and
-    # balance, change in atmospheric conditions, etc.
-    def integrator(self, ref_val, cur_val, flying_confidence=0.0):
-        cutoff = self.antiwindup * flying_confidence
-        self.error_sum += self.int_gain * (ref_val - cur_val) * self.dt
-        if self.error_sum < -cutoff: self.error_sum = -cutoff
-        if self.error_sum > cutoff: self.error_sum = cutoff
-        # print(self.name, "ref_val: %.2f" % ref_val, "error sum: %.2f" % self.error_sum, "%s: %.2f" % (self.name, self.error_sum * self.int_gain))
-        return self.error_sum
 
 # flying vs on ground detection.  Uses a sigmoid function between min/max
 # threshold and compute a 0 - 1 likelihood.

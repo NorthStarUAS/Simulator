@@ -5,13 +5,14 @@ from nstSimulator.utils.constants import d2r
 from nstSimulator.sim.lib.props import att_node, fcs_node, imu_node
 
 from .pid import ap_pid_t
-from .util import NotaPID
+from .util import HoldOrPassThrough
 
 class p_controller():
     def __init__(self):
         # envelope protection
         self.phi_hard_limit_deg = 60.0
-        phi_soft_limit_deg = 45.0
+        phi_hold_limit_deg = 45.0
+        p_rate_limit_rps = 40 * d2r
 
         # pid
         self.pid = ap_pid_t("roll")
@@ -24,7 +25,7 @@ class p_controller():
         self.pid.enable = True
 
         # helper
-        self.roll_helper = NotaPID("roll", -phi_soft_limit_deg, phi_soft_limit_deg, integral_gain=1.0, antiwindup=0.5, neutral_tolerance=0.02)
+        self.roll_helper = HoldOrPassThrough("roll", -phi_hold_limit_deg, phi_hold_limit_deg, -p_rate_limit_rps, p_rate_limit_rps, neutral_tolerance=0.02, hold_gain=0.05)
 
         # damper gains
         self.roll_damp_gain = 2000.0
@@ -53,17 +54,20 @@ class p_controller():
         elevator = fcs_node.getDouble("posElev_norm")
         rudder = fcs_node.getDouble("posRud_norm")
 
-        # envelope protection: bank angle limits
-        max_p = (self.phi_hard_limit_deg - phi_deg) * d2r * 0.5
-        min_p = (-self.phi_hard_limit_deg - phi_deg) * d2r * 0.5
-
         # Condition and limit the pilot requests
-        ref_p = self.roll_helper.get_ref_value(roll_rate_request, 0, min_p, max_p, phi_deg, flying_confidence)
+        ref_p = self.roll_helper.get_ref_value(roll_rate_request, 0, phi_deg, flying_confidence)
 
-        # compute the direct surface position to achieve the command
+        # envelope protection: enforce hard bank angle limits through additional
+        # roll rate limits
+        max_p = (self.phi_hard_limit_deg - phi_deg) * d2r * 1.0
+        min_p = (-self.phi_hard_limit_deg - phi_deg) * d2r * 1.0
+        if ref_p < min_p: ref_p = min_p
+        if ref_p > max_p: ref_p = max_p
+
+        # model-based estimate of direct surface position to achieve the command
         model_roll_cmd = self.lat_func(ref_p, qbar, elevator, rudder, ay, az)
-        # print("roll_cmd:", raw_roll_cmd)
 
+        # pid controller accounts for model errors
         self.pid.Kp = 3000 / qbar # gain schedule on qbar
         self.pid.max_integrator = 0.1 * flying_confidence
         pid_roll_cmd = self.pid.update(dt, p_rps, ref_p)

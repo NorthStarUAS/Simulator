@@ -4,20 +4,8 @@ import numpy as np
 from nstSimulator.utils.constants import d2r, r2d
 from nstSimulator.sim.lib.props import att_node, fcs_node, imu_node
 
-from .util import NotaPID
-
 class r_controller():
     def __init__(self):
-        # envelope protection
-        self.psi_hard_limit_deg = 360.0
-        psi_soft_limit_deg = 360.0
-
-        # helper
-        self.yaw_helper = NotaPID("roll", -psi_soft_limit_deg, psi_soft_limit_deg, integral_gain=1.0, antiwindup=0.5, neutral_tolerance=0.02)
-
-        # integrators
-        self.yaw_int = 0.0
-
         # damper gains
         self.yaw_damp_gain = 2000.0
 
@@ -38,15 +26,10 @@ class r_controller():
     def update(self, yaw_rate_request):
         # fetch and compute all the values needed by the control laws
         flying_confidence = fcs_node.getDouble("flying_confidence")
-        psi_deg = att_node.getDouble("psi_deg")
         r_rps = imu_node.getDouble("r_rps")
         baseline_r = fcs_node.getDouble("baseline_r")
         ay = imu_node.getDouble("ay_mps2")
         qbar = fcs_node.getDouble("qbar")
-
-        # envelope protection: bank angle limits
-        max_r = (self.psi_hard_limit_deg - psi_deg) * d2r * 0.5
-        min_r = (-self.psi_hard_limit_deg - psi_deg) * d2r * 0.5
 
         # Condition and limit the pilot requests
         # ref_r = self.yaw_helper.get_ref_value(yaw_rate_request, baseline_r, min_r, max_r, psi_deg, flying_confidence)
@@ -56,17 +39,12 @@ class r_controller():
         raw_yaw_cmd = self.lat_func(ref_r, qbar, ay)
         # print("roll_cmd:", raw_roll_cmd)
 
-        # run the integrators
-        self.yaw_int = self.yaw_helper.integrator(ref_r, r_rps, flying_confidence)
-        # print("(dps) ref: %.2f  act: %.2f" % (ref_r*r2d, r_rps*r2d))
-        self.yaw_int = 0 # open loop
-
         # dampers, these can be tuned to pilot preference for lighter finger tip
         # flying vs heavy stable flying.
         yaw_damp = (r_rps - baseline_r) * self.yaw_damp_gain / qbar
 
         # final output command
-        yaw_cmd = raw_yaw_cmd + self.yaw_int - yaw_damp
+        yaw_cmd = raw_yaw_cmd - yaw_damp
         # print("inc_r: %.3f" % yaw_rate_request, "bl_r: %.3f" % baseline_r, "ref_r: %.3f" % ref_r,
         #       "raw rud: %.3f" % raw_yaw_cmd, "final rud: %.3f" % yaw_cmd)
 

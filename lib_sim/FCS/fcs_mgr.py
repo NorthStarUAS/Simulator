@@ -17,7 +17,7 @@ class FCSMgr():
     def __init__(self):
         # stick -> rate command scaling
         self.roll_stick_scale = 40 * d2r   # rad
-        self.az_stick_scale = -1.5
+        self.lf_stick_scale = -1.5
         self.yaw_stick_scale = 20          # maps to beta_deg
 
         self.fcs_lat = p_controller()
@@ -95,9 +95,12 @@ class FCSMgr():
         # this is what we dampen towards
         baseline_q = sin(phi_rad) * turn_rate_rps
         baseline_r = cos(phi_rad) * turn_rate_rps
+        if abs(phi_rad) < pi * 0.5 * 0.9:
+            baseline_lf = 1 / cos(phi_rad)
         # print("tr: %.3f" % turn_rate_rps, "q: %.3f %.3f" % (baseline_q, self.q), "r: %.3f %.3f" % (baseline_r, self.r))
         fcs_node.setDouble("baseline_q", baseline_q)
         fcs_node.setDouble("baseline_r", baseline_r)
+        fcs_node.setDouble("baseline_lf", baseline_lf)
 
     def update(self, dt):
         # update state and filters
@@ -111,7 +114,7 @@ class FCSMgr():
             # pilot/joystick commands drive built in FBW control laws
             roll_rate_request = inceptors_node.getDouble("roll") * self.roll_stick_scale
             # pitch_rate_request = -inceptors_node.getDouble("pitch") * self.pitch_stick_scale
-            load_factor_request = 1 + inceptors_node.getDouble("pitch") * self.az_stick_scale
+            load_factor_request = 1 + inceptors_node.getDouble("pitch") * self.lf_stick_scale
             yaw_rate_request = 0
             # beta_deg_request = -inceptors_node.getDouble("yaw") * self.yaw_stick_scale
 
