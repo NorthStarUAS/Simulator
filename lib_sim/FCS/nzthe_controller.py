@@ -37,6 +37,9 @@ class nzthe_controller():
         # damper gains
         self.pitch_damp_gain = 1000
 
+        # flag to help diminish/work-around envelope protection for takeoff
+        self.on_ground = True
+
     # compute model-based pitch command to achieve the reference pitch rate.
     # This functions is fit from the original flight data and involves a matrix
     # inversion that is precomputed offlin.  Here we use the inverted matrix
@@ -71,16 +74,28 @@ class nzthe_controller():
 
         # envelope protection (doesn't protect against a 'zoom' maneuver for
         # lack of a better name for it)
+        if flying_confidence < 0.1:
+            self.on_ground = True
+        elif flying_confidence > 0.9:
+            self.on_ground = False
         alpha_limit_deg = 13
         ep_max_az = inv_alpha_func(flaps_norm, alpha_limit_deg, qbar)
         print("env prot max az: %.3f  ref: %.3f" % (ep_max_az, ref_az))
-        if ref_az < ep_max_az: ref_az = ep_max_az
+        if self.on_ground:
+            # no envelope protection for pitch/az/speed/alpha
+            pass
+        else:
+            # flying for sure, so turn on envelope protection
+            if ref_az < ep_max_az: ref_az = ep_max_az
 
         # model-based estimate of direct surface position to achieve the command
         model_pitch_cmd = self.lon_func(flaps_norm, ref_az, qbar)
 
+        # hack to work around simulation model error
+        model_pitch_cmd -= 225 / qbar
+
         # pid controller accounts for model errors
-        self.pid.Kp = 50 / qbar # gain schedule on qbar
+        self.pid.Kp = 30 / qbar # gain schedule on qbar
         self.pid.max_integrator = 0.75 * flying_confidence
         pid_pitch_cmd = self.pid.update(dt, az, ref_az)
 
