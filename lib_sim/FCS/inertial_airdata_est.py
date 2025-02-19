@@ -1,28 +1,34 @@
+import numpy as np
+
 # a simple alpha estimator fit from flight test data
 def alpha_func(flaps_norm, qbar, az_mps2):
     # qbar = 0.5 * vc_mps**2 * 1.225_kg_m3
     if qbar < 1:
-        alpha_deg = 0
+        return 0                                           # no airspeed
     elif flaps_norm <= 0.25:
-        alpha_deg = -2.7573 - 1150.6536 * az_mps2 / qbar
+        A = np.array( [[ -2.75733057, -1150.65361849 ]] )  # flaps up
     elif flaps_norm <= 0.75:
-        alpha_deg = -4.8283 - 956.7511 * az_mps2 / qbar
+        A = np.array( [[ -4.82827705,  -956.7511148  ]] )  # flaps 50%
     else:
-        alpha_deg = -8.3279 - 966.1186 * az_mps2 / qbar
-    return alpha_deg
+        A = np.array( [[ -8.32787384,  -966.11862015 ]] )  # flaps 100%
+    x = np.array([1, az_mps2/qbar])
+    y = A @ x
+    return y[0]
 
 # a simple alpha estimator fit from flight test data
-def inv_alpha_func(flaps_norm, alpha, qbar):
+def inv_alpha_func(flaps_norm, alpha_deg, qbar):
     # qbar = 0.5 * vc_mps**2 * 1.225_kg_m3
     if qbar < 1:
-        alpha_deg = 0
+        return 0                                      # no airspeed
     elif flaps_norm <= 0.25:
-        alpha_deg = -2.7573 - 1150.6536 * az_mps2 / qbar
+        A = np.array( [[-0.00264206, -0.00061865]] )  # flaps up
     elif flaps_norm <= 0.75:
-        alpha_deg = -4.8283 - 956.7511 * az_mps2 / qbar
+        A = np.array( [[-0.00483375, -0.00071729]] )  # flaps 50%
     else:
-        alpha_deg = -8.3279 - 966.1186 * az_mps2 / qbar
-    return alpha_deg
+        A = np.array( [[-0.00873206, -0.00071212]] )  # flaps 100%
+    x = np.array([qbar, alpha_deg*qbar])
+    y = A @ x
+    return y[0]
 
 # a simple beta estimator fit from flight test data (todo: fit a beta function without rudder)
 def beta_func(qbar, ay, r, rudder_cmd, throttle_cmd):
