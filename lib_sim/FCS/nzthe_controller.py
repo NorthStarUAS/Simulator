@@ -69,14 +69,8 @@ class nzthe_controller():
         ref_az = g * (1 + self.az_helper.get_ref_value(load_factor_request-1, baseline_lf-1, theta_deg, flying_confidence))
         #ref_az = az_request
 
-        # envelope protection (needs to move after or into the controller or at
-        # least incorporate the ff term (and dampers?))  This must consider more
-        # than just pitch rate and may need to lower the pitch angle hold value
-        # simultaneously, however it takes time for speed to build up and alpha
-        # to come down so how/where should the limited 'hold' value get set to?
-        min_lf = -1
-        max_lf = 2.5
-        # print("max/min az:", min_lf, max_lf)
+        # envelope protection (doesn't protect against a 'zoom' maneuver for
+        # lack of a better name for it)
         alpha_limit_deg = 13
         ep_max_az = inv_alpha_func(flaps_norm, alpha_limit_deg, qbar)
         print("env prot max az: %.3f  ref: %.3f" % (ep_max_az, ref_az))
@@ -86,8 +80,8 @@ class nzthe_controller():
         model_pitch_cmd = self.lon_func(flaps_norm, ref_az, qbar)
 
         # pid controller accounts for model errors
-        self.pid.Kp = 30 / qbar # gain schedule on qbar
-        self.pid.max_integrator = 0.5 * flying_confidence
+        self.pid.Kp = 50 / qbar # gain schedule on qbar
+        self.pid.max_integrator = 0.75 * flying_confidence
         pid_pitch_cmd = self.pid.update(dt, az, ref_az)
 
         # dampers, these can be tuned to pilot preference for lighter finger tip
@@ -99,6 +93,6 @@ class nzthe_controller():
 
         # print("inc_q: %.3f" % pitch_rate_cmd, "bl_q: %.3f" % baseline_q, "ref_q: %.3f" % ref_q,
         #       "raw ele: %.3f" % raw_pitch_cmd, "final ele: %.3f" % pitch_cmd)
-        # print("inc_az: %.2f" % az_request, "ref_az: %.2f" % ref_az, "raw ele: %.3f" % model_pitch_cmd, "final ele: %.3f" % pitch_cmd)
+        print("inc_az: %.2f" % (load_factor_request*g), "ref_az: %.2f" % ref_az, "act az: %.2f" % az, "mdl ele: %.3f" % model_pitch_cmd, "final ele: %.3f" % pitch_cmd)
 
         return pitch_cmd

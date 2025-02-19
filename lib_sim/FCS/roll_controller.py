@@ -57,10 +57,16 @@ class p_controller():
         # Condition and limit the pilot requests
         ref_p = self.roll_helper.get_ref_value(roll_rate_request, 0, phi_deg, flying_confidence)
 
-        # envelope protection: enforce hard bank angle limits through additional
-        # roll rate limits
+        # enforce hard bank angle limits through roll rate limits
         max_p = (self.phi_hard_limit_deg - phi_deg) * d2r * 1.0
         min_p = (-self.phi_hard_limit_deg - phi_deg) * d2r * 1.0
+        if ref_p < min_p: ref_p = min_p
+        if ref_p > max_p: ref_p = max_p
+
+        # enforce inertial bank limit (max level bank angle we can sustain in our current state)
+        max_inertial_bank_deg = fcs_node.getDouble("max_bank_deg")
+        max_p = (max_inertial_bank_deg - phi_deg) * d2r * 1.0
+        min_p = (-max_inertial_bank_deg - phi_deg) * d2r * 1.0
         if ref_p < min_p: ref_p = min_p
         if ref_p > max_p: ref_p = max_p
 

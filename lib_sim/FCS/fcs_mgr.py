@@ -1,10 +1,10 @@
-from math import cos, pi, sin, tan
+from math import acos, cos, pi, sin, tan
 
-from nstSimulator.utils.constants import d2r, g
+from nstSimulator.utils.constants import d2r, g, r2d
 from nstSimulator.sim.lib.props import aero_node, att_node, control_node, fcs_node, imu_node, inceptors_node, vel_node
 from PropertyTree import PropertyNode
 
-from .inertial_airdata_est import alpha_func, beta_func
+from .inertial_airdata_est import alpha_func, beta_func, inv_alpha_func
 from .roll_controller import p_controller
 from .nzthe_controller import nzthe_controller
 # from .nzu_controller import nzu_controller
@@ -20,12 +20,15 @@ class FCSMgr():
         self.lf_stick_scale = -1.5
         self.yaw_stick_scale = -10 * d2r
 
+        # alpha limit (est)
+        self.alpha_limit_deg = 13
+
         self.fcs_lat = p_controller()
         # self.fcs_lon = q_controller()
         self.fcs_lon = nzthe_controller()
         # self.fcs_lon = nzu_controller()
         self.fcs_yaw = r_controller()
-        self.is_flying = IsFlying(on_ground_for_sure_mps=30, flying_for_sure_mps=40)
+        self.is_flying = IsFlying(on_ground_for_sure_mps=30, flying_for_sure_mps=35)
 
         # filtered state (clamp to minimum of 25 mps because we need to divide
         # by airspeed and qbar so this must be definitely positive 100% of the time.)
@@ -52,13 +55,8 @@ class FCSMgr():
         fcs_node.setDouble("vc_filt_mps", self.vc_filt_mps)
         fcs_node.setDouble("qbar", qbar)
 
-        # in the air vs on the ground?  (uses a sigmoid function between
-        # threshold speeds)
-        flying_confidence = self.is_flying.get_flying_confidence(self.vc_filt_mps)
-        fcs_node.setDouble("flying_confidence", flying_confidence)
-
         # alpha / beta estimates (or direct from sim model)
-        if flying_confidence > 0.5:
+        if fcs_node.getDouble("flying_confidence") > 0.5:
             if False:
                 # sensed directly (or from sim model)
                 alpha_deg = aero_node.getDouble("alpha_deg")
@@ -104,9 +102,37 @@ class FCSMgr():
         fcs_node.setDouble("baseline_r", baseline_r)
         fcs_node.setDouble("baseline_lf", baseline_lf)
 
+    def derive_envelope_limits(self, flaps_norm, qbar):
+        # envelope protection (doesn't protect against a 'zoom' maneuver for
+        # lack of a better name for it)
+        max_az = inv_alpha_func(flaps_norm, self.alpha_limit_deg, qbar)
+        max_lf = (max_az / g) * 0.9  # shave down the limit a bit
+
+        if max_lf > 1.0:
+            max_phi = acos(1 / max_lf)
+        else:
+            max_phi = 0
+        max_bank_deg = max_phi * r2d
+        if max_bank_deg < 5: max_bank_deg = 5  # always allow a little bit of bank
+
+        fcs_node.setDouble("max_az", max_az)
+        fcs_node.setDouble("max_load_factor", max_lf)
+        fcs_node.setDouble("max_bank_deg", max_bank_deg)
+        print("max bank:", max_bank_deg)
+
     def update(self, dt):
+        flaps_norm = fcs_node.getDouble("posFlap_norm")
+        qbar_filt = fcs_node.getDouble("qbar")
+
+        # in the air vs on the ground?  (uses a sigmoid function between
+        # threshold speeds)
+        flying_confidence = self.is_flying.get_flying_confidence(self.vc_filt_mps)
+        fcs_node.setDouble("flying_confidence", flying_confidence)
+
         # update state and filters
         self.compute_stuff()
+
+        self.derive_envelope_limits(flaps_norm, qbar_filt)
 
         print("master switch:", inceptors_node.getBool("master_switch"))
         if inceptors_node.getBool("master_switch"):
