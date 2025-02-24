@@ -21,7 +21,7 @@ class FCSMgr():
         self.yaw_stick_scale = -10 * d2r
 
         # alpha limit (est)
-        self.alpha_limit_deg = 13
+        self.alpha_limit_deg = 12
 
         self.fcs_lat = p_controller()
         # self.fcs_lon = q_controller()
