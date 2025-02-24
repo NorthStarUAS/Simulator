@@ -9,6 +9,7 @@ from direct.showbase.ShowBase import ShowBase # pip install panda3d
 from direct.task import Task
 from panda3d.core import *
 
+from nstSimulator.panel import panel
 from nstSimulator.world import world
 try:
     if float(importlib.metadata.version("nstSimulator")) < 1.3:
@@ -113,6 +114,10 @@ class SceneryViewer(ShowBase):
             self.zup = self.loader.loadModel("models/zup-axis")
             self.zup.setScale(10, 10, 10)
             self.zup.reparentTo(render)
+
+        self.panel = None
+        if "panel" in config:
+            self.panel = panel.Panel()
 
         self.world = None
         if "world" in config:
