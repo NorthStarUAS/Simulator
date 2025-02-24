@@ -60,6 +60,9 @@ config = {
         "sun_vector": (0.2, 0.2, -0.8),
         "ambient": (0.4, 0.4, 0.4, 1),
     },
+    "panel": {
+        "enambel": "sure"
+    },
     "world": {
         # "airports": True,  # future devel
         "ground": "bing",    # maptiler, bing, google, or polygon.  Add +wireframe (i.e. polygon+wireframe) to show the underlying mesh structure as wireframe

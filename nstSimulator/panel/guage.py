@@ -1,8 +1,10 @@
 from math import cos, sin
+import numpy as np
+import os
 from panda3d.core import *
 
-import sys
-sys.path.append("..")
+# import sys
+# sys.path.append("..")
 from nstSimulator.utils.constants import d2r
 
 config = [
@@ -10,9 +12,92 @@ config = [
     { "texture": "data/textures/flaps_needle.png", "xscale": 0.8, "yscale": 0.5, "xpos": -0.8, "ypos": 0.0, "rotate_deg": { "prop": "/fcs/flaps_norm", "scale": 40 } }
 ]
 
+# fixme, better place/way for this?, but we just want to load the font once, but
+# we need panda3d initialized first.
+B612_font = None
+def get_B612_font():
+    global B612_font
+    if not B612_font:
+        file_path = os.path.dirname(os.path.realpath(__file__))
+        base_path = os.path.join(file_path, "../data/fonts")
+        print("loading: ", os.path.join(base_path, "B612-Regular.ttf"))
+        B612_font = loader.loadFont(os.path.join(base_path, "B612-Regular.ttf"))
+        B612_font.setPageSize(512,512)
+        B612_font.setPixelsPerUnit(80)
+    return B612_font
+
 class Animation():
     def __init__(self):
         pass
+
+class Arc2d():
+    def __init__(self, color4=(0.9, 0.1, 0.1, 0.7), center_x=0, center_y=0, radius=0.5, width=0.1, start=0, end=360, steps=0):
+        if not steps:
+            steps = int(round((end - start) / 10)) + 1
+        if steps < 2:
+            steps = 2
+        self.steps = steps
+
+        divs_rad = (90 - np.linspace(start, end, self.steps)) * d2r
+        print("divs:", divs_rad)
+
+        format = GeomVertexFormat.getV3()
+        self.vdata = GeomVertexData("arc", format, Geom.UHStatic)
+        self.vdata.setNumRows(self.steps * 2)
+        vertex = GeomVertexRewriter(self.vdata, "vertex")
+
+        for a in divs_rad:
+            x1 = cos(a) * (radius - width)
+            x2 = cos(a) * (radius + width)
+            y1 = sin(a) * (radius - width)
+            y2 = sin(a) * (radius + width)
+            print(x1, x2, y1, y2)
+            vertex.addData3(center_x + x1, 0, center_y + y1)
+            vertex.addData3(center_x + x2, 0, center_y + y2)
+
+        prim = GeomTristrips(Geom.UHStatic) # don't expect geometry to change
+        prim.add_consecutive_vertices(0, self.steps*2)
+        prim.closePrimitive()
+        geom = Geom(self.vdata)
+        geom.addPrimitive(prim)
+        node = GeomNode("geom")
+        node.addGeom(geom)
+        self.arc = aspect2d.attachNewNode(node)
+        self.arc.setTwoSided(True)
+        self.arc.setColor(color4)
+        self.arc.setTransparency(TransparencyAttrib.MAlpha)
+        #self.update(0, 0)
+
+class Text2d():
+    def __init__(self, color4=(0.9, 0.1, 0.1, 0.7), center_x=0, center_y=0, size=0.5, format="%.0f kts", pad=0.1):
+        self.format = format
+
+        val = 987
+        self.text = TextNode("text")
+        self.text.setFont(get_B612_font())
+        self.text.setText(self.format % val)
+        self.text.setAlign(TextNode.ACenter)
+        self.text.setTextColor(color4)
+        self.node = aspect2d.attachNewNode(self.text)
+        self.node.setScale(size)
+        self.node.setBin("fixed", 1)
+
+        bounds = self.node.getTightBounds()
+        print("bounds:", bounds)
+        xsize = bounds[1][0] - bounds[0][0]
+        ysize = bounds[1][2] - bounds[0][2]
+        # print("ysize:", ysize)
+        self.node.setPos(center_x, 0, center_y - 0.43*ysize)
+
+        cm = CardMaker('background')
+        cm.setFrame(center_x-xsize*(0.5+pad), center_x+xsize*(0.5+pad), center_y-ysize*(0.5+pad), center_y+ysize*(0.5+pad))
+        cm.setColor(0, 0, 0, 0.2)
+        self.background = aspect2d.attachNewNode(cm.generate())
+        self.background.setTransparency(TransparencyAttrib.MAlpha)
+        self.background.setBin("fixed", 0)
+
+    def update(self, val):
+        self.text.setText(self.format % val)
 
 class Layer():
     def __init__(self, tex_path, size, xscale, yscale):
@@ -39,17 +124,20 @@ class Guage():
         self.size = size
         self.layers = []
 
-        for i, layer in enumerate(config):
-            if "texture" in layer: texture = layer["texture"]
-            else: texture = ""
-            if "xscale" in layer: xscale = layer["xscale"]
-            else: xscale = 1
-            if "yscale" in layer: yscale = layer["yscale"]
-            else: yscale = 1
-            handle = Layer(texture, size, xscale, yscale)
-            handle.update(x, y)
-            layer["handle"] = handle
-            self.layers.append(layer)
+        Arc2d((0.9, 0.2, 0.2, 0.5), 0, 0, 0.5, 0.2, 10, 350)
+        Text2d((0.2, 0.9, 0.2, 0.5), 0, 0, 0.2)
+
+        # for i, layer in enumerate(config):
+        #     if "texture" in layer: texture = layer["texture"]
+        #     else: texture = ""
+        #     if "xscale" in layer: xscale = layer["xscale"]
+        #     else: xscale = 1
+        #     if "yscale" in layer: yscale = layer["yscale"]
+        #     else: yscale = 1
+        #     handle = Layer(texture, size, xscale, yscale)
+        #     handle.update(x, y)
+        #     layer["handle"] = handle
+        #     self.layers.append(layer)
 
     def update(self, pos):
         for i, layer in enumerate(self.layers):
