@@ -3,17 +3,16 @@ import numpy as np
 import os
 from panda3d.core import *
 
-# import sys
-# sys.path.append("..")
-from nstSimulator.utils.constants import d2r
+from PropertyTree import PropertyNode
+from nstSimulator.utils.constants import d2r, m2ft
 
 config = [
     { "texture": "data/textures/flaps_face.png" },
     { "texture": "data/textures/flaps_needle.png", "xscale": 0.8, "yscale": 0.5, "xpos": -0.8, "ypos": 0.0, "rotate_deg": { "prop": "/fcs/flaps_norm", "scale": 40 } }
 ]
 
-# fixme, better place/way for this?, but we just want to load the font once, but
-# we need panda3d initialized first.
+# fixme, is there a better place/way for this?  We just want to load the font
+# once, but we need panda3d initialized first.
 B612_font = None
 def get_B612_font():
     global B612_font
@@ -26,9 +25,19 @@ def get_B612_font():
         B612_font.setPixelsPerUnit(80)
     return B612_font
 
+def parse_prop(prop):
+    pos = prop.rfind("/")
+    if pos >= 0:
+        node = PropertyNode(prop[:pos])
+        attr = prop[pos+1:]
+    else:
+        node = None
+        attr = ""
+    return node, attr
 class Animation():
     def __init__(self):
         pass
+
 
 class Arc2d():
     def __init__(self, color4=(0.9, 0.1, 0.1, 0.7), center_x=0, center_y=0, radius=0.5, width=0.1, start=0, end=360, steps=0):
@@ -69,7 +78,9 @@ class Arc2d():
         #self.update(0, 0)
 
 class Text2d():
-    def __init__(self, color4=(0.9, 0.1, 0.1, 0.7), center_x=0, center_y=0, size=0.5, format="%.0f kts", pad=0.1):
+    def __init__(self, color4=(0.9, 0.1, 0.1, 0.7), center_x=0, center_y=0, size=0.5, prop="/constants/zero", format="%.0f kts", scale=1.0, pad=0.1):
+        self.prop_node, self.prop_attr = parse_prop(prop)
+        self.scale = scale
         self.format = format
 
         val = 987
@@ -96,7 +107,8 @@ class Text2d():
         self.background.setTransparency(TransparencyAttrib.MAlpha)
         self.background.setBin("fixed", 0)
 
-    def update(self, val):
+    def update(self):
+        val = self.prop_node.getDouble(self.prop_attr) * self.scale
         self.text.setText(self.format % val)
 
 class Layer():
@@ -124,9 +136,9 @@ class Guage():
         self.size = size
         self.layers = []
 
-        Arc2d((0.9, 0.2, 0.2, 0.5), 0, 0, 0.5, 0.2, 10, 350)
-        Text2d((0.2, 0.9, 0.2, 0.5), 0, 0, 0.2)
-
+        # Arc2d((0.9, 0.2, 0.2, 0.5), 0, 0, 0.5, 0.2, 10, 350)
+        self.asi = Text2d((0.2, 0.9, 0.2, 0.5), -0.75, 0, 0.1, "/velocity/vc_kts_filt", format="%.0f kts")
+        self.alt = Text2d((0.2, 0.9, 0.2, 0.5),  0.75, 0, 0.1, "/position/alt_msl_filt", format="%.0f msl")
         # for i, layer in enumerate(config):
         #     if "texture" in layer: texture = layer["texture"]
         #     else: texture = ""
@@ -140,6 +152,9 @@ class Guage():
         #     self.layers.append(layer)
 
     def update(self, pos):
+        self.asi.update()
+        self.alt.update()
+
         for i, layer in enumerate(self.layers):
             handle = layer["handle"]
             if "rotate_deg" in layer:
@@ -148,9 +163,9 @@ class Guage():
                 scale = anim["scale"]
                 handle.setHpr(0, 0, val*scale)
 
-        self.face.setPos(self.x*base.getAspectRatio(), 0, self.y + 0.5*self.size)
-        self.needle.setPos((self.x*base.getAspectRatio() - self.size*0.8), 0, self.y + self.size)
+        # self.face.setPos(self.x*base.getAspectRatio(), 0, self.y + 0.5*self.size)
+        # self.needle.setPos((self.x*base.getAspectRatio() - self.size*0.8), 0, self.y + self.size)
         # import time
         # from math import sin
         # pos = sin(time.time()) * 0.5 + 0.5
-        self.needle.setHpr(0, 0, pos*40)
+        # self.needle.setHpr(0, 0, pos*40)
