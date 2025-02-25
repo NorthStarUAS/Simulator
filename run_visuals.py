@@ -141,6 +141,9 @@ class SceneryViewer(ShowBase):
 
         self.fog.update(-self.comms_mgr.nedpos[2])
 
+        if self.panel:
+            self.panel.update()
+
         if self.world:
             self.world.update(self.mycam.cam_pos, self.mycam.cam_hpr, self.comms_mgr.nedref, self.comms_mgr.nedref_time,
                               self.comms_mgr.lla, self.comms_mgr.dlat, self.comms_mgr.dlon, self.comms_mgr.dalt)
