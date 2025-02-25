@@ -1,6 +1,8 @@
 import socket
 
-from nstSimulator.sim.lib.props import att_node, pos_node, vel_node
+from PropertyTree import PropertyNode
+
+from nstSimulator.sim.lib.props import att_node, pos_node, root_node, vel_node
 from .display_messages import display_v1, terrain_v2
 
 display_host = "localhost"
@@ -16,11 +18,12 @@ class Display():
         hostname = socket.gethostname()
         self.ip_addr = socket.gethostbyname(hostname)
         print(hostname, self.ip_addr)
+        root_node.setString("return_ip_addr", self.ip_addr)
         self.sock_in = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock_in.bind( ("", display_port_in))
         self.sock_in.setblocking(False)
 
-    def send(self):
+    def send_msg(self):
         msg_out = display_v1()
         msg_out.longitude_deg = pos_node.getDouble("long_gc_deg")
         msg_out.latitude_deg = pos_node.getDouble("lat_geod_deg")
@@ -36,6 +39,10 @@ class Display():
         msg_out.return_ip_addr = self.ip_addr
         # print(msg_out.__dict__)
         self.sock_out.sendto(msg_out.pack(), (display_host, display_port_out))
+
+    def send(self):
+        msg = PropertyNode("/").get_json_string() + '\r\n'
+        self.sock_out.sendto(str.encode(msg), (display_host, display_port_out))
 
     def receive(self):
         try:

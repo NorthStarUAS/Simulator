@@ -1,3 +1,4 @@
+import json
 from math import atan2, sqrt
 import numpy as np
 import socket
@@ -7,6 +8,7 @@ from direct.stdpy import threading
 
 import navpy
 
+from nstSimulator.sim.lib.props import att_node, pos_node, root_node, vel_node
 from nstSimulator.utils.constants import r2d, m2ft
 from .display_messages import display_v1, terrain_v2
 
@@ -26,7 +28,7 @@ class CommsWorker(threading.Thread):
         # start = time.time()
         # count = 0
         while True:
-            data, addr = self.sock_in.recvfrom(1024)
+            data, addr = self.sock_in.recvfrom(1024*16)
             # count += 1
             # elapsed = time.time() - start
             # print("python sim rate:", count / elapsed)
@@ -53,6 +55,9 @@ class CommsManager():
         self.dalt = 0
         self.psiDot_dps_est = None
         self.return_ip_addr = None
+
+        self.vc_kts_filt = 0.0
+        self.alt_msl_filt = 0.0
 
         self.msg_prev = None
 
@@ -87,7 +92,7 @@ class CommsManager():
                 self.hpr_deg[0] += self.psiDot_dps_est / est_hz
                 self.hpr_deg[1] += self.thetaDot_dps_est / est_hz
                 self.hpr_deg[2] += self.phiDot_dps_est / est_hz
-        else:
+        elif False:
             # accept new data
             msg = display_v1()
             msg.unpack(data)
@@ -117,6 +122,39 @@ class CommsManager():
                     self.thetaDot_dps_est = self.angle_diff_deg(msg.pitch_deg, self.msg_prev.pitch_deg) / self.dt
                     self.phiDot_dps_est = self.angle_diff_deg(msg.roll_deg, self.msg_prev.roll_deg) / self.dt
             self.msg_prev = msg
+        else:
+            root_node.set_json_string(data.decode())
+            root_node.pretty_print()
+            self.time_sec = root_node.getDouble("sim_time_sec")
+            self.lla[0] = pos_node.getDouble("lat_geod_deg")
+            self.lla[1] = pos_node.getDouble("long_gc_deg")
+            self.lla[2] = pos_node.getDouble("geod_alt_m")
+            self.hpr_deg[2] = att_node.getDouble("phi_deg")
+            self.hpr_deg[1] = att_node.getDouble("theta_deg")
+            self.hpr_deg[0] = att_node.getDouble("psi_deg")
+            self.indicated_kts = vel_node.getDouble("vc_kts")
+            # self.ail_cmd_norm = msg.ail_cmd_norm
+            # self.ele_cmd_norm = msg.ele_cmd_norm
+            # self.rud_cmd_norm = msg.rud_cmd_norm
+            # self.flap_cmd_norm = msg.flap_cmd_norm
+            self.return_ip_addr = root_node.getString("return_ip_addr")
+
+            # if self.msg_prev is not None:
+            #     self.dt = msg.time_sec - self.msg_prev.time_sec
+            #     if self.dt > 0:
+            #         self.dlat = (msg.latitude_deg - self.msg_prev.latitude_deg) / self.dt
+            #         self.dlon = (msg.longitude_deg - self.msg_prev.longitude_deg) / self.dt
+            #         self.dalt = (msg.altitude_m - self.msg_prev.altitude_m) / self.dt
+            #         self.psiDot_dps_est = self.angle_diff_deg(msg.yaw_deg, self.msg_prev.yaw_deg) / self.dt
+            #         self.thetaDot_dps_est = self.angle_diff_deg(msg.pitch_deg, self.msg_prev.pitch_deg) / self.dt
+            #         self.phiDot_dps_est = self.angle_diff_deg(msg.roll_deg, self.msg_prev.roll_deg) / self.dt
+            # self.msg_prev = msg
+
+            # condition some values
+            self.vc_kts_filt = 0.95 * self.vc_kts_filt + 0.05 * vel_node.getDouble("vc_kts")
+            vel_node.setDouble("vc_kts_filt", self.vc_kts_filt)
+            self.alt_msl_filt = 0.95 * self.alt_msl_filt + 0.05 * pos_node.getDouble("geod_alt_m") * m2ft
+            pos_node.setDouble("alt_msl_filt", int(round(self.alt_msl_filt / 10))*10)
 
         # print("nedref:", self.nedref, "lla_deg/m:", self.lla)
         if self.nedref is None or np.linalg.norm(self.nedpos[:2]) > 1000:
