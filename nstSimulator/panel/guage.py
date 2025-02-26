@@ -151,7 +151,7 @@ class Guage():
         #     layer["handle"] = handle
         #     self.layers.append(layer)
 
-    def update(self, pos):
+    def update(self):
         self.asi.update()
         self.alt.update()
 
