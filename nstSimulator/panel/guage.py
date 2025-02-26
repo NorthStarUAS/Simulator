@@ -137,8 +137,8 @@ class Guage():
         self.layers = []
 
         # Arc2d((0.9, 0.2, 0.2, 0.5), 0, 0, 0.5, 0.2, 10, 350)
-        self.asi = Text2d((0.2, 0.9, 0.2, 0.5), -0.75, 0, 0.1, "/velocity/vc_kts_filt", format="%.0f kts")
-        self.alt = Text2d((0.2, 0.9, 0.2, 0.5),  0.75, 0, 0.1, "/position/alt_msl_filt", format="%.0f msl")
+        self.asi = Text2d((0.2, 0.9, 0.2, 0.75), -0.75, 0, 0.1, "/velocity/vc_kts_filt", format="%.0f kt")
+        self.alt = Text2d((0.2, 0.9, 0.2, 0.75),  0.75, 0, 0.1, "/position/alt_msl_filt", format="%.0f msl")
         # for i, layer in enumerate(config):
         #     if "texture" in layer: texture = layer["texture"]
         #     else: texture = ""
@@ -151,7 +151,7 @@ class Guage():
         #     layer["handle"] = handle
         #     self.layers.append(layer)
 
-    def update(self, pos):
+    def update(self):
         self.asi.update()
         self.alt.update()
 
