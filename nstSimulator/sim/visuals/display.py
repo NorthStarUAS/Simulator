@@ -19,11 +19,12 @@ class Display():
         self.ip_addr = socket.gethostbyname(hostname)
         print(hostname, self.ip_addr)
         root_node.setString("return_ip_addr", self.ip_addr)
+
         self.sock_in = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock_in.bind( ("", display_port_in))
         self.sock_in.setblocking(False)
 
-    def send_msg(self):
+    def send_oldmsg(self):
         msg_out = display_v1()
         msg_out.longitude_deg = pos_node.getDouble("long_gc_deg")
         msg_out.latitude_deg = pos_node.getDouble("lat_geod_deg")
