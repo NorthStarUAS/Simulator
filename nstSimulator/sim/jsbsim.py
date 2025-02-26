@@ -324,7 +324,7 @@ class JSBSimWrap:
         fcs_node.setDouble("cmdAil_norm", self.fdm['fcs/aileron-cmd-norm'])
         fcs_node.setDouble("posAil_norm", self.fdm['fcs/left-aileron-pos-norm'])
         fcs_node.setDouble("cmdElev_norm", self.fdm['fcs/elevator-cmd-norm'])
-        fcs_node.setDouble("posElev_nrom", self.fdm['fcs/elevator-pos-norm'])
+        fcs_node.setDouble("posElev_norm", self.fdm['fcs/elevator-pos-norm'])
         fcs_node.setDouble("cmdRud_norm", self.fdm['fcs/rudder-cmd-norm'])
         fcs_node.setDouble("posRud_norm", self.fdm['fcs/rudder-pos-norm'])
         fcs_node.setDouble("cmdFlap_norm", self.fdm['fcs/flap-cmd-norm'])
