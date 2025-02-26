@@ -28,7 +28,7 @@ class CommsWorker(threading.Thread):
         # start = time.time()
         # count = 0
         while True:
-            data, addr = self.sock_in.recvfrom(1024*16)
+            data, addr = self.sock_in.recvfrom(1024*32)
             # count += 1
             # elapsed = time.time() - start
             # print("python sim rate:", count / elapsed)
