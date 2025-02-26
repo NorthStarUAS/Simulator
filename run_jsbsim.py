@@ -99,8 +99,7 @@ print("JSBSim path:", pathJSB)
 sim = JSBSimWrap(args.model, pathJSB.as_posix(), dt=1/jsbsim_hz)
 sim.setup_initial_conditions(pos_lla, hdg_deg, vc_kts)
 
-# sim.SetTurb(turbSeverity=0, vWind20_mps=2, vWindHeading_deg=45) # Trim with wind, no turbulence
-sim.SetTurb(turbSeverity=1, vWind20_mps=2, vWindHeading_deg=45) # Trim with wind, no turbulence
+sim.SetTurb(turbSeverity=0, vWind20_mps=2, vWindHeading_deg=45) # Trim with wind, no turbulence
 
 fcs = FCSMgr()
 
