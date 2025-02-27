@@ -20,7 +20,7 @@ def get_B612_font():
         file_path = os.path.dirname(os.path.realpath(__file__))
         base_path = os.path.join(file_path, "../data/fonts")
         print("loading: ", os.path.join(base_path, "B612-Regular.ttf"))
-        B612_font = loader.loadFont(os.path.join(base_path, "B612-Regular.ttf"))
+        B612_font = loader.loadFont(str(Filename.fromOsSpecific(os.path.join(base_path, "B612-Regular.ttf"))))
         B612_font.setPageSize(512,512)
         B612_font.setPixelsPerUnit(80)
     return B612_font
