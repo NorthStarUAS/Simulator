@@ -19,24 +19,27 @@ class AverageBin():
         self.count = 0
         # self.x_sum = 0
         self.y_sum = 0
+        self.y_avg = 0
+        self.y_filt = 0
 
     def AddData(self, y, dt):
         if self.count == 0:
-            self.y_val = y
+            self.y_filt = y
         self.count += 1
-        # self.y_sum += y
-        # self.avg = self.y_sum / self.count
+        self.y_sum += y
+        self.avg = self.y_sum / self.count
         tf = self.count * dt
         if tf > self.tf:
             tf = self.tf
         w = dt / self.tf
-        self.y_val = (1-w)*self.y_val + w*y
+        self.y_filt = (1-w)*self.y_filt + w*y
 
 class BinnedFit():
     def __init__(self, minx, maxx, num_bins):
         self.minx = minx
         self.maxx = maxx
         self.num_bins = num_bins
+        self.total_count = 0
 
         self.range = self.maxx - self.minx
         bin_size = self.range / self.num_bins
@@ -51,11 +54,29 @@ class BinnedFit():
     def AddData(self, x, y, dt):
         # compute bin
         # print("%.3f" % (((x - self.minx) / self.range) * self.num_bins))
+        total_count += 1
         bin_num = int(((x - self.minx) / self.range) * self.num_bins)
         if bin_num >= self.num_bins:
             bin_num = self.num_bins - 1
         print("x:", x, "bin_num:", bin_num)
         self.bins[bin_num].AddData(y, dt)
+
+    def FitModel(self):
+        self.xp = []
+        self.fp = []
+        for bin in self.bins:
+            if bin.count > 0:
+                weight = bin.count / self.total_count
+                self.xp.append(bin.x_val * weight)
+                self.fp.append(bin.y_val * weight)
+        if len(self.xp):
+            f = open("flap0.gnuplot", "w")
+            for i in range(len(self.xp)):
+                f.write("%.3f %.3f\n" % (self.xp[i], self.fp[i]))
+            f.close()
+            return np.interp(x, self.xp, self.fp)
+        else:
+            return 0
 
     def Interp(self, x):
         self.xp = []
