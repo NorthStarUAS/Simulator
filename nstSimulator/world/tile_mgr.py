@@ -441,7 +441,7 @@ class tile_mgr(threading.Thread):
             prune_queue.extend(prune_list)
             queue_lock.release()
 
-            self.cache_draw(lat_deg, lon_deg, freeze_cam)
+            # self.cache_draw(lat_deg, lon_deg, freeze_cam)
             print("tile mgr pausing...")
             time.sleep(0.1)
 
