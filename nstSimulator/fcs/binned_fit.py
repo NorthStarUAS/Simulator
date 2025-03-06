@@ -1,14 +1,24 @@
 # one issue of a least squares fit of a system is if it spends a high % of time
 # in a narrow band of conditions, and there is sensor noise, you end up with a
-# linear fit through a big ball of noise.
+# linear fit through a big ball of noise.  There can be an ill defined localized
+# slope that dominates the slope of the fit.
 #
 # This is a quick experiment to test the idea of binning the input data,
 # computing an average per bin, and then doing a linear interpolation between
 # bins.  Oh, and building the fint on the fly in real time, because that seems
 # like fun.
 #
-# just handles a single term per bin, but later could be expanded to multiple
-# term fits if this approach seems productive.
+# The average fit is weighted by number of data points in each bin.  This gives
+# most authority to the are of the envelope that has the most data, but avoids
+# localized slope bias due to noise (or a flight controller pushing back on
+# disturbances.)
+#
+# This is just a 1d set of bins, but later this could be expanded to higher
+# dimensions.
+#
+# The final fit is currently linear, but this could also be extended to higher
+# order polygons (but the extrapolation beyond the are where we have data
+# becomes a concern.)
 
 import numpy as np
 
@@ -17,7 +27,6 @@ class AverageBin():
         self.x_val = x_val
         self.tf = tf
         self.count = 0
-        # self.x_sum = 0
         self.y_sum = 0
         self.y_avg = 0
         self.y_filt = 0
@@ -31,7 +40,7 @@ class AverageBin():
         tf = self.count * dt
         if tf > self.tf:
             tf = self.tf
-        w = dt / self.tf
+        w = dt / tf
         self.y_filt = (1-w)*self.y_filt + w*y
 
 class BinnedFit():
@@ -76,11 +85,8 @@ class BinnedFit():
             for i in range(len(self.xp)):
                 f.write("%.3f %.3f\n" % (self.xp[i], self.fp[i]))
             f.close()
-            # A = np.vstack([self.xp, np.ones(len(self.xp))]).T
-            # m, c = np.linalg.lstsq(A, self.fp)[0]
             self.fit_model = np.polyfit(self.xp, self.fp, deg=1, w=self.w)
             print("polyfit:", self.fit_model)
-            # print("line: %.3f * x + %.3f" % (m, c))
 
     def Interp(self, x):
         return self.fit_model[0]*x + self.fit_model[1]
