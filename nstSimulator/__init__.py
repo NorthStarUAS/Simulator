@@ -1,6 +1,7 @@
 # for convenience of upstream code
 
 import importlib.metadata, importlib.util
+from pathlib import Path
 
 # this code assumes version numbers in the form of int.int.int
 # (major.minor.patch)
@@ -54,3 +55,6 @@ def version_matches_backend(major, minor=None, patch=None):
     except:
         print("version compare error, no match with:", full_version, "vs:", major, minor, patch)
         return False
+
+def get_data_path():
+    return Path(__file__).parent / "data"
