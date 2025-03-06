@@ -34,6 +34,7 @@ def parse_prop(prop):
         node = None
         attr = ""
     return node, attr
+
 class Animation():
     def __init__(self):
         pass
