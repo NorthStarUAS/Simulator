@@ -27,7 +27,7 @@ class AverageBin():
             self.y_filt = y
         self.count += 1
         self.y_sum += y
-        self.avg = self.y_sum / self.count
+        self.y_avg = self.y_sum / self.count
         tf = self.count * dt
         if tf > self.tf:
             tf = self.tf
@@ -40,6 +40,7 @@ class BinnedFit():
         self.maxx = maxx
         self.num_bins = num_bins
         self.total_count = 0
+        self.fit_model = [0, 0]
 
         self.range = self.maxx - self.minx
         bin_size = self.range / self.num_bins
@@ -54,7 +55,7 @@ class BinnedFit():
     def AddData(self, x, y, dt):
         # compute bin
         # print("%.3f" % (((x - self.minx) / self.range) * self.num_bins))
-        total_count += 1
+        self.total_count += 1
         bin_num = int(((x - self.minx) / self.range) * self.num_bins)
         if bin_num >= self.num_bins:
             bin_num = self.num_bins - 1
@@ -64,35 +65,25 @@ class BinnedFit():
     def FitModel(self):
         self.xp = []
         self.fp = []
-        for bin in self.bins:
-            if bin.count > 0:
-                weight = bin.count / self.total_count
-                self.xp.append(bin.x_val * weight)
-                self.fp.append(bin.y_val * weight)
-        if len(self.xp):
-            f = open("flap0.gnuplot", "w")
-            for i in range(len(self.xp)):
-                f.write("%.3f %.3f\n" % (self.xp[i], self.fp[i]))
-            f.close()
-            return np.interp(x, self.xp, self.fp)
-        else:
-            return 0
-
-    def Interp(self, x):
-        self.xp = []
-        self.fp = []
+        self.w = []
         for bin in self.bins:
             if bin.count > 0:
                 self.xp.append(bin.x_val)
-                self.fp.append(bin.y_val)
+                self.fp.append(bin.y_avg)
+                self.w.append(bin.count / self.total_count)
         if len(self.xp):
             f = open("flap0.gnuplot", "w")
             for i in range(len(self.xp)):
                 f.write("%.3f %.3f\n" % (self.xp[i], self.fp[i]))
             f.close()
-            return np.interp(x, self.xp, self.fp)
-        else:
-            return 0
+            # A = np.vstack([self.xp, np.ones(len(self.xp))]).T
+            # m, c = np.linalg.lstsq(A, self.fp)[0]
+            self.fit_model = np.polyfit(self.xp, self.fp, deg=1, w=self.w)
+            print("polyfit:", self.fit_model)
+            # print("line: %.3f * x + %.3f" % (m, c))
+
+    def Interp(self, x):
+        return self.fit_model[0]*x + self.fit_model[1]
 
 # a = BinnedFit(-1, 1, 4)
 
