@@ -124,7 +124,7 @@ class CommsManager():
             self.msg_prev = msg
         else:
             root_node.set_json_string(data.decode())
-            root_node.pretty_print()
+            # root_node.pretty_print()
             self.time_sec = root_node.getDouble("sim_time_sec")
             self.lla[0] = pos_node.getDouble("lat_geod_deg")
             self.lla[1] = pos_node.getDouble("long_gc_deg")

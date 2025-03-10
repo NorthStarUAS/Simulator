@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
-import cv2
+import cv2  # pip install opencv-python
 import importlib.metadata, importlib.util
 import numpy as np
 
