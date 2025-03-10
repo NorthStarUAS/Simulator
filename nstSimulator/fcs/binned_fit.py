@@ -30,6 +30,8 @@ class AverageBin():
         self.y_sum = 0
         self.y_avg = 0
         self.y_filt = 0
+        self.xp = []
+        self.fp = []
 
     def AddData(self, y, dt):
         if self.count == 0:
