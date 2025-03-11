@@ -20,6 +20,7 @@
 # order polygons (but the extrapolation beyond the are where we have data
 # becomes a concern.)
 
+from math import ceil, floor, log10
 import numpy as np
 
 class AverageBin():
@@ -45,7 +46,44 @@ class AverageBin():
         w = dt / tf
         self.y_filt = (1-w)*self.y_filt + w*y
 
-class BinnedFit():
+class IntervalBinnedFit():
+    def __init__(self, bin_width):
+        self.bin_width = bin_width
+        self.half_bin_width = bin_width * 0.5
+        br = ceil(-log10(self.bin_width)) + 1  # compute number of sig digits of cell size (+ 1) for bin naming
+        if br < 0: br = 0
+        self.bin_round = br
+        self.total_count = 0
+        self.bins = {}
+        self.fit_model = [0, 0]
+
+    def AddData(self, x, y, dt):
+        # compute bin
+        # print("%.3f" % (((x - self.minx) / self.range) * self.num_bins))
+        key = round( floor(x / self.bin_width) * self.bin_width + self.half_bin_width, self.bin_round )
+        print("%.6f" % key)
+        self.total_count += 1
+        if not key in self.bins:
+            self.bins[key] = AverageBin(key)
+        self.bins[key].AddData(y, dt)
+        print("x:", x, "key:", key)
+
+    def FitModel(self):
+        self.xp = []
+        self.fp = []
+        self.w = []
+        for bin in self.bins.values():
+            self.xp.append(bin.x_val)
+            self.fp.append(bin.y_avg)
+            self.w.append(bin.count / self.total_count)
+        if len(self.xp):
+            self.fit_model = np.polyfit(self.xp, self.fp, deg=1, w=self.w)
+            print("polyfit:", self.fit_model)
+
+    def Interp(self, x):
+        return self.fit_model[0]*x + self.fit_model[1]
+
+class old_RangeBinnedFit():
     def __init__(self, minx, maxx, num_bins):
         self.minx = minx
         self.maxx = maxx
