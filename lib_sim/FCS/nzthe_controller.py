@@ -28,7 +28,7 @@ from pathlib import Path
 
 import pickle
 
-from nstSimulator.fcs.binned_fit import BinnedFit
+from nstSimulator.fcs.binned_fit import IntervalBinnedFit
 from nstSimulator.fcs.hold import HoldOrPassThrough
 from nstSimulator.fcs.pid import ap_pid_t
 from nstSimulator.sim.lib.props import att_node, fcs_node, imu_node
@@ -107,9 +107,9 @@ class nzthe_controller():
 
             plt.show()
         else:
-            self.flap0_func = BinnedFit(-0.048444, 0.029067, 40)
-            self.flap50_func = BinnedFit(-0.048444, 0.029067, 40)
-            self.flap100_func = BinnedFit(-0.048444, 0.029067, 40)
+            self.flap0_func = IntervalBinnedFit(0.002)
+            self.flap50_func = IntervalBinnedFit(0.002)
+            self.flap100_func = IntervalBinnedFit(0.002)
         self.pickle_timer = 0
 
     # compute model-based pitch command to achieve the reference load factor.
