@@ -43,7 +43,7 @@ class nzu_controller():
         q_rps = imu_node.getDouble("q_rps")
         baseline_q = fcs_node.getDouble("baseline_q")
         az = imu_node.getDouble("az_mps2")
-        qbar = fcs_node.getDouble("qbar")
+        qbar_filt = fcs_node.getDouble("qbar_filt")
         vc_mps = vel_node.getDouble("vc_mps")
         alpha_deg = fcs_node.getDouble("alpha_deg")
 
@@ -63,7 +63,7 @@ class nzu_controller():
         #ref_az = az_request
 
         # compute the direct surface position to achieve the command
-        raw_pitch_cmd = self.lon_func(ref_az, qbar)
+        raw_pitch_cmd = self.lon_func(ref_az, qbar_filt)
 
         # run the integrators.
         self.integrator = self.az_helper.integrator(ref_az, az, flying_confidence)
@@ -71,7 +71,7 @@ class nzu_controller():
 
         # dampers, these can be tuned to pilot preference for lighter finger tip
         # flying vs heavy stable flying.
-        pitch_damp = (q_rps - baseline_q) * self.pitch_damp_gain / qbar
+        pitch_damp = (q_rps - baseline_q) * self.pitch_damp_gain / qbar_filt
 
         # final output command
         pitch_cmd = raw_pitch_cmd + self.integrator + pitch_damp

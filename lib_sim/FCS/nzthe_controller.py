@@ -173,7 +173,7 @@ class nzthe_controller():
         baseline_lf = fcs_node.getDouble("baseline_lf")
         az = imu_node.getDouble("az_mps2")
         # vc_mps = vel_node.getDouble("vc_mps")
-        qbar = fcs_node.getDouble("qbar")
+        qbar_filt = fcs_node.getDouble("qbar_filt")
 
         # Condition and limit the pilot request
         ref_az = g * (1 + self.az_helper.get_ref_value(load_factor_request-1, baseline_lf-1, theta_deg, flying_confidence))
@@ -186,7 +186,7 @@ class nzthe_controller():
         elif flying_confidence > 0.9:
             self.on_ground = False
         alpha_limit_deg = 13
-        ep_max_az = inv_alpha_func(flaps_norm, alpha_limit_deg, qbar)
+        ep_max_az = inv_alpha_func(flaps_norm, alpha_limit_deg, qbar_filt)
         print("env prot max az: %.3f  ref: %.3f" % (ep_max_az, ref_az))
         if self.on_ground:
             # no envelope protection for pitch/az/speed/alpha
@@ -196,26 +196,26 @@ class nzthe_controller():
             if ref_az < ep_max_az: ref_az = ep_max_az
 
         # model-based estimate of direct surface position to achieve the command
-        model_pitch_cmd = self.lon_func(flaps_norm, ref_az, qbar)
+        model_pitch_cmd = self.lon_func(flaps_norm, ref_az, qbar_filt)
         if not self.on_ground:
-            self.fit_func_update(flaps_norm, ref_az, qbar, elev_norm, dt)
-        fit_pitch_cmd = self.fit_func_interp(flaps_norm, ref_az, qbar)
+            self.fit_func_update(flaps_norm, ref_az, qbar_filt, elev_norm, dt)
+        fit_pitch_cmd = self.fit_func_interp(flaps_norm, ref_az, qbar_filt)
         print("mdl: %.2f  fit: %.2f" % (model_pitch_cmd, fit_pitch_cmd))
 
         # hack to work around simulation model error
-        model_pitch_cmd -= 225 / qbar
+        model_pitch_cmd -= 225 / qbar_filt
 
         # pid controller accounts for model errors
 
         # gain schedule on qbar (needs to be schedule on qbar, I check vc and no scheduling just to be sure)
-        self.pid.Kp = 30 / qbar
+        self.pid.Kp = 30 / qbar_filt
 
         self.pid.max_integrator = 0.75 * flying_confidence
         pid_pitch_cmd = self.pid.update(dt, az, ref_az)
 
         # dampers, these can be tuned to pilot preference for lighter finger tip
         # flying vs heavy stable flying.
-        pitch_damp = (q_rps - baseline_q) * self.pitch_damp_gain / qbar
+        pitch_damp = (q_rps - baseline_q) * self.pitch_damp_gain / qbar_filt
 
         # final output command
         # pitch_cmd = model_pitch_cmd + pid_pitch_cmd + pitch_damp

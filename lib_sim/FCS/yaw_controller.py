@@ -29,19 +29,19 @@ class r_controller():
         r_rps = imu_node.getDouble("r_rps")
         baseline_r = fcs_node.getDouble("baseline_r")
         ay = imu_node.getDouble("ay_mps2")
-        qbar = fcs_node.getDouble("qbar")
+        qbar_filt = fcs_node.getDouble("qbar_filt")
 
         # Condition and limit the pilot requests
         # ref_r = self.yaw_helper.get_ref_value(yaw_rate_request, baseline_r, min_r, max_r, psi_deg, flying_confidence)
         ref_r = yaw_rate_request + baseline_r
 
         # compute the direct surface position to achieve the command
-        raw_yaw_cmd = self.lat_func(ref_r, qbar, ay)
+        raw_yaw_cmd = self.lat_func(ref_r, qbar_filt, ay)
         # print("roll_cmd:", raw_roll_cmd)
 
         # dampers, these can be tuned to pilot preference for lighter finger tip
         # flying vs heavy stable flying.
-        yaw_damp = (r_rps - baseline_r) * self.yaw_damp_gain / qbar
+        yaw_damp = (r_rps - baseline_r) * self.yaw_damp_gain / qbar_filt
 
         # final output command
         yaw_cmd = raw_yaw_cmd - yaw_damp

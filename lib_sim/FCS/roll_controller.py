@@ -49,7 +49,7 @@ class p_controller():
         p_rps = imu_node.getDouble("p_rps")
         ay = imu_node.getDouble("ay_mps2")
         az = imu_node.getDouble("az_mps2")
-        qbar = fcs_node.getDouble("qbar")
+        qbar_filt = fcs_node.getDouble("qbar_filt")
         elevator = fcs_node.getDouble("posElev_norm")
         rudder = fcs_node.getDouble("posRud_norm")
 
@@ -70,16 +70,16 @@ class p_controller():
         if ref_p > max_p: ref_p = max_p
 
         # model-based estimate of direct surface position to achieve the command
-        model_roll_cmd = self.lat_func(ref_p, qbar, elevator, rudder, ay, az)
+        model_roll_cmd = self.lat_func(ref_p, qbar_filt, elevator, rudder, ay, az)
 
         # pid controller accounts for model errors
-        self.pid.Kp = 3000 / qbar # gain schedule on qbar
+        self.pid.Kp = 3000 / qbar_filt # gain schedule on qbar
         self.pid.max_integrator = 0.1 * flying_confidence
         pid_roll_cmd = self.pid.update(dt, p_rps, ref_p)
 
         # dampers, these can be tuned to pilot preference for lighter finger tip
         # flying vs heavy stable flying.
-        roll_damp = p_rps * self.roll_damp_gain / qbar
+        roll_damp = p_rps * self.roll_damp_gain / qbar_filt
 
         # final output command
         roll_cmd = model_roll_cmd + pid_roll_cmd - roll_damp

@@ -28,12 +28,13 @@ class FCSMgr():
         self.fcs_lon = nzthe_controller()
         # self.fcs_lon = nzu_controller()
         self.fcs_yaw = r_controller()
-        self.is_flying = IsFlying(on_ground_for_sure_mps=30, flying_for_sure_mps=35)
+        # self.is_flying = IsFlying(on_ground_for_sure_mps=30, flying_for_sure_mps=35)
+        self.is_flying = IsFlying(on_ground_for_sure_mps=10, flying_for_sure_mps=12.5)
 
         # filtered state (clamp to minimum of 25 mps because we need to divide
         # by airspeed and qbar so this must be definitely positive 100% of the time.)
-        self.vc_filt_mps = 25
-        self.vtrue_filt_mps = 25
+        self.vc_filt_mps = 12.5
+        self.vtrue_filt_mps = 12.5
 
         # fixme: this is a hack to put this here. But for now we start out with
         # manual/joystick flight control and if we receive remote (HIL) effector
@@ -46,14 +47,14 @@ class FCSMgr():
 
         # velocity terms
         vc_mps = vel_node.getDouble("vc_mps")
-        if vc_mps < 25: vc_mps = 25
+        if vc_mps < 10: vc_mps = 10
         self.vc_filt_mps = 0.99 * self.vc_filt_mps + 0.01 * vc_mps
         vtrue_mps = vel_node.getDouble("vtrue_mps")
-        if vtrue_mps < 25: vtrue_mps = 25
+        if vtrue_mps < 10: vtrue_mps = 10
         self.vtrue_filt_mps = 0.99 * self.vtrue_filt_mps + 0.01 * vtrue_mps
-        qbar = 0.5 * self.vc_filt_mps**2 * rho
+        qbar_filt = 0.5 * self.vc_filt_mps**2 * rho
         fcs_node.setDouble("vc_filt_mps", self.vc_filt_mps)
-        fcs_node.setDouble("qbar", qbar)
+        fcs_node.setDouble("qbar_filt", qbar_filt)
 
         # alpha / beta estimates (or direct from sim model)
         if fcs_node.getDouble("flying_confidence") > 0.5:
@@ -68,7 +69,7 @@ class FCSMgr():
                 flaps_norm = fcs_node.getDouble("posFlap_norm")
                 az_mps2 = imu_node.getDouble("az_mps2")
                 print("accels: %.2f %.2f %.2f" % (imu_node.getDouble("ax_mps2"), imu_node.getDouble("ay_mps2"), az_mps2))
-                alpha_deg = alpha_func(flaps_norm, qbar, az_mps2)
+                alpha_deg = alpha_func(flaps_norm, qbar_filt, az_mps2)
                 print("alpha true: %.1f  est: %.1f diff: %.1f" % (aero_node.getDouble("alpha_deg"), alpha_deg, aero_node.getDouble("alpha_deg") - alpha_deg))
                 # beta_deg = beta_func(qbar, ay, r, rudder_cmd, throttle_cmd)  # this functions drifts and can get stuck!
                 beta_deg = aero_node.getDouble("beta_deg")
@@ -122,7 +123,7 @@ class FCSMgr():
 
     def update(self, dt):
         flaps_norm = fcs_node.getDouble("posFlap_norm")
-        qbar_filt = fcs_node.getDouble("qbar")
+        qbar_filt = fcs_node.getDouble("qbar_filt")
 
         # in the air vs on the ground?  (uses a sigmoid function between
         # threshold speeds)
