@@ -340,7 +340,7 @@ class JSBSimWrap:
         pos_node.setDouble("geod_alt_m", self.fdm['position/geod-alt-ft'] * ft2m)
         pos_node.setDouble("h_sl_m", self.fdm['position/h-sl-ft'] * ft2m)
         pos_node.setDouble("h_agl_m", self.fdm['position/h-agl-ft'] * ft2m)
-        pos_node.setDouble("WOW", self.fdm['gear/wow']) # for lack of a better place for now
+        pos_node.setBool("WOW", self.fdm['gear/wow']) # for lack of a better place for now
 
         # Velocities
         vel_node.setDouble("vtrue_mps", self.fdm['velocities/vtrue-fps'] * ft2m)
