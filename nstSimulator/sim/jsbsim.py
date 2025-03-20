@@ -191,20 +191,20 @@ class JSBSimWrap:
         self.fdm['fcs/rudder-cmd-norm'] = -control_node.getDouble("rudder")
 
         # 3 position flap dance
-        flap_pos = self.fdm['fcs/flap-pos-norm']
-        print("flaps:", flap_pos, abs(flap_pos % 0.5))
-        if abs(flap_pos % 0.5) < 0.01:
-            if control_node.getBool("flaps_down"):
-                flap_pos = int((flap_pos + 0.5)*2) * 0.5
-                if flap_pos > 1.0: flap_pos = 1.0
-                print("flaps down:", flap_pos)
-                self.fdm['fcs/flap-cmd-norm'] = flap_pos
-            if control_node.getBool("flaps_up"):
-                flap_pos = int((flap_pos - 0.5)*2) * 0.5
-                if flap_pos < 0.0: flap_pos = 0.0
-                print("flaps up:", flap_pos)
-                self.fdm['fcs/flap-cmd-norm'] = flap_pos
-        # self.fdm['fcs/flap-cmd-norm'] = inceptors_node.getDouble("cmdFlap_norm")
+        # flap_pos = self.fdm['fcs/flap-pos-norm']
+        # print("flaps:", flap_pos, abs(flap_pos % 0.5))
+        # if abs(flap_pos % 0.5) < 0.01:
+        #     if control_node.getBool("flaps_down"):
+        #         flap_pos = int((flap_pos + 0.5)*2) * 0.5
+        #         if flap_pos > 1.0: flap_pos = 1.0
+        #         print("flaps down:", flap_pos)
+        #         self.fdm['fcs/flap-cmd-norm'] = flap_pos
+        #     if control_node.getBool("flaps_up"):
+        #         flap_pos = int((flap_pos - 0.5)*2) * 0.5
+        #         if flap_pos < 0.0: flap_pos = 0.0
+        #         print("flaps up:", flap_pos)
+        #         self.fdm['fcs/flap-cmd-norm'] = flap_pos
+        self.fdm['fcs/flap-cmd-norm'] = inceptors_node.getDouble("cmdFlap_norm")
 
         if updateWind:
             self.UpdateWind()
