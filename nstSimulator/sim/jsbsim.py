@@ -205,6 +205,8 @@ class JSBSimWrap:
         #         print("flaps up:", flap_pos)
         #         self.fdm['fcs/flap-cmd-norm'] = flap_pos
         self.fdm['fcs/flap-cmd-norm'] = inceptors_node.getDouble("cmdFlap_norm")
+        self.fdm['fcs/left-brake-cmd-norm'] = inceptors_node.getDouble("brakeSym_nd")
+        self.fdm['fcs/right-brake-cmd-norm'] = inceptors_node.getDouble("brakeSym_nd")
 
         if updateWind:
             self.UpdateWind()
