@@ -32,6 +32,9 @@ from lib_vis import cam, fog, light
 # seems like a good idea
 loadPrcFileData("", "compressed-textures 1") # compress textures when we load/save them
 
+# antialiasing?
+loadPrcFileData("", "multisamples 1")
+
 # Performance monitors
 loadPrcFileData("", "show-frame-rate-meter 1") # uncomment to show FPS meter
 loadPrcFileData("", "want-pstats 1") # uncomment for pstats
@@ -65,9 +68,9 @@ config = {
     },
     "world": {
         # "airports": True,  # future devel
-        "ground": "bing",    # maptiler, bing, google, or polygon.  Add +wireframe (i.e. polygon+wireframe) to show the underlying mesh structure as wireframe
-        "max_zoom": 17,      # 15 is max for maptiler, 17 good for bing (18 works, but greatly increases the workload and the tile loading can get way behind)
-        "max_rwy_zoom": 19,
+        # "ground": "bing",    # maptiler, bing, google, or polygon.  Add +wireframe (i.e. polygon+wireframe) to show the underlying mesh structure as wireframe
+        # "max_zoom": 17,      # 15 is max for maptiler, 17 good for bing (18 works, but greatly increases the workload and the tile loading can get way behind)
+        # "max_rwy_zoom": 19,
         "sky": "skybox",     # skybox
     },
 }
@@ -130,6 +133,8 @@ class SceneryViewer(ShowBase):
 
         if False:
             self.taskMgr.add(self.postRenderTask, "screenshot", priority=55)  # after igLoop, but before audioLoop
+
+        render.setAntialias(AntialiasAttrib.MMultisample, 1)  # increase n for better AA quality?
 
     def updateTask(self, task):
         # communicate
