@@ -56,17 +56,19 @@ class IntervalBinnedFit():
         self.total_count = 0
         self.bins = {}
         self.fit_model = [0, 0]
+        self.xp = []
+        self.fp = []
 
     def AddData(self, x, y, dt):
         # compute bin
         # print("%.3f" % (((x - self.minx) / self.range) * self.num_bins))
         key = round( floor(x / self.bin_width) * self.bin_width + self.half_bin_width, self.bin_round )
-        print("%.6f" % key)
+        # print("%.6f" % key)
         self.total_count += 1
         if not key in self.bins:
             self.bins[key] = AverageBin(key)
         self.bins[key].AddData(y, dt)
-        print("x:", x, "key:", key)
+        # print("x:", x, "key:", key)
 
     def FitModel(self):
         self.xp = []
@@ -108,7 +110,7 @@ class old_RangeBinnedFit():
         bin_num = int(((x - self.minx) / self.range) * self.num_bins)
         if bin_num >= self.num_bins:
             bin_num = self.num_bins - 1
-        print("x:", x, "bin_num:", bin_num)
+        # print("x:", x, "bin_num:", bin_num)
         self.bins[bin_num].AddData(y, dt)
 
     def FitModel(self):
