@@ -40,7 +40,76 @@ class Animation():
         pass
 
 
-class Arc2d():
+def gen_ArcLine2d(color4=(0.9, 0.1, 0.1, 0.7), center_x=0, center_y=0, scale=1, width=1, start=0, end=360, steps=0, tic_list=[], label_list=[]):
+    group_node = NodePath("group")
+    group_node.setLightOff(1)
+
+    if not steps:
+        steps = int(round((end - start) / 10)) + 1
+    if steps < 2:
+        steps = 2
+
+    divs_rad = (90 - np.linspace(start, end, steps)) * d2r
+    print("divs:", divs_rad)
+
+    ls = LineSegs()
+    ls.setThickness(width)
+    ls.setColor(color4)
+
+    first = True
+    for a in divs_rad:
+        x1 = center_x + cos(a) * scale
+        y1 = center_y + sin(a) * scale
+        print(x1, y1)
+        if first:
+            first = False
+            ls.moveTo(x1, y1, 0)
+        else:
+            ls.drawTo(x1, y1, 0)
+
+    for tics in tic_list:
+        for a_deg in range(start, end+1, tics[0]):
+            a_rad = (90 - a_deg) * d2r
+            x1 = center_x + cos(a_rad) * scale
+            y1 = center_y + sin(a_rad) * scale
+            x2 = center_x + cos(a_rad) * (scale*tics[1])
+            y2 = center_y + sin(a_rad) * (scale*tics[1])
+            ls.moveTo(x1, y1, 0)
+            ls.drawTo(x2, y2, 0)
+
+    line_node = NodePath(ls.create())
+    line_node.setAntialias(AntialiasAttrib.MLine)
+    line_node.reparentTo(group_node)
+
+    for label in label_list:
+        text = TextNode("text")
+        text.setFont(get_B612_font())
+        text.setText(label[1])
+        text.setAlign(TextNode.ACenter)
+        text.setTextColor(color4)
+        text_node = NodePath("text")
+        text_node.attachNewNode(text)
+        # text_node.setScale(int(round(scale/10)))
+        # text_node.setSx(int(round(scale/10)))
+        # text_node.setSy(3*int(round(scale/10)))
+        text_node.setScale(int(round(scale/10)), int(round(scale/10)), 3*int(round(scale/10)))
+        # self.node.setBin("fixed", 1)
+
+        bounds = text_node.getTightBounds()
+        print("bounds:", bounds)
+        xsize = bounds[1][0] - bounds[0][0]
+        ysize = bounds[1][2] - bounds[0][2]
+        # # print("ysize:", ysize)
+        a_rad = (90 - label[0]) * d2r
+        x1 = center_x + cos(a_rad) * scale * 1.01
+        y1 = center_y + sin(a_rad) * scale * 1.01
+        text_node.setPos(x1, y1, 0)
+        text_node.setHpr(-label[0], -90, 0)
+        text_node.reparentTo(group_node)
+
+    return group_node
+
+class ArcPoly2d():
     def __init__(self, color4=(0.9, 0.1, 0.1, 0.7), center_x=0, center_y=0, radius=0.5, width=0.1, start=0, end=360, steps=0):
         if not steps:
             steps = int(round((end - start) / 10)) + 1
@@ -137,9 +206,17 @@ class Guage():
         self.size = size
         self.layers = []
 
-        # Arc2d((0.9, 0.2, 0.2, 0.5), 0, 0, 0.5, 0.2, 10, 350)
+        # ArcPoly2d((0.9, 0.2, 0.2, 0.5), 0, 0, 0.5, 0.2, 10, 350)
         self.asi = Text2d((0.2, 0.9, 0.2, 0.75), -0.75, 0, 0.1, "/velocity/vc_kts_filt", format="%.0f kt")
         self.alt = Text2d((0.2, 0.9, 0.2, 0.75),  0.75, 0, 0.1, "/position/alt_msl_filt", format="%.0f msl")
+
+        node = render.attachNewNode("circle")
+        circle = gen_ArcLine2d(color4=(1, 1, 1, 1), center_x=0, center_y=0, scale=2500, width=0.5, steps=72,
+                               tic_list=[[10, 0.9], [1, 0.95]],
+                               label_list=[[0, "North"], [90, "East"], [180, "South"], [270, "West"]])
+        circle.setPos(0, 0, 100)
+        circle.reparentTo(node)
+
         # for i, layer in enumerate(config):
         #     if "texture" in layer: texture = layer["texture"]
         #     else: texture = ""
