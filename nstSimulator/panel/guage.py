@@ -101,8 +101,8 @@ def gen_ArcLine2d(color4=(0.9, 0.1, 0.1, 0.7), center_x=0, center_y=0, scale=1, 
         ysize = bounds[1][2] - bounds[0][2]
         # # print("ysize:", ysize)
         a_rad = (90 - label[0]) * d2r
-        x1 = center_x + cos(a_rad) * scale * 1.01
-        y1 = center_y + sin(a_rad) * scale * 1.01
+        x1 = center_x + cos(a_rad) * scale * label[2]
+        y1 = center_y + sin(a_rad) * scale * label[2]
         text_node.setPos(x1, y1, 0)
         text_node.setHpr(-label[0], -90, 0)
         text_node.reparentTo(group_node)
@@ -211,9 +211,9 @@ class Guage():
         self.alt = Text2d((0.2, 0.9, 0.2, 0.75),  0.75, 0, 0.1, "/position/alt_msl_filt", format="%.0f msl")
 
         node = render.attachNewNode("circle")
-        circle = gen_ArcLine2d(color4=(1, 1, 1, 1), center_x=0, center_y=0, scale=2500, width=0.5, steps=72,
-                               tic_list=[[10, 0.9], [1, 0.95]],
-                               label_list=[[0, "North"], [90, "East"], [180, "South"], [270, "West"]])
+        circle = gen_ArcLine2d(color4=(1, 1, 1, 1), center_x=0, center_y=0, scale=2500, width=1, steps=72,
+                               tic_list=[[10, 0.85], [1, 0.95]],
+                               label_list=[[0, "North", 1.03], [90, "East", 1.03], [180, "South", 1.03], [270, "West", 1.03]])
         circle.setPos(0, 0, 100)
         circle.reparentTo(node)
 
