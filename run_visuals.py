@@ -32,7 +32,7 @@ from lib_vis import cam, fog, light
 # seems like a good idea
 loadPrcFileData("", "compressed-textures 1") # compress textures when we load/save them
 
-# antialiasing?
+# antialiasing
 loadPrcFileData("", "multisamples 1")
 
 # Performance monitors
