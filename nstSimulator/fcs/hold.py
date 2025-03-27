@@ -17,7 +17,34 @@
 # limits can be applied /after/ the feed forward is added to avoid over
 # stressing the airframe.
 
-class HoldOrPassThrough():
+class NeutralHold():
+    def __init__(self, name, min_hold_limit, max_hold_limit, neutral_tolerance, debug=False):
+        self.name = name
+        self.tol = neutral_tolerance
+        self.cmd_neutral = True
+        self.min_hold_limit = min_hold_limit
+        self.max_hold_limit = max_hold_limit
+        self.hold_cmd = 0.0
+        self.debug = debug
+
+    def get_ref_value(self, input_cmd, cur_val, flying_confidence):
+        if flying_confidence < 0.01:
+            self.hold_cmd = cur_val
+
+        if abs(input_cmd) < self.tol:
+            if not self.cmd_neutral:
+                # print("set neutral:", self.name)
+                self.hold_cmd = cur_val
+                self.cmd_neutral = True
+        else:
+            self.cmd_neutral = False
+
+        if self.hold_cmd < self.min_hold_limit: self.hold_cmd = self.min_hold_limit
+        if self.hold_cmd > self.max_hold_limit: self.hold_cmd = self.max_hold_limit
+
+        return self.cmd_neutral, self.hold_cmd
+
+class OlderHoldOrPassThrough():
     def __init__(self, name, min_hold_limit, max_hold_limit, min_ref_limit, max_ref_limit, neutral_tolerance, hold_gain=0.1, debug=False):
         self.name = name
         self.tol = neutral_tolerance
@@ -27,7 +54,6 @@ class HoldOrPassThrough():
         self.min_ref_limit = min_ref_limit
         self.max_ref_limit = max_ref_limit
         self.hold_cmd = 0.0
-        self.error_sum = 0.0
         self.hold_gain = hold_gain
         self.debug = debug
 
