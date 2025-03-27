@@ -1,29 +1,15 @@
 from math import cos, sin
 import numpy as np
-import os
 from panda3d.core import *
 
 from PropertyTree import PropertyNode
-from nstSimulator.utils.constants import d2r, m2ft
+from nstSimulator.utils.graphics.fonts import get_B612_font
+from nstSimulator.utils.constants import d2r
 
 config = [
     { "texture": "data/textures/flaps_face.png" },
     { "texture": "data/textures/flaps_needle.png", "xscale": 0.8, "yscale": 0.5, "xpos": -0.8, "ypos": 0.0, "rotate_deg": { "prop": "/fcs/flaps_norm", "scale": 40 } }
 ]
-
-# fixme, is there a better place/way for this?  We just want to load the font
-# once, but we need panda3d initialized first.
-B612_font = None
-def get_B612_font():
-    global B612_font
-    if not B612_font:
-        file_path = os.path.dirname(os.path.realpath(__file__))
-        base_path = os.path.join(file_path, "../data/fonts")
-        print("loading: ", os.path.join(base_path, "B612-Regular.ttf"))
-        B612_font = loader.loadFont(str(Filename.fromOsSpecific(os.path.join(base_path, "B612-Regular.ttf"))))
-        B612_font.setPageSize(512,512)
-        B612_font.setPixelsPerUnit(80)
-    return B612_font
 
 def parse_prop(prop):
     pos = prop.rfind("/")
@@ -40,74 +26,6 @@ class Animation():
         pass
 
 
-def gen_ArcLine2d(color4=(0.9, 0.1, 0.1, 0.7), center_x=0, center_y=0, scale=1, width=1, start=0, end=360, steps=0, tic_list=[], label_list=[]):
-    group_node = NodePath("group")
-    group_node.setLightOff(1)
-
-    if not steps:
-        steps = int(round((end - start) / 10)) + 1
-    if steps < 2:
-        steps = 2
-
-    divs_rad = (90 - np.linspace(start, end, steps)) * d2r
-    print("divs:", divs_rad)
-
-    ls = LineSegs()
-    ls.setThickness(width)
-    ls.setColor(color4)
-
-    first = True
-    for a in divs_rad:
-        x1 = center_x + cos(a) * scale
-        y1 = center_y + sin(a) * scale
-        print(x1, y1)
-        if first:
-            first = False
-            ls.moveTo(x1, y1, 0)
-        else:
-            ls.drawTo(x1, y1, 0)
-
-    for tics in tic_list:
-        for a_deg in range(start, end+1, tics[0]):
-            a_rad = (90 - a_deg) * d2r
-            x1 = center_x + cos(a_rad) * scale
-            y1 = center_y + sin(a_rad) * scale
-            x2 = center_x + cos(a_rad) * (scale*tics[1])
-            y2 = center_y + sin(a_rad) * (scale*tics[1])
-            ls.moveTo(x1, y1, 0)
-            ls.drawTo(x2, y2, 0)
-
-    line_node = NodePath(ls.create())
-    line_node.setAntialias(AntialiasAttrib.MLine)
-    line_node.reparentTo(group_node)
-
-    for label in label_list:
-        text = TextNode("text")
-        text.setFont(get_B612_font())
-        text.setText(label[1])
-        text.setAlign(TextNode.ACenter)
-        text.setTextColor(color4)
-        text_node = NodePath("text")
-        text_node.attachNewNode(text)
-        # text_node.setScale(int(round(scale/10)))
-        # text_node.setSx(int(round(scale/10)))
-        # text_node.setSy(3*int(round(scale/10)))
-        text_node.setScale(int(round(scale/10)), int(round(scale/10)), 3*int(round(scale/10)))
-        # self.node.setBin("fixed", 1)
-
-        bounds = text_node.getTightBounds()
-        print("bounds:", bounds)
-        xsize = bounds[1][0] - bounds[0][0]
-        ysize = bounds[1][2] - bounds[0][2]
-        # # print("ysize:", ysize)
-        a_rad = (90 - label[0]) * d2r
-        x1 = center_x + cos(a_rad) * scale * label[2]
-        y1 = center_y + sin(a_rad) * scale * label[2]
-        text_node.setPos(x1, y1, 0)
-        text_node.setHpr(-label[0], -90, 0)
-        text_node.reparentTo(group_node)
-
-    return group_node
 
 class ArcPoly2d():
     def __init__(self, color4=(0.9, 0.1, 0.1, 0.7), center_x=0, center_y=0, radius=0.5, width=0.1, start=0, end=360, steps=0):
