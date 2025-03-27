@@ -1,47 +1,36 @@
 # build a circle (arc) out of a line primative, optionally add tics and labels.
 
-from math import cos, sin
-import numpy as np
 from panda3d.core import *
 
-from nstSimulator.utils.constants import d2r
 from nstSimulator.utils.graphics.fonts import get_B612_font
+from .arc import gen_arc, gen_arc_list
 
 class ArcLine2d():
-    def __init__(self, color4=(0.9, 0.1, 0.1, 0.7), scale=1, width=1, start=0, end=360, steps=0, font_scale=(0.1, 0.3), tic_list=[], label_list=[]):
+    def __init__(self, color4=(0.9, 0.1, 0.1, 0.7), radius=1, width=1, start_deg=0, end_deg=360, steps=10, font_scale=(0.1, 0.3), tic_list=[], label_radius=1, label_list=[]):
         self.group_node = NodePath("group")
         self.group_node.setLightOff(1)
 
-        if not steps:
-            steps = int(round((end - start) / 10)) + 1
-        if steps < 2:
-            steps = 2
-
-        divs_rad = (90 - np.linspace(start, end, steps)) * d2r
-        print("divs:", divs_rad)
+        ring_coords = gen_arc(radius, start_deg, end_deg, steps)
 
         ls = LineSegs()
         ls.setThickness(width)
         ls.setColor(color4)
 
         first = True
-        for a in divs_rad:
-            x1 = cos(a) * scale
-            y1 = sin(a) * scale
-            print(x1, y1)
+        for (x, y) in ring_coords:
             if first:
                 first = False
-                ls.moveTo(x1, y1, 0)
+                ls.moveTo(x, y, 0)
             else:
-                ls.drawTo(x1, y1, 0)
+                ls.drawTo(x, y, 0)
 
-        for tics in tic_list:
-            for a_deg in range(start, end+1, tics[0]):
-                a_rad = (90 - a_deg) * d2r
-                x1 = cos(a_rad) * scale
-                y1 = sin(a_rad) * scale
-                x2 = cos(a_rad) * (scale*tics[1])
-                y2 = sin(a_rad) * (scale*tics[1])
+        for [tic_steps, tic_scale] in tic_list:
+            tic_outer = gen_arc(radius, start_deg, end_deg, tic_steps)
+            tic_inner = gen_arc(radius*tic_scale, start_deg, end_deg, tic_steps)
+
+            for i in range(len(tic_outer)):
+                (x1, y1) = tic_outer[i]
+                (x2, y2) = tic_inner[i]
                 ls.moveTo(x1, y1, 0)
                 ls.drawTo(x2, y2, 0)
 
@@ -49,7 +38,13 @@ class ArcLine2d():
         line_node.setAntialias(AntialiasAttrib.MLine)
         line_node.reparentTo(self.group_node)
 
+        angle_list = []
         for label in label_list:
+            angle_list.append(label[0])
+        label_coords = gen_arc_list(label_radius, angle_list)
+
+        for i in range(len(label_list)):
+            label = label_list[i]
             text = TextNode("text")
             text.setFont(get_B612_font())
             text.setText(label[1])
@@ -57,15 +52,8 @@ class ArcLine2d():
             text.setTextColor(color4)
             text_node = NodePath("text")
             text_node.attachNewNode(text)
-            # text_node.setScale(int(round(scale/10)))
-            # text_node.setSx(int(round(scale/10)))
-            # text_node.setSy(3*int(round(scale/10)))
             text_node.setScale(font_scale[0], font_scale[0], font_scale[1])
-            # self.node.setBin("fixed", 1)
-
-            a_rad = (90 - label[0]) * d2r
-            x1 = cos(a_rad) * scale * label[2]
-            y1 = sin(a_rad) * scale * label[2]
-            text_node.setPos(x1, y1, 0)
+            (x, y) = label_coords[i]
+            text_node.setPos(x, y, 0)
             text_node.setHpr(-label[0], -90, 0)
             text_node.reparentTo(self.group_node)

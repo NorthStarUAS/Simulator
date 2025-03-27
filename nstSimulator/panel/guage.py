@@ -25,46 +25,6 @@ class Animation():
     def __init__(self):
         pass
 
-
-
-class ArcPoly2d():
-    def __init__(self, color4=(0.9, 0.1, 0.1, 0.7), center_x=0, center_y=0, radius=0.5, width=0.1, start=0, end=360, steps=0):
-        if not steps:
-            steps = int(round((end - start) / 10)) + 1
-        if steps < 2:
-            steps = 2
-        self.steps = steps
-
-        divs_rad = (90 - np.linspace(start, end, self.steps)) * d2r
-        print("divs:", divs_rad)
-
-        format = GeomVertexFormat.getV3()
-        self.vdata = GeomVertexData("arc", format, Geom.UHStatic)
-        self.vdata.setNumRows(self.steps * 2)
-        vertex = GeomVertexRewriter(self.vdata, "vertex")
-
-        for a in divs_rad:
-            x1 = cos(a) * (radius - width)
-            x2 = cos(a) * (radius + width)
-            y1 = sin(a) * (radius - width)
-            y2 = sin(a) * (radius + width)
-            print(x1, x2, y1, y2)
-            vertex.addData3(center_x + x1, 0, center_y + y1)
-            vertex.addData3(center_x + x2, 0, center_y + y2)
-
-        prim = GeomTristrips(Geom.UHStatic) # don't expect geometry to change
-        prim.add_consecutive_vertices(0, self.steps*2)
-        prim.closePrimitive()
-        geom = Geom(self.vdata)
-        geom.addPrimitive(prim)
-        node = GeomNode("geom")
-        node.addGeom(geom)
-        self.arc = aspect2d.attachNewNode(node)
-        self.arc.setTwoSided(True)
-        self.arc.setColor(color4)
-        self.arc.setTransparency(TransparencyAttrib.MAlpha)
-        #self.update(0, 0)
-
 class Text2d():
     def __init__(self, color4=(0.9, 0.1, 0.1, 0.7), center_x=0, center_y=0, size=0.5, prop="/constants/zero", format="%.0f kts", scale=1.0, pad=0.1):
         self.prop_node, self.prop_attr = parse_prop(prop)
