@@ -80,7 +80,7 @@ class IntervalBinnedFit():
             self.w.append(bin.count / self.total_count)
         if len(self.xp):
             self.fit_model = np.polyfit(self.xp, self.fp, deg=1, w=self.w)
-            print("polyfit:", self.fit_model)
+            # print("polyfit:", self.fit_model)
 
     def Interp(self, x):
         return self.fit_model[0]*x + self.fit_model[1]
