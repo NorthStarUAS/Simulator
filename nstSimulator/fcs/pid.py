@@ -27,9 +27,11 @@ class ap_pid_t:
         self.iterm = 0
         self.max_integrator = -1
         self.output = 0
+        self.reset_output_val = 0
 
-    def reset(self):
+    def reset(self, output_val):
         self.do_reset = True
+        self.reset_output_val = output_val
 
     # y = input value (current sensor value)
     # r = reference value (target/goal value)
@@ -67,12 +69,14 @@ class ap_pid_t:
                 # if the reset flag is set, back compute an iterm that will
                 # produce zero output transient (overwriting the existing iterm)
                 # then unset the do_reset flag.
-                print("resetting...")
+                print("resetting u_n:", self.reset_output_val)
                 self.do_reset = False
-                u_n = self.output
+                self.y_n_1 = self.y_n  # so first dy isn't crazy
+                u_n = self.reset_output_val
                 if u_n < self.u_min: u_n = self.u_min
                 if u_n > self.u_max: u_n = self.u_max
                 self.iterm = u_n - pterm
+                # print("  new iterm:", self.iterm)
         else:
             self.iterm = 0.0
 
@@ -82,17 +86,18 @@ class ap_pid_t:
         dy = self.y_n - self.y_n_1
         self.y_n_1 = self.y_n
         dterm = Kd * -dy / dt
+        if self.debug: print("  Kd: %.3f  dy: %.3f  dt: %.3f" % (Kd, dy, dt))
 
         self.output = pterm + self.iterm + dterm
 
         # output clipping and integrator windup protection
         if self.output < self.u_min:
             if self.Ti > 0.0001:
-                self.iterm += self.u_min - self.output
+                self.iterm += self.u_min - self.output  # fixme: should this be computed without the dterm?
             self.output = self.u_min
         if self.output > self.u_max:
             if self.Ti > 0.0001:
-                self.iterm -= self.output - self.u_max
+                self.iterm -= self.output - self.u_max  # fixme: should this be computed without the dterm?
             self.output = self.u_max
 
         # max integrator clipping (if specified)
@@ -100,7 +105,7 @@ class ap_pid_t:
             if self.iterm < -self.max_integrator: self.iterm = -self.max_integrator
             if self.iterm > self.max_integrator: self.iterm = self.max_integrator
 
-        if self.debug: print("pterm = %.3f iterm = %.3f output = %.3f" % (pterm, self.iterm, self.output))
+        if self.debug: print("pterm = %.3f + iterm = %.3f + dterm = %.3f = output = %.3f" % (pterm, self.iterm, dterm, self.output))
 
         if not self.enable:
             # this will force a reset when component becomes enabled
