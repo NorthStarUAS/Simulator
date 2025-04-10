@@ -4,6 +4,9 @@ from panda3d.core import *
 
 from PropertyTree import PropertyNode
 from nstSimulator.utils.graphics.fonts import get_B612_font
+from nstSimulator.utils.graphics.arcline import ArcLine2d
+from nstSimulator.utils.graphics.circlepoly import CirclePoly2d
+from nstSimulator.utils.graphics.label import Label2d
 from nstSimulator.utils.constants import d2r
 
 config = [
@@ -89,11 +92,17 @@ class Guage():
         self.alt = Text2d((0.2, 0.9, 0.2, 0.75),  0.75, 0, 0.1, "/position/alt_msl_filt", format="%.0f msl")
 
         node = render.attachNewNode("circle")
-        circle = gen_ArcLine2d(color4=(1, 1, 1, 1), center_x=0, center_y=0, scale=2500, width=1, steps=72,
-                               tic_list=[[10, 0.85], [1, 0.95]],
-                               label_list=[[0, "North", 1.03], [90, "East", 1.03], [180, "South", 1.03], [270, "West", 1.03]])
-        circle.setPos(0, 0, 100)
-        circle.reparentTo(node)
+        circle = ArcLine2d(color4=(1, 1, 1, 1), radius=2500, width=1, steps=72,
+                           tic_list=[[10, 0.85], [1, 0.95]],
+                           label_list=[[0, "North", 1.03], [90, "East", 1.03], [180, "South", 1.03], [270, "West", 1.03]])
+        circle.group_node.setPos(0, 0, 100)
+        circle.group_node.reparentTo(node)
+
+        circle = CirclePoly2d(color4=(0.2, 0.2, 0.9, 0.5), radius=0.1, start_deg=0, end_deg=360, steps=36)
+        circle.node.setBin("fixed", 0)
+
+        label = Label2d(color4=(0.2, 0.9, 0.2, 0.75), size=0.1, format="ABC")
+        label.setDrawOrder(2)
 
         # for i, layer in enumerate(config):
         #     if "texture" in layer: texture = layer["texture"]
