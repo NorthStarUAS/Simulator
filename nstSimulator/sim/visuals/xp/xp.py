@@ -33,6 +33,8 @@ class XPlane():
         self.power_filt = 0
         self.prop_rotation_angle_deg = 0
 
+        self.timer = 0
+
         print("Searching for x-plane on the LAN...")
         try:
             beacon = self.xp.FindIp()
@@ -56,11 +58,11 @@ class XPlane():
         if self.xp_ip is not None:
             self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
-    def update(self):
+    def update(self, dt):
         if self.xp_ip is None:
             return
         self.send()
-        self.receive()
+        self.receive(dt)
 
     def send_data_ref(self, name, value):
         msg = struct.pack('<4sxf500s', b'DREF',
@@ -141,12 +143,16 @@ class XPlane():
                   phi_deg)        # roll, degrees
             self.sock.sendto(msg, (self.xp_ip, self.xp_port))
 
-    def receive(self):
+    def receive(self, dt):
         values = self.xp.GetValues()
         if self.msl_name in values and self.agl_name in values:
-            msl = values[self.msl_name]
-            agl = values[self.agl_name]
-            # print(values)
-            ground_elev_m = (msl - agl) - 4.7*ft2m
-            # print("AGL (ft):", agl*m2ft, "Ground (ft):", ground_elev_ft)
-            pos_node.setDouble("xp_terrain_elevation_m", ground_elev_m)
+            self.timer += dt
+            if self.timer > 1:
+                msl = values[self.msl_name]
+                agl = values[self.agl_name]
+                # print(values)
+                ground_elev_m = (msl - agl) - 4.7*ft2m
+                # print("AGL (ft):", agl*m2ft, "Ground (ft):", ground_elev_ft)
+                pos_node.setDouble("xp_terrain_elevation_m", ground_elev_m)
+        else:
+            self.timer = 0
