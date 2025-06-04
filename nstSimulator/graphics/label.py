@@ -2,7 +2,7 @@ from panda3d.core import *
 
 from PropertyTree import PropertyNode
 
-from nstSimulator.utils.graphics.fonts import get_B612_font
+from nstSimulator.graphics.fonts import get_B612_font
 
 def parse_prop(prop):
     pos = prop.rfind("/")

@@ -3,10 +3,10 @@ import numpy as np
 from panda3d.core import *
 
 from PropertyTree import PropertyNode
-from nstSimulator.utils.graphics.fonts import get_B612_font
-from nstSimulator.utils.graphics.arcline import ArcLine2d
-from nstSimulator.utils.graphics.circlepoly import CirclePoly2d
-from nstSimulator.utils.graphics.label import Label2d
+from nstSimulator.graphics.fonts import get_B612_font
+from nstSimulator.graphics.arcline import ArcLine2d
+from nstSimulator.graphics.circlepoly import CirclePoly2d
+from nstSimulator.graphics.label import Label2d
 from nstSimulator.utils.constants import d2r
 
 config = [

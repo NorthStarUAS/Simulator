@@ -2,7 +2,7 @@
 
 from panda3d.core import *
 
-from nstSimulator.utils.graphics.fonts import get_B612_font
+from nstSimulator.graphics.fonts import get_B612_font
 from .arc import gen_arc, gen_arc_list
 
 class ArcLine2d():
