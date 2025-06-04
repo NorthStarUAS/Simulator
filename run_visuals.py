@@ -9,6 +9,8 @@ from direct.showbase.ShowBase import ShowBase # pip install panda3d
 from direct.task import Task
 from panda3d.core import *
 
+from nstSimulator.graphics.display import Display
+from nstSimulator.graphics import fog, light
 from nstSimulator.panel import panel
 from nstSimulator.world import world
 try:
@@ -20,7 +22,6 @@ except:
     print("nstSimulator package not installed, so using local tree...")
 
 from lib_vis import comms_mgr
-from lib_vis import cam, fog, light
 
 # these are supposedly the options needed for deferred texture loading...
 # loadPrcFileData("", "preload-textures 0")
@@ -49,11 +50,9 @@ config = {
         "height": 720,
         "width": 1280,
     },
-    "camera": {
-        "focal_len": 50,
-        "ccd_height": 41.52,
-        "ccd_width": 66.46,
-    },
+    "display": [
+        { "fov_deg": 60, "offset_deg": 0, "label": "Center Display" },
+    ],
     "fog": {
         "color": (0.533, 0.639, 0.722),
         # "color": (0.573, 0.569, 0.731),
@@ -93,11 +92,21 @@ class SceneryViewer(ShowBase):
 
         self.comms_mgr = comms_mgr.CommsManager()
 
-        # camera setup
-        if "camera" not in config:
-            print("Error! The config is missing a 'camera' section so we cannot continue.")
+        # display (window / camera) setup
+        if "display" not in config:
+            print("Error! The config is missing a 'display' section so we cannot continue.")
             quit()
-        self.mycam = cam.Camera(config["camera"])
+        self.displayList = []
+        for i, display_config in enumerate(config["display"]):
+            if i == 0:
+                # special case first window/camera/lens (already created by default)
+                mywin = base.win
+            else:
+                mywin = base.openWindow()
+            wp.setTitle(display_config["label"])
+            mywin.requestProperties(wp)
+            mycam = base.camList[-1]
+            self.displayList.append( Display(mywin, mycam, display_config) )
 
         if "fog" not in config:
             print("Error! The config is missing a 'fog' section so we cannot continue.")
@@ -141,7 +150,9 @@ class SceneryViewer(ShowBase):
         self.comms_mgr.update()
 
         ground_elev_m = self.world.get_elevation(self.comms_mgr.lla[0], self.comms_mgr.lla[1])
-        self.mycam.update(self.comms_mgr.nedpos, self.comms_mgr.nedvel, self.comms_mgr.hpr_deg, ground_elev_m)
+        for display in self.displayList:
+            display.update(self.comms_mgr.nedpos, self.comms_mgr.nedvel, self.comms_mgr.hpr_deg, ground_elev_m)
+
         self.comms_mgr.send(ground_elev_m)
 
         self.fog.update(-self.comms_mgr.nedpos[2])
@@ -150,8 +161,8 @@ class SceneryViewer(ShowBase):
             self.panel.update()
 
         if self.world:
-            self.world.update(self.mycam.cam_pos, self.mycam.cam_hpr, self.comms_mgr.nedref, self.comms_mgr.nedref_time,
-                              self.comms_mgr.lla, self.comms_mgr.dlat, self.comms_mgr.dlon, self.comms_mgr.dalt)
+            self.world.update(self.displayList[0].cam_pos, self.displayList[0].cam_hpr, self.comms_mgr.nedref, self.comms_mgr.nedref_time, self.comms_mgr.lla,
+                              self.comms_mgr.dlat, self.comms_mgr.dlon, self.comms_mgr.dalt)
 
         return Task.cont
 
