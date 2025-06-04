@@ -1,23 +1,32 @@
-# opengl camera
+# blends a Panda3d window, camera, and lens for convenience (enabling multiple
+# display systems)
 
 from math import atan2, sin
 
 from panda3d.core import *
 
-from nstSimulator.utils.constants import r2d
+from nstSimulator.utils.constants import d2r, r2d
 
-min_cam_agl_m = 2.5
+min_cam_agl_m = 1.0
 
-class Camera():
-    def __init__(self, config):
+class Display():
+    def __init__(self, window, camera, config):
+        self.fov_deg = config["fov_deg"]
+        self.offset_deg = config["offset_deg"]
+
+        self.window = window
+        self.camera = camera
+        self.lens = self.camera.node().getLens()
+        self.lens.setFov(self.fov_deg)
+
         ccd_offset_x = 0
         ccd_offset_y = 0
-        print("  focal len:", config["focal_len"])
-        print("  lens center offset:", ccd_offset_x, ccd_offset_y)
-        print("  ccd dimension:", config["ccd_height"], config["ccd_width"])
+        # print("  focal len:", config["focal_len"])
+        # print("  lens center offset:", ccd_offset_x, ccd_offset_y)
+        # print("  ccd dimension:", config["ccd_height"], config["ccd_width"])
+        # self.lens.setFocalLength(config["focal_len"])
+        # self.lens.setFilmSize(config["ccd_width"], config["ccd_height"])
 
-        base.camLens.setFocalLength(config["focal_len"])
-        base.camLens.setFilmSize(config["ccd_width"], config["ccd_height"])
         self.cam_pos = LVector3f(0.0, 0.0, 0.0)
         self.cam_hpr = LVector3f(0.0, 0.0, 0.0)
         self.timer = 0
@@ -43,6 +52,7 @@ class Camera():
             # view track's ownship
             self.cam_pos = LVector3f(nedpos[1], nedpos[0], cam_elev_m)
             self.cam_hpr = LVector3f(-hpr[0], hpr[1], hpr[2])
+            # self.cam_hpr = LVector3f(-hpr[0]-self.offset_deg, hpr[1]-self.offset_deg*sin(hpr[2]*d2r), hpr[2])
             #self.cam_hpr = LVector3f(-course_filt, 0, 0)
         elif False:
             # lazy track aircraft
@@ -64,7 +74,36 @@ class Camera():
             self.cam_pos = LVector3f(nedpos[1] + factor2*250, nedpos[0] + factor3*250, -nedpos[2] + factor1*30)
             self.cam_hpr = LVector3f(-course_deg + factor2*0, factor3*0, factor4*0)
         #print(lla, nedpos)
-        camera.setPos(self.cam_pos)
-        camera.setHpr(self.cam_hpr)
+        self.camera.setPos(self.cam_pos)
+        self.camera.setHpr(self.cam_hpr)
+
+        # update aspect ratio from current window dimensions
+        x = self.window.getXSize()
+        y = self.window.getYSize()
+        # print("ar:", i, x/y)
+        self.lens.setAspectRatio(x/y)
+
+        # print("fov:", self.lens.getFov(), "ar:", self.lens.getAspectRatio())
         # print("cam set hpr:", camera.getHpr(), self.cam_hpr)
 
+        # h = LRotation((0, 0, 1), -hpr[0])
+        # p = LRotation((0, 1, 0), hpr[1])
+        # r = LRotation((1, 0, 0), hpr[2])
+        # o = LRotation((0, 0, 1), 0)
+        # print("o:", o)
+
+        # q = r*h
+        # print("q:", q, "oq:", o*q)
+
+        # # offsetq = LRotation((0, 0, 1), -self.offset_deg)
+        # self.camera.setQuat(q)
+
+        # print("up:", render.getRelativeVector(self.camera, Vec3(0,0,1)))
+        up = render.getRelativeVector(self.camera, Vec3(0,0,1))
+
+        # up = self.camera.getUpVector()
+        q = self.camera.getQuat()
+        o = LRotation(up, -self.offset_deg)
+        # o = Quat()
+        # o.setHpr((-self.offset_deg, 0, 0))
+        self.camera.setQuat(q*o)
