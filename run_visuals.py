@@ -51,7 +51,7 @@ config = {
         "width": 1280,
     },
     "display": [
-        { "fov_deg": 60, "offset_deg": 0, "label": "Center Display" },
+        { "fov_deg": 60, "offset_deg": 0, "label": "Main Display" },
     ],
     "fog": {
         "color": (0.533, 0.639, 0.722),
@@ -67,7 +67,7 @@ config = {
     },
     "world": {
         # "airports": True,  # future devel
-        # "ground": "bing",    # maptiler, bing, google, or polygon.  Add +wireframe (i.e. polygon+wireframe) to show the underlying mesh structure as wireframe
+        "ground": "bing",    # maptiler, bing, google, or polygon.  Add +wireframe (i.e. polygon+wireframe) to show the underlying mesh structure as wireframe
         # "max_zoom": 17,      # 15 is max for maptiler, 17 good for bing (18 works, but greatly increases the workload and the tile loading can get way behind)
         # "max_rwy_zoom": 19,
         "sky": "skybox",     # skybox
