@@ -29,7 +29,7 @@ from pathlib import Path
 import pickle
 
 from nstSimulator.fcs.binned_fit import IntervalBinnedFit
-from nstSimulator.fcs.hold import HoldOrPassThrough
+from nstSimulator.fcs.hold import OlderHoldOrPassThrough
 from nstSimulator.fcs.pid import ap_pid_t
 from nstSimulator.sim.lib.props import att_node, fcs_node, imu_node
 from nstSimulator.utils.constants import g
@@ -66,7 +66,7 @@ class nzthe_controller():
         self.pid.enable = True
 
         # helper
-        self.az_helper = HoldOrPassThrough("pitch", min_theta_hold, max_theta_hold, self.min_lf-1, self.max_lf-1, neutral_tolerance=0.03, hold_gain=0.1, debug=True)
+        self.az_helper = OlderHoldOrPassThrough("pitch", min_theta_hold, max_theta_hold, self.min_lf-1, self.max_lf-1, neutral_tolerance=0.03, hold_gain=0.1, debug=True)
 
         # damper gains
         self.pitch_damp_gain = 1000

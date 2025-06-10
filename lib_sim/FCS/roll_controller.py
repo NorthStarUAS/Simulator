@@ -2,7 +2,7 @@ from math import cos, sin, tan
 import numpy as np
 
 from nstSimulator.fcs.pid import ap_pid_t
-from nstSimulator.fcs.hold import HoldOrPassThrough
+from nstSimulator.fcs.hold import OlderHoldOrPassThrough
 from nstSimulator.sim.lib.props import att_node, fcs_node, imu_node
 from nstSimulator.utils.constants import d2r
 
@@ -24,7 +24,7 @@ class p_controller():
         self.pid.enable = True
 
         # helper
-        self.roll_helper = HoldOrPassThrough("roll", -phi_hold_limit_deg, phi_hold_limit_deg, -p_rate_limit_rps, p_rate_limit_rps, neutral_tolerance=0.02, hold_gain=0.05)
+        self.roll_helper = OlderHoldOrPassThrough("roll", -phi_hold_limit_deg, phi_hold_limit_deg, -p_rate_limit_rps, p_rate_limit_rps, neutral_tolerance=0.02, hold_gain=0.05)
 
         # damper gains
         self.roll_damp_gain = 2000.0

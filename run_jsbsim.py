@@ -106,10 +106,11 @@ fcs = FCSMgr()
 start_time = time.time()
 
 def update():
+    dt=1/args.hz
     joystick.update()
     hil.read()
     if sim.trimmed:
-        fcs.update(dt=1/args.hz)
+        fcs.update(dt)
     # sim.UpdateTerrainElevation()
     if time.time() - start_time >= 1:
         print("calling sim.update()")
@@ -117,7 +118,7 @@ def update():
     hil.write()
     fgfs.send_to_fgfs()
     display.update()
-    xp.update()
+    xp.update(dt)
 
 sched = BackgroundScheduler()
 sched.add_job(update, 'interval', seconds=1/args.hz)
