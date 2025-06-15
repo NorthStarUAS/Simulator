@@ -84,26 +84,29 @@ class nzthe_controller():
             self.flap50_func = ltf[1]
             self.flap100_func = ltf[2]
 
-            plt.figure()
-            plt.plot(self.flap0_func.xp, self.flap0_func.fp, label="flaps 0")
-            xs = np.linspace(np.min(self.flap0_func.xp), np.max(self.flap0_func.xp), 10)
-            ys = xs * self.flap0_func.fit_model[0] + self.flap0_func.fit_model[1]
-            plt.plot(xs, ys, label="fit")
-            plt.legend()
+            if len(self.flap0_func.xp):
+                plt.figure()
+                plt.plot(self.flap0_func.xp, self.flap0_func.fp, label="flaps 0")
+                xs = np.linspace(np.min(self.flap0_func.xp), np.max(self.flap0_func.xp), 10)
+                ys = xs * self.flap0_func.fit_model[0] + self.flap0_func.fit_model[1]
+                plt.plot(xs, ys, label="fit")
+                plt.legend()
 
-            plt.figure()
-            plt.plot(self.flap50_func.xp, self.flap50_func.fp, label="flaps 50")
-            xs = np.linspace(np.min(self.flap50_func.xp), np.max(self.flap50_func.xp), 10)
-            ys = xs * self.flap50_func.fit_model[0] + self.flap50_func.fit_model[1]
-            plt.plot(xs, ys, label="fit")
-            plt.legend()
+            if len(self.flap50_func.xp):
+                plt.figure()
+                plt.plot(self.flap50_func.xp, self.flap50_func.fp, label="flaps 50")
+                xs = np.linspace(np.min(self.flap50_func.xp), np.max(self.flap50_func.xp), 10)
+                ys = xs * self.flap50_func.fit_model[0] + self.flap50_func.fit_model[1]
+                plt.plot(xs, ys, label="fit")
+                plt.legend()
 
-            plt.figure()
-            plt.plot(self.flap100_func.xp, self.flap100_func.fp, label="flaps 100")
-            xs = np.linspace(np.min(self.flap100_func.xp), np.max(self.flap100_func.xp), 10)
-            ys = xs * self.flap100_func.fit_model[0] + self.flap100_func.fit_model[1]
-            plt.plot(xs, ys, label="fit")
-            plt.legend()
+            if len(self.flap100_func.xp):
+                plt.figure()
+                plt.plot(self.flap100_func.xp, self.flap100_func.fp, label="flaps 100")
+                xs = np.linspace(np.min(self.flap100_func.xp), np.max(self.flap100_func.xp), 10)
+                ys = xs * self.flap100_func.fit_model[0] + self.flap100_func.fit_model[1]
+                plt.plot(xs, ys, label="fit")
+                plt.legend()
 
             plt.show()
         else:
