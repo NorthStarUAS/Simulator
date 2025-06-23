@@ -43,11 +43,12 @@ class HIL():
         dah = thr*self.max_amp * dt / 3600
         self.batt_used_ah += dah
         batt_perc = (self.batt_ah - self.batt_used_ah) / self.batt_ah
-        if batt_perc < 0:
+        if batt_perc <= 0:
             # this is a totally fake battery model intended only to generate
             # some plausible numbers for testing, so recycle the battery to 100%
             # when it's empty and just keep going.
-            self.batt_used_ah = 0
+            self.batt_used_ah = 0.0
+            batt_perc = 0.0 # if this is less than zero the interpolator can fail later, ugh
         sag = thr * 0.1
         volt = (batf(batt_perc) - sag) * cells
         print("dt: %.3f" % dt, "batt: %.3f" % batt_perc, "dah:", dah, "volt: %.2f" % volt)
@@ -60,6 +61,7 @@ class HIL():
         power_node.setDouble("total_mah", self.batt_used_ah*1000)
 
     def write(self):
+        # print("hil send to nslink")
         self.fake_battery()
 
         msg = airdata_v9()
@@ -71,10 +73,15 @@ class HIL():
 
         msg = imu_v6()
         msg.props2msg(imu_node)
+        print("az:", msg.az_mps2)
         msg.index = 0
-        buf = msg.pack()
-        packet = wrap_packet(msg.id, buf)
-        self.sock_out.sendto(packet, (link_host, link_recv_port))
+        try:
+            buf = msg.pack()
+            packet = wrap_packet(msg.id, buf)
+            self.sock_out.sendto(packet, (link_host, link_recv_port))
+        except Exception as ex:
+            print("imu_v6 packing error:")
+            print(ex)
 
         msg = inceptors_v2()
         msg.props2msg(inceptors_node)
@@ -103,6 +110,8 @@ class HIL():
         self.sock_out.sendto(packet, (link_host, link_recv_port))
 
     def read(self):
+        print("hil read from nslink")
+
         data = None
         while True:
             try:
@@ -112,6 +121,7 @@ class HIL():
                 # print("nothing to receive")
 
         if data is not None:
+            print("  got data")
             # trust message integrity because this is a udp link
             packet_id = data[2]
             len_lo = data[3]
