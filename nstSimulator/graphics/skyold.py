@@ -4,7 +4,8 @@ from .arc import gen_arc
 
 class SkyDome():
     def __init__(self, color4=(0.9, 0.1, 0.1, 0.7), radius=1, width=0.1, start_deg=0, end_deg=360, steps=10):
-        outer_coords = gen_arc(radius, start_deg, end_deg, steps)
+        # generate a low poly sphere (so we own/control the vertices and colors)
+        ring1_coords = gen_arc(radius, start_deg, end_deg, steps)
         inner_coords = gen_arc(radius-width, start_deg, end_deg, steps)
 
         format = GeomVertexFormat.getV3()
