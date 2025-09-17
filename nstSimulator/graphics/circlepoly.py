@@ -2,6 +2,9 @@ from panda3d.core import *
 
 from .arc import gen_arc
 
+# fixme: this could be built on top of the polygon class (arc -> filled poly)
+# and could even support disks with holes
+
 class CirclePoly2d():
     def __init__(self, color4=(0.9, 0.1, 0.1, 0.7), radius=0.5, start_deg=0, end_deg=360, steps=10):
         perim_coords = gen_arc(radius, start_deg, end_deg, steps)
