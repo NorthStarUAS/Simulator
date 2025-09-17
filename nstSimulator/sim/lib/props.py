@@ -28,3 +28,44 @@ fcs_node = PropertyNode("/fcs")
 arm_node = PropertyNode("/fcs/arm")
 control_node = PropertyNode("/fcs/control")
 refs_node = PropertyNode("/fcs/refs")
+
+def dict2props(props_path, dict_tree):
+    node = PropertyNode(props_path)
+    for key, value in dict_tree.items():
+        if type(value) is dict:
+            # recurse
+            dict2props(props_path + "/" + key, value)
+        elif type(value) is int:
+            node.setInt(key, value)
+        elif type(value) is float:
+            node.setDouble(key, value)
+        elif type(value) is bool:
+            node.setBool(key, value)
+        elif type(value) is str:
+            node.setString(key, value)
+        else:
+            print(key, type(value), value)
+
+def props2dict(node):
+    result = dict()
+    children = node.getChildren(False)
+    for child in children:
+        # print("  child:", child)
+        if node.isParent(child):
+            result[child] = props2dict(node.getChild(child))
+        elif node.isInt(child):
+            result[child] = node.getInt(child)
+        elif node.isUInt(child):
+            result[child] = node.getUInt(child)
+        elif node.isInt64(child):
+            result[child] = node.getInt64(child)
+        elif node.isBool(child):
+            result[child] = node.getBool(child)
+        elif node.isDouble(child):
+            result[child] = node.getDouble(child)
+        elif node.isString(child):
+            result[child] = node.getString(child)
+        else:
+            print("Unknown data type:", child)
+            result[child] = node.getDouble(child)
+    return result
