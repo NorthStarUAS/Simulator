@@ -36,7 +36,10 @@ def dict2props(props_path, dict_tree):
             # recurse
             dict2props(props_path + "/" + key, value)
         elif type(value) is int:
-            node.setInt(key, value)
+            if abs(value) <= 0xFFFFFFFF:  # fixme: signed int?
+                node.setInt(key, value)
+            else:
+                node.setInt64(key, value)
         elif type(value) is float:
             node.setDouble(key, value)
         elif type(value) is bool:
