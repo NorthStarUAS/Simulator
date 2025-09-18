@@ -35,8 +35,9 @@ class World():
             self.skybox.setShader(sha)
             self.skybox.setShaderInput("TexSkybox", self.skyTex)
             self.skybox.setAttrib(DepthTestAttrib.make(RenderAttrib.MLessEqual))
-            #self.skybox.setDepthTest(False)
+            self.skybox.setDepthTest(False)
             self.skybox.setDepthWrite(False)
+            self.skybox.setBin("background", 0)
 
     def update(self, cam_pos, cam_hpr, nedref, nedref_time, lla, dlat, dlon, dalt):
         if self.skybox is not None:
