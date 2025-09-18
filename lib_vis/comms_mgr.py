@@ -8,7 +8,7 @@ from direct.stdpy import threading
 
 import navpy
 
-from nstSimulator.sim.lib.props import att_node, pos_node, root_node, vel_node
+from nstSimulator.sim.lib.props import att_node, pos_node, root_node, vel_node, dict2props
 from nstSimulator.utils.constants import r2d, m2ft
 from .display_messages import display_v1, terrain_v2
 
@@ -92,38 +92,12 @@ class CommsManager():
                 self.hpr_deg[0] += self.psiDot_dps_est / est_hz
                 self.hpr_deg[1] += self.thetaDot_dps_est / est_hz
                 self.hpr_deg[2] += self.phiDot_dps_est / est_hz
-        elif False:
-            # accept new data
-            msg = display_v1()
-            msg.unpack(data)
-
-            self.time_sec = msg.time_sec
-            self.lla[0] = msg.latitude_deg
-            self.lla[1] = msg.longitude_deg
-            self.lla[2] = msg.altitude_m
-            alt_ft = msg.altitude_m * m2ft
-            self.hpr_deg[2] = msg.roll_deg
-            self.hpr_deg[1] = msg.pitch_deg
-            self.hpr_deg[0] = msg.yaw_deg
-            self.indicated_kts = msg.airspeed_kt
-            self.ail_cmd_norm = msg.ail_cmd_norm
-            self.ele_cmd_norm = msg.ele_cmd_norm
-            self.rud_cmd_norm = msg.rud_cmd_norm
-            self.flap_cmd_norm = msg.flap_cmd_norm
-            self.return_ip_addr = msg.return_ip_addr
-
-            if self.msg_prev is not None:
-                self.dt = msg.time_sec - self.msg_prev.time_sec
-                if self.dt > 0:
-                    self.dlat = (msg.latitude_deg - self.msg_prev.latitude_deg) / self.dt
-                    self.dlon = (msg.longitude_deg - self.msg_prev.longitude_deg) / self.dt
-                    self.dalt = (msg.altitude_m - self.msg_prev.altitude_m) / self.dt
-                    self.psiDot_dps_est = self.angle_diff_deg(msg.yaw_deg, self.msg_prev.yaw_deg) / self.dt
-                    self.thetaDot_dps_est = self.angle_diff_deg(msg.pitch_deg, self.msg_prev.pitch_deg) / self.dt
-                    self.phiDot_dps_est = self.angle_diff_deg(msg.roll_deg, self.msg_prev.roll_deg) / self.dt
-            self.msg_prev = msg
         else:
-            root_node.set_json_string(data.decode())
+            # root_node.set_json_string(data.decode())
+            python_dict = json.loads(data.decode())
+            dict2props("/", python_dict)
+
+            # print("data decode:", data.decode())
             # root_node.pretty_print()
             self.time_sec = root_node.getDouble("sim_time_sec")
             self.lla[0] = pos_node.getDouble("lat_geod_deg")
