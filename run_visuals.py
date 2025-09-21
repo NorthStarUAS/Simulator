@@ -68,8 +68,8 @@ config = {
     "world": {
         # "airports": True,  # future devel
         "ground": "bing",    # maptiler, bing, google, or polygon.  Add +wireframe (i.e. polygon+wireframe) to show the underlying mesh structure as wireframe
-        # "max_zoom": 17,      # 15 is max for maptiler, 17 good for bing (18 works, but greatly increases the workload and the tile loading can get way behind)
-        # "max_rwy_zoom": 19,
+        "max_zoom": 17,      # 15 is max for maptiler, 17 good for bing (18 works, but greatly increases the workload and the tile loading can get way behind)
+        "max_rwy_zoom": 19,
         "sky": "skybox",     # skybox
     },
 }
@@ -111,6 +111,9 @@ class SceneryViewer(ShowBase):
         if "fog" not in config:
             print("Error! The config is missing a 'fog' section so we cannot continue.")
         self.fog = fog.FogMgr(config["fog"])
+        # force a renderFrame() to make fog effective as per chatgpt advice...
+        base.graphicsEngine.renderFrame()
+        base.graphicsEngine.renderFrame()
 
         if "light" not in config:
             print("Error! The config is missing a 'light' section so we cannot continue.")

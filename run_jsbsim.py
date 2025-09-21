@@ -104,9 +104,9 @@ sim.SetTurb(turbSeverity=0, vWind20_mps=2, vWindHeading_deg=45) # Trim with wind
 fcs = FCSMgr()
 
 start_time = time.time()
+dt=1/args.hz
 
 def update():
-    dt=1/args.hz
     joystick.update()
     hil.read()
     if sim.trimmed:
@@ -120,9 +120,19 @@ def update():
     display.update()
     xp.update(dt)
 
-sched = BackgroundScheduler()
-sched.add_job(update, 'interval', seconds=1/args.hz)
-sched.start()
+if False:
+    # timer/scheduler (do you trust the timer!)
+    sched = BackgroundScheduler()
+    sched.add_job(update, 'interval', seconds=1/args.hz)
+    sched.start()
 
-while True:
-    time.sleep(1)
+    while True:
+        time.sleep(1)
+else:
+    # busy/wait (load up a whole cpu)
+    sim_time = start_time + dt
+    while True:
+        while time.time() < sim_time:
+            pass
+        update()
+        sim_time += dt

@@ -20,7 +20,7 @@ class SpeedTapeYukikaze():
 
         self.vc_text = Text3d(color=(0, 1, 0, 1), val=345, format="%.0f", scale=25, align=TextNode.ARight, pad=2)
         self.vc_text.node.setP(1) # vertical align text a bit better
-        self.vc_text.node.setPos(self.vc_text.node, -r2, -400, 0)
+        self.vc_text.node.setPos(self.vc_text.node, -r2, -r1, 0)
         self.vc_text.node.reparentTo(self.node)
         self.vc_text.node.setDepthWrite(False)
         self.vc_text.node.setDepthTest(False)

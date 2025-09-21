@@ -7,36 +7,34 @@ from nstSimulator.graphics.arcline import gen_arc_list
 from nstSimulator.graphics.fonts import get_B612_font
 from nstSimulator.graphics.text import Text3d
 from nstSimulator.sim.lib.props import att_node, pos_node
-from nstSimulator.utils.constants import m2ft
 
-class AltitudeTapeYukikaze():
+class HeadingTapeYukikaze():
     def __init__(self):
-        r1 = 400
-        r2 = 15
+        r1 = 350
+        r2 = 10
         line_width = 2
         text_scale = 20
         green = (0, 1, 0, 1)
 
         self.node = render.attachNewNode("SpeedTape Yukikaze")
 
-        self.alt_text = Text3d(color=green, val=12345, format="%.0f", scale=25, align=TextNode.ALeft, pad=2)
-        self.alt_text.node.setP(1) # vertical align text a bit better
-        self.alt_text.node.setPos(self.alt_text.node, r2, -r1, 0)
-        self.alt_text.node.reparentTo(self.node)
-        self.alt_text.node.setDepthWrite(False)
-        self.alt_text.node.setDepthTest(False)
-        self.alt_text.node.setBin("fixed", 0)
-        self.alt_text.node.setLightOff(1)
+        self.hdg_text = Text3d(color=green, val=12345, format="%.0f", scale=25, align=TextNode.ACenter, pad=2)
+        self.hdg_text.node.setPos(self.hdg_text.node, 0, -r1, r2*2)
+        self.hdg_text.node.reparentTo(self.node)
+        self.hdg_text.node.setDepthWrite(False)
+        self.hdg_text.node.setDepthTest(False)
+        self.hdg_text.node.setBin("fixed", 0)
+        self.hdg_text.node.setLightOff(1)
 
-        self.speedtape = NodePath("tape")
-        self.speedtape.reparentTo(self.node)
+        self.headingtape = NodePath("tape")
+        self.headingtape.reparentTo(self.node)
 
-        alts100_list = np.linspace(0, 270, 28)
-        labels_list = alts100_list-1
-        alts1_list = np.linspace(0, 270, 271)
-        arc1 = gen_arc_list(radius=r1, angle_list=alts100_list)
+        hdg10_list = np.linspace(0, 360, 13)
+        labels_list = hdg10_list
+        hdg1_list = np.linspace(0, 360, 145)
+        arc1 = gen_arc_list(radius=r1, angle_list=hdg10_list)
         arc2 = gen_arc_list(radius=r1, angle_list=labels_list)
-        arc3 = gen_arc_list(radius=r1, angle_list=alts1_list)
+        arc3 = gen_arc_list(radius=r1, angle_list=hdg1_list)
 
         ls = LineSegs()
         ls.setThickness(line_width)
@@ -45,40 +43,40 @@ class AltitudeTapeYukikaze():
         # 10 degree markers
         for i in range(len(arc1)):
             (x, y) = arc1[i]
-            ls.moveTo(-r2, -y, x)
-            ls.drawTo( r2, -y, x)
+            ls.moveTo(x, -y, -r2)
+            ls.drawTo(x, -y, r2)
 
         # 1 degree markers
         for (x, y) in arc3:
-            ls.moveTo(-r2, -y, x)
-            ls.drawTo( r2*0.5, -y, x)
+            ls.moveTo(x, -y, -r2)
+            ls.drawTo( x, -y, r2*0.5)
 
         line_node = NodePath(ls.create())
         line_node.setAntialias(AntialiasAttrib.MLine)
-        line_node.reparentTo(self.speedtape)
+        line_node.reparentTo(self.headingtape)
 
         labels = labels_list
         for i in range(len(labels)):
-            label = "%.0f" % (alts100_list[i]*100)
-            if True or label != "0":
+            label = "%02.0f" % (hdg10_list[i] / 10)
+            if label != "00":
                 # left side
                 alt_text = TextNode("text")
                 alt_text.setFont(get_B612_font())
                 alt_text.setText(label)
-                alt_text.setAlign(TextNode.ALeft)
+                alt_text.setAlign(TextNode.ACenter)
                 alt_text.setTextColor(green)
                 text_node = NodePath("text")
                 text_node.attachNewNode(alt_text)
                 text_node.setScale(text_scale)
                 (x, y) = arc2[i]
-                text_node.setPos(r2*1.1, -y, x)
-                text_node.setHpr(0, -labels[i], 0)
-                text_node.reparentTo(self.speedtape)
+                text_node.setPos(x, -y, r2*2)
+                text_node.setHpr(labels[i], 0, 0)
+                text_node.reparentTo(self.headingtape)
 
-        self.speedtape.setDepthWrite(False)
-        self.speedtape.setDepthTest(False)
-        self.speedtape.setBin("fixed", -1)
-        self.speedtape.setLightOff(1)
+        self.headingtape.setDepthWrite(False)
+        self.headingtape.setDepthTest(False)
+        self.headingtape.setBin("fixed", -1)
+        self.headingtape.setLightOff(1)
 
         # we can give the object it's own fog, but I don't know if this is
         # helpful.
@@ -91,7 +89,7 @@ class AltitudeTapeYukikaze():
         node = NodePath('clip')
         self.clipPlane1 = node.attachNewNode(PlaneNode('clip1'))
         self.clipPlane1.node().setPlane(Plane(0, -1, 0, 0))
-        self.speedtape.setClipPlane(self.clipPlane1)
+        self.headingtape.setClipPlane(self.clipPlane1)
 
         # self.node.setDepthWrite(False, 1)  # and force this state to propagate down to children
         # self.node.setDepthTest(False, 1)
@@ -103,12 +101,11 @@ class AltitudeTapeYukikaze():
         self.node.setHpr(-att_node.getDouble("psi_deg"), att_node.getDouble("theta_deg"), att_node.getDouble("phi_deg"))
 
         self.node.setY(self.node, 1600)
-        self.node.setX(self.node, 400)
+        self.node.setZ(self.node, 300)
 
-        alt_ft = pos_node.getDouble("geod_alt_m") * m2ft
-        alt_disp = pos_node.getDouble("alt_msl_filt")
-        self.speedtape.setP(self.node, (alt_ft/100))
-        self.alt_text.update(alt_disp)
+        hdg = att_node.getDouble("psi_deg")
+        self.headingtape.setH(self.node, -hdg)
+        self.hdg_text.update(hdg)
 
         # self.text_node.setPos(nedpos[1], nedpos[0], -nedpos[2])
         # self.text_node.setHpr(-att_node.getDouble("psi_deg"), att_node.getDouble("theta_deg"), att_node.getDouble("phi_deg"))
