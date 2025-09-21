@@ -134,7 +134,7 @@ class PitchLadderF16():
         # self.clipPlane2.setHpr(-att_node.getDouble("psi_deg"), att_node.getDouble("theta_deg"), 0)
 class PitchLadderYukikaze():
     def __init__(self):
-        r1 = 400
+        r1 = 800
         r2 = 400
         r3 = 10
         line_width = 2
@@ -166,8 +166,8 @@ class PitchLadderYukikaze():
             (x2, y2) = arc1[i]
             (x3, y3) = arc3[i]
             vec = np.array([r2, -y2, x2])
-            p1 = vec / np.linalg.norm(vec) * 200
-            p2 = vec / np.linalg.norm(vec) * 400
+            p1 = vec / np.linalg.norm(vec) * 300
+            p2 = vec / np.linalg.norm(vec) * 500
             ls.moveTo(-p1[0], p1[1], p1[2])
             # ls.drawTo(-r2, y1, x1)
             ls.drawTo(-p2[0], p2[1], p2[2])
@@ -217,10 +217,13 @@ class PitchLadderYukikaze():
 
         labels = angles_list
         for i in range(len(labels)):
-            label = "%.0f" % labels[i]
+            val = -labels[i]
+            if val == 0.0:
+                val = 0.0 # avoid -zero in pythone
+            label = "%.0f" % val
             (x2, y2) = arc1[i]
             vec = np.array([r2, -y2, x2])
-            p2 = vec / np.linalg.norm(vec) * 400
+            p2 = vec / np.linalg.norm(vec) * 500
 
             if True or label != "0":
                 # left side
@@ -270,7 +273,8 @@ class PitchLadderYukikaze():
         self.pitch.setPos(nedpos[1], nedpos[0], -nedpos[2])
         self.pitch.setHpr(-att_node.getDouble("psi_deg"), att_node.getDouble("theta_deg"), att_node.getDouble("phi_deg"))
         self.pitch.setY(self.pitch, 1600)
-        self.pitch.setP(self.pitch, att_node.getDouble("theta_deg"))
+        self.pitch.setP(self.pitch, -att_node.getDouble("theta_deg"))
+        self.pitch.setR(self.pitch, -att_node.getDouble("phi_deg"))
         # self.pitch.setY(400)
         # self.clipPlane1.setPos(nedpos[1], nedpos[0], -nedpos[2]+115)
         # self.clipPlane1.setHpr(-att_node.getDouble("psi_deg"), att_node.getDouble("theta_deg"), 0)
