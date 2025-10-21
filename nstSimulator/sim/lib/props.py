@@ -5,7 +5,9 @@ from PropertyTree import PropertyNode
 # nodes or lookup and store their own references to existing nodes if they
 # prefer.
 root_node = PropertyNode("/")
+config_node = PropertyNode("/config")
 
+# State
 accel_node = PropertyNode("/acceleration")
 aero_node = PropertyNode("/aero")
 att_node = PropertyNode("/attitude")
