@@ -41,7 +41,8 @@ class JSBSimWrap:
         # self.fdm.load_model_with_paths(self.model, pathJSB, pathJSB, pathJSB, False)
         self.fdm.load_model(self.model)
         self.fdm.set_dt(self.dt)
-
+        self.prop_catalog = self.fdm.get_property_catalog()
+        # print("jsbsim wrap:", self.prop_catalog)
         self.fileLog = []
 
     def setup_initial_conditions(self, lla, hdg_deg, vc_kts=0):
@@ -323,18 +324,35 @@ class JSBSimWrap:
         engine_node.setDouble("thrust_N", self.fdm[ 'propulsion/engine/thrust-lbs'] * lb2N)
 
         # Flight Control System (Actuators)
-        fcs_node.setDouble("cmdAil_norm", self.fdm['fcs/aileron-cmd-norm'])
-        fcs_node.setDouble("posAil_norm", self.fdm['fcs/left-aileron-pos-norm'])
-        fcs_node.setDouble("cmdElev_norm", self.fdm['fcs/elevator-cmd-norm'])
-        fcs_node.setDouble("posElev_norm", self.fdm['fcs/elevator-pos-norm'])
-        fcs_node.setDouble("cmdRud_norm", self.fdm['fcs/rudder-cmd-norm'])
-        fcs_node.setDouble("posRud_norm", self.fdm['fcs/rudder-pos-norm'])
-        fcs_node.setDouble("cmdFlap_norm", self.fdm['fcs/flap-cmd-norm'])
-        fcs_node.setDouble("posFlap_norm", self.fdm['fcs/flap-pos-norm'])
-        fcs_node.setDouble("cmdThrottle_nd", self.fdm['fcs/throttle-cmd-norm'])
-        fcs_node.setDouble("posThrottle_nd", self.fdm['fcs/throttle-pos-norm'])
-        fcs_node.setDouble("cmdBrakeLeft_nd", self.fdm['fcs/left-brake-cmd-norm'])
-        fcs_node.setDouble("cmdBrakeRight_nd", self.fdm['fcs/right-brake-cmd-norm'])
+        if 'fcs/cmdAil_deg (RW)' in self.prop_catalog:
+            # alternate convention
+            fcs_node.setDouble("cmdAil_deg", self.fdm['fcs/cmdAil_deg'])
+            fcs_node.setDouble("posAil_deg", self.fdm['fcs/posAil_deg'])
+            fcs_node.setDouble("cmdElev_deg", self.fdm['fcs/cmdElev_deg'])
+            fcs_node.setDouble("posElev_deg", self.fdm['fcs/posElev_deg'])
+            fcs_node.setDouble("cmdRud_deg", self.fdm['fcs/cmdRud_deg'])
+            fcs_node.setDouble("posRud_deg", self.fdm['fcs/posRud_deg'])
+            fcs_node.setDouble("cmdFlap_deg", self.fdm['fcs/cmdFlap_deg'])
+            fcs_node.setDouble("posFlap_deg", self.fdm['fcs/posFlap_deg'])
+            fcs_node.setDouble("posFlap_nd",  self.fdm['fcs/flap-pos-norm'])
+            fcs_node.setDouble("cmdThrottle_nd", self.fdm['fcs/throttle-cmd-norm'])
+            fcs_node.setDouble("posThrottle_nd", self.fdm['fcs/throttle-pos-norm'])
+            fcs_node.setDouble("cmdBrakeLeft_nd", self.fdm['fcs/left-brake-cmd-norm'])
+            fcs_node.setDouble("cmdBrakeRight_nd", self.fdm['fcs/right-brake-cmd-norm'])
+        else:
+            # FlightGear convention
+            fcs_node.setDouble("cmdAil_norm", self.fdm['fcs/aileron-cmd-norm'])
+            fcs_node.setDouble("posAil_norm", self.fdm['fcs/left-aileron-pos-norm'])
+            fcs_node.setDouble("cmdElev_norm", self.fdm['fcs/elevator-cmd-norm'])
+            fcs_node.setDouble("posElev_norm", self.fdm['fcs/elevator-pos-norm'])
+            fcs_node.setDouble("cmdRud_norm", self.fdm['fcs/rudder-cmd-norm'])
+            fcs_node.setDouble("posRud_norm", self.fdm['fcs/rudder-pos-norm'])
+            fcs_node.setDouble("cmdFlap_norm", self.fdm['fcs/flap-cmd-norm'])
+            fcs_node.setDouble("posFlap_norm", self.fdm['fcs/flap-pos-norm'])
+            fcs_node.setDouble("cmdThrottle_nd", self.fdm['fcs/throttle-cmd-norm'])
+            fcs_node.setDouble("posThrottle_nd", self.fdm['fcs/throttle-pos-norm'])
+            fcs_node.setDouble("cmdBrakeLeft_nd", self.fdm['fcs/left-brake-cmd-norm'])
+            fcs_node.setDouble("cmdBrakeRight_nd", self.fdm['fcs/right-brake-cmd-norm'])
 
         # Positions
         pos_node.setDouble("long_gc_deg", self.fdm['position/long-gc-deg'])
