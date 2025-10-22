@@ -42,6 +42,9 @@ loadPrcFileData("", "want-pstats 1") # uncomment for pstats
 loadPrcFileData("", "pstats-tasks 1") # uncomment for pstats on tasks
 loadPrcFileData("", "pstats-python-profiler 1") # uncomment for pstats on tasks
 
+# loadPrcFileData("", "red-blue-stereo 1")
+# loadPrcFileData("", "side-by-side-stereo 1")
+
 parser = argparse.ArgumentParser(description="Optical flow based velocity vector experiments")
 args = parser.parse_args()
 
