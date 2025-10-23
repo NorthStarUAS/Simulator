@@ -30,8 +30,8 @@ class XPlaneUdp:
   def __init__(self):
     # Open a UDP Socket to receive on Port 49000
     self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    self.socket.settimeout(3.0)
-    self.socket.setblocking(0)
+    # self.socket.settimeout(3.0)
+    self.socket.setblocking(False)
     # list of requested datarefs with index number
     self.datarefidx = 0
     self.datarefs = {} # key = idx, value = dataref
@@ -121,9 +121,12 @@ class XPlaneUdp:
               value = 0.0
             retvalues[self.datarefs[idx]] = value
       self.xplaneValues.update(retvalues)
+      self.xplaneValues["updated"] = True
     except BlockingIOError:
+      self.xplaneValues["updated"] = False
       pass
     except:
+      self.xplaneValues["updated"] = False
       raise XPlaneTimeout
     return self.xplaneValues
 
