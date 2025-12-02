@@ -15,15 +15,11 @@ import time
 
 import jsbsim as jsb    # pip install jsbsim
 
-from ..utils.constants import g
+from ..utils.constants import d2r, ft2m, g, m2ft, r2d
 from .lib.props import accel_node, aero_node, airdata_node, att_node, control_node, engine_node, environment_node, fcs_node, gps_node, imu_node, inceptors_node, mass_node, pos_node, root_node, vel_node
 
 slug2kg = 14.5939029
 in2m = 0.0254
-ft2m = 0.3048
-m2ft = 1 / ft2m
-rad2deg = 180 / np.pi
-deg2rad = 1 / rad2deg
 lb2N = 4.44822162
 hp22W = 745.699872
 
@@ -106,7 +102,7 @@ class JSBSimWrap:
 
     def SetWind(self, vWindMag_mps = 0.0, vWindHeading_deg = 0.0, vWindDown_mps = 0.0):
         self.fdm['atmosphere/wind-mag-fps'] = vWindMag_mps * m2ft
-        self.fdm['atmosphere/psiw-rad'] = vWindHeading_deg * deg2rad
+        self.fdm['atmosphere/psiw-rad'] = vWindHeading_deg * d2r
         self.fdm['atmosphere/wind-down-fps'] = vWindDown_mps * m2ft
 
     # Update the wind in JSBSim for the current altitude
@@ -136,7 +132,7 @@ class JSBSimWrap:
         self.fdm['atmosphere/turb-type'] = turbType
         self.fdm['atmosphere/turbulence/milspec/severity'] = turbSeverity
         self.fdm['atmosphere/turbulence/milspec/windspeed_at_20ft_AGL-fps'] = vWind20_mps * m2ft
-        self.fdm['atmosphere/psiw-rad'] = vWindHeading_deg * deg2rad
+        self.fdm['atmosphere/psiw-rad'] = vWindHeading_deg * d2r
         self.UpdateWind()
 
     def UpdateTerrainElevation(self):
@@ -190,21 +186,6 @@ class JSBSimWrap:
         self.fdm['fcs/elevator-cmd-norm'] = control_node.getDouble("elevator")
         self.fdm['fcs/pitch-trim-cmd-norm'] = control_node.getDouble("elevator_trim")
         self.fdm['fcs/rudder-cmd-norm'] = -control_node.getDouble("rudder")
-
-        # 3 position flap dance
-        # flap_pos = self.fdm['fcs/flap-pos-norm']
-        # print("flaps:", flap_pos, abs(flap_pos % 0.5))
-        # if abs(flap_pos % 0.5) < 0.01:
-        #     if control_node.getBool("flaps_down"):
-        #         flap_pos = int((flap_pos + 0.5)*2) * 0.5
-        #         if flap_pos > 1.0: flap_pos = 1.0
-        #         print("flaps down:", flap_pos)
-        #         self.fdm['fcs/flap-cmd-norm'] = flap_pos
-        #     if control_node.getBool("flaps_up"):
-        #         flap_pos = int((flap_pos - 0.5)*2) * 0.5
-        #         if flap_pos < 0.0: flap_pos = 0.0
-        #         print("flaps up:", flap_pos)
-        #         self.fdm['fcs/flap-cmd-norm'] = flap_pos
         self.fdm['fcs/flap-cmd-norm'] = inceptors_node.getDouble("cmdFlap_norm")
         self.fdm['fcs/left-brake-cmd-norm'] = control_node.getDouble("brake_left")
         self.fdm['fcs/right-brake-cmd-norm'] = control_node.getDouble("brake_right")
@@ -308,11 +289,28 @@ class JSBSimWrap:
             if elem != '':
                 aero_node.setDouble(elem, self.fdm[elem])
 
+        # Velocities
+        vel_node.setDouble("vtrue_mps", self.fdm['velocities/vtrue-fps'] * ft2m)
+        vel_node.setDouble("vtrue_kts", self.fdm['velocities/vtrue-kts'])
+        vel_node.setDouble("vc_mps", self.fdm['velocities/vc-fps'] * ft2m)
+        vel_node.setDouble("vc_kts", self.fdm['velocities/vc-kts'])
+        vel_node.setDouble("mach_nd", self.fdm['velocities/mach'])
+        vel_node.setDouble("hDot_mps", self.fdm['velocities/h-dot-fps'] * ft2m)
+        vel_node.setDouble("vn_mps", self.fdm['velocities/v-north-fps'] * ft2m)
+        vel_node.setDouble("ve_mps", self.fdm['velocities/v-east-fps'] * ft2m)
+        vel_node.setDouble("vd_mps", self.fdm['velocities/v-down-fps'] * ft2m)
+        vel_node.setDouble("u_mps", self.fdm['velocities/u-fps'] * ft2m)
+        vel_node.setDouble("v_mps", self.fdm['velocities/v-fps'] * ft2m)
+        vel_node.setDouble("w_mps", self.fdm['velocities/w-fps'] * ft2m)
+        vel_node.setDouble("vground_mps", self.fdm['velocities/vg-fps'] * ft2m)
+
         # Attitude
         att_node.setDouble("phi_deg", self.fdm['attitude/phi-deg'])
         att_node.setDouble("theta_deg", self.fdm['attitude/theta-deg'])
         att_node.setDouble("psi_deg", self.fdm['attitude/psi-deg'])
         att_node.setDouble("gamma_deg", self.fdm['flight-path/gamma-deg'])
+        if vel_node.getDouble("vground_mps") > 1:
+            att_node.setDouble("ground_track_deg", self.fdm['flight-path/psi-gt-rad'] * r2d)
 
         # Propulsion
         engine_node.setDouble("propeller_rpm", self.fdm['propulsion/engine/propeller-rpm'])
@@ -360,22 +358,7 @@ class JSBSimWrap:
         pos_node.setDouble("geod_alt_m", self.fdm['position/geod-alt-ft'] * ft2m)
         pos_node.setDouble("h_sl_m", self.fdm['position/h-sl-ft'] * ft2m)
         pos_node.setDouble("h_agl_m", self.fdm['position/h-agl-ft'] * ft2m)
-        pos_node.setBool("WOW", self.fdm['gear/wow']) # for lack of a better place for now
-
-        # Velocities
-        vel_node.setDouble("vtrue_mps", self.fdm['velocities/vtrue-fps'] * ft2m)
-        vel_node.setDouble("vtrue_kts", self.fdm['velocities/vtrue-kts'])
-        vel_node.setDouble("vc_mps", self.fdm['velocities/vc-fps'] * ft2m)
-        vel_node.setDouble("vc_kts", self.fdm['velocities/vc-kts'])
-        vel_node.setDouble("mach_nd", self.fdm['velocities/mach'])
-        vel_node.setDouble("hDot_mps", self.fdm['velocities/h-dot-fps'] * ft2m)
-        vel_node.setDouble("vn_mps", self.fdm['velocities/v-north-fps'] * ft2m)
-        vel_node.setDouble("ve_mps", self.fdm['velocities/v-east-fps'] * ft2m)
-        vel_node.setDouble("vd_mps", self.fdm['velocities/v-down-fps'] * ft2m)
-
-        vel_node.setDouble("u_mps", self.fdm['velocities/u-fps'] * ft2m)
-        vel_node.setDouble("v_mps", self.fdm['velocities/v-fps'] * ft2m)
-        vel_node.setDouble("w_mps", self.fdm['velocities/w-fps'] * ft2m)
+        pos_node.setBool("wow", self.fdm['gear/wow']) # for lack of a better place for now
 
         millis = int(round(self.fdm['simulation/sim-time-sec']*1000))
 
