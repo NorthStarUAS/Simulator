@@ -121,8 +121,8 @@ class IntervalBinnedFit():
         self.total_count = 0
         self.bins = {}
         self.fit_model = None
-        self.xp = []
-        self.fp = []
+        self.A = []
+        self.B = []
 
     def AddData(self, xs=[], y=0, dt=0.01):
         # compute bin
@@ -144,30 +144,37 @@ class IntervalBinnedFit():
         # print("x:", x, "key:", key)
 
     def FitModel(self):
-        if len(self.bins) < self.dim:
+        # solve AX = B with weights
+        # https://theoryl1.wordpress.com/2016/08/03/solve-weighted-least-squares-with-numpy/
+
+        if len(self.bins) <= self.dim:
             print("not enough bins to fit model")
             return
-        self.xp = []
-        self.fp = []
-        self.w = []
+        self.A = []
+        self.B = []
+        self.W = []
         # print("bins:", self.bins)
         for bin in self.bins.values():
-            self.xp.append(bin.x_vals + [1])
-            self.fp.append(bin.M)
-            self.w.append(bin.k / self.total_count)
+            self.A.append(bin.x_vals + [1])
+            self.B.append(bin.M)
+            self.W.append(bin.k / self.total_count)
         # print("xp:", self.xp)
-        result = np.linalg.lstsq(self.xp, self.fp, rcond=None)
+        Aw = self.A * np.sqrt(np.array(self.W)[:, np.newaxis])
+        Bw = np.array(self.B) * np.sqrt(np.array(self.W))
+        result = np.linalg.lstsq(Aw, Bw, rcond=None)
         self.fit_model = result[0]
         # print("fit_model:", self.fit_model)
 
     def Interp(self, xs):
-        if len(xs) != self.dim or self.fit_model is None:
-            print("Interp: wrong dimension:", len(xs), "expected:", self.dim)
-            return 0
         result = 0
-        for i in range(self.dim):
-            result += self.fit_model[i]*xs[i]
-        result += self.fit_model[-1]
+        if self.fit_model is None:
+            print("Interp: no fit model")
+        elif len(xs) != self.dim:
+            print("Interp: wrong dimension:", len(xs), "expected:", self.dim)
+        else:
+            for i in range(self.dim):
+                result += self.fit_model[i]*xs[i]
+            result += self.fit_model[-1]
         return result
 
 class old_RangeBinnedFit():
