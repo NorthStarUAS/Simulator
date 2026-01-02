@@ -111,7 +111,8 @@ class IntervalBinnedFit():
         self.bin_widths = []
         self.half_bin_widths = []
         self.bin_rounds = []
-
+        self.max_vals = [float('-inf')] * self.dim
+        self.min_vals = [float('inf')] * self.dim
         for bin_width in bin_widths:
             self.bin_widths.append(bin_width)
             self.half_bin_widths.append(bin_width * 0.5)
@@ -130,13 +131,15 @@ class IntervalBinnedFit():
         key=""
         ks = []
         for i in range(self.dim):
+            if xs[i] < self.min_vals[i]: self.min_vals[i] = xs[i]
+            if xs[i] > self.max_vals[i]: self.max_vals[i] = xs[i]
             if i > 0:
                 key += ","
             k = ( round( floor(xs[i] / self.bin_widths[i]) * self.bin_widths[i] + self.half_bin_widths[i], self.bin_rounds[i] ) )
             ks.append(k)
             key += str(k)
-            print("kk:", str(ks))
-        print("key:", key)
+            # print("kk:", str(ks))
+        # print("key:", key)
         self.total_count += 1
         if not key in self.bins:
             self.bins[key] = AverageBin(ks)
@@ -172,6 +175,7 @@ class IntervalBinnedFit():
         elif len(xs) != self.dim:
             print("Interp: wrong dimension:", len(xs), "expected:", self.dim)
         else:
+            # xs = np.clip(xs, self.min_vals, self.max_vals)
             for i in range(self.dim):
                 result += self.fit_model[i]*xs[i]
             result += self.fit_model[-1]
