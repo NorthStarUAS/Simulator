@@ -48,6 +48,10 @@ def dict2props(props_path, dict_tree):
             node.setBool(key, value)
         elif type(value) is str:
             node.setString(key, value)
+        elif type(value) is list:
+            for i in range(len(value)):
+                print("dict2props:", props_path + "/" + key + "/" + str(i), value[i])
+                dict2props(props_path + "/" + key + "/" + str(i), value[i])
         else:
             print(key, type(value), value)
 
