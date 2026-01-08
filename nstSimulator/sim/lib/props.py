@@ -51,7 +51,7 @@ def dict2props(props_path, dict_tree):
         elif type(value) is list:
             for i in range(len(value)):
                 if type(value[i]) is dict:
-                    print("dict2props:", props_path + "/" + key + "/" + str(i), value[i])
+                    # print("dict2props:", props_path + "/" + key + "/" + str(i), value[i])
                     dict2props(props_path + "/" + key + "/" + str(i), value[i])
                 elif type(value[i]) is int:
                     node.setInt(key, value[i], i)
