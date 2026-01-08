@@ -50,8 +50,19 @@ def dict2props(props_path, dict_tree):
             node.setString(key, value)
         elif type(value) is list:
             for i in range(len(value)):
-                print("dict2props:", props_path + "/" + key + "/" + str(i), value[i])
-                dict2props(props_path + "/" + key + "/" + str(i), value[i])
+                if type(value[i]) is dict:
+                    print("dict2props:", props_path + "/" + key + "/" + str(i), value[i])
+                    dict2props(props_path + "/" + key + "/" + str(i), value[i])
+                elif type(value[i]) is int:
+                    node.setInt(key, value[i], i)
+                elif type(value[i]) is float:
+                    node.setDouble(key, value[i], i)
+                elif type(value[i]) is bool:
+                    node.setBool(key, value[i], i)
+                elif type(value[i]) is str:
+                    node.setString(key, value[i], i)
+                else:
+                    print("dict2props: unknown type in list:", key, i, type(value[i]), value[i])
         else:
             print(key, type(value), value)
 
