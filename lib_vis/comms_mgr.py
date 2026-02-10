@@ -148,7 +148,7 @@ class CommsManager():
         #print(msg.ned_velocity)
         self.gs_mps = sqrt(self.nedvel[0]**2 + self.nedvel[1]**2)
 
-    def send(self, ground_elev_m):
+    def send_old_message(self, ground_elev_m):
         if self.return_ip_addr is not None:
             # reply with terrain height
             msg_out = terrain_v2()
@@ -157,6 +157,20 @@ class CommsManager():
             msg_out.terrain_height_m = ground_elev_m
             self.sock_out.sendto(msg_out.pack(), (self.return_ip_addr, port_out))
             # print("(send) sending: %.1f" % ground_elev_m)
+
+    def send(self, ground_elev_m):
+        if self.return_ip_addr is not None:
+            # reply with flexible json message
+            msg = {
+                "latitude_deg": self.lla[0],
+                "longitude_deg": self.lla[1],
+                "terrain_height_m": ground_elev_m,
+            }
+            msg_str = json.dumps(msg) + "\r\n"
+            # print("message len:", len(msg_str))
+            # if len(msg_str) > 130:
+            #     print(msg_str)
+            self.sock_out.sendto(str.encode(msg_str), (self.return_ip_addr, port_out))
 
     def get_ned_from_lla(self, lat, lon, alt):
         if self.nedref is not None:
