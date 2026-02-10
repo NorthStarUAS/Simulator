@@ -36,7 +36,7 @@ class Display():
         self.pitch_filt = 0.0
         self.smooth_factor = 0.01
 
-    def update(self, nedpos, nedvel, hpr, ground_elev_m):
+    def update(self, nedpos, nedvel, hpr, ground_elev_m, ht_hpr=None):
         self.north_filt = (1 - self.smooth_factor) * self.north_filt + self.smooth_factor * nedvel[0]
         self.east_filt = (1 - self.smooth_factor) * self.east_filt + self.smooth_factor * nedvel[1]
         course_filt = 90 - atan2(self.north_filt, self.east_filt)*r2d
@@ -49,9 +49,22 @@ class Display():
             cam_elev_m = ground_elev_m + min_cam_agl_m
 
         if True:
-            # view track's ownship
+            # view track's ownship (augment with head tracker offsets if given)
+            camq = Quat()
+            camq.setHpr((-hpr[0], hpr[1], hpr[2]))
+            if ht_hpr:
+                q = Quat()
+                # yaw relative to base camera (aircraft) attitude
+                q.setHpr((-ht_hpr[0], 0, 0))
+                camq = q * camq
+                # then pitch
+                q.setHpr((0, ht_hpr[1], 0))
+                camq = q * camq
+                # then roll
+                q.setHpr((0, 0, ht_hpr[2]))
+                camq = q * camq
             self.cam_pos = LVector3f(nedpos[1], nedpos[0], cam_elev_m)
-            self.cam_hpr = LVector3f(-hpr[0], hpr[1], hpr[2])
+            self.cam_hpr = camq.getHpr()
             # self.cam_hpr = LVector3f(-hpr[0]-self.offset_deg, hpr[1]-self.offset_deg*sin(hpr[2]*d2r), hpr[2])
             #self.cam_hpr = LVector3f(-course_filt, 0, 0)
         elif False:
