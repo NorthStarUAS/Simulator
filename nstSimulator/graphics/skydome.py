@@ -86,7 +86,7 @@ class SkyDome():
 class GroundBowl():
     def __init__(self):
         fog = LVector4f(0.533, 0.639, 0.722, 1)
-        brown = LVector4f(0.91, 0.41, 0.08, 1)
+        brown = LVector4f(0.65, 0.35, 0.1, 1)
         r1 = 500
         ground_format = GeomVertexFormat.get_v3c4()
 
