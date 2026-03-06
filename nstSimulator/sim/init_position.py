@@ -36,15 +36,20 @@ class PositionInit:
         apt = self.apt_rwy_db[apt_id]
         found = False
         for rwy in apt["rwys"]:
+            # backwards compatibility with old db that doesn't have disp1/disp2
+            if not "disp1" in rwy: rwy["disp1"] = 0
+            if not "disp2" in rwy: rwy["disp2"] = 0
             if rwy["rwy1"] == rwy_id:
+                displace = rwy["disp1"]
                 reverse = False
                 found = True
             if rwy["rwy2"] == rwy_id:
+                displace = rwy["disp2"]
                 reverse = True
                 found = True
             if found:
                 print("rwy:", rwy)
-                return apt["alt_ft"]*ft2m, rwy["lat1"], rwy["lon1"], rwy["lat2"], rwy["lon2"], reverse
+                return apt["alt_ft"]*ft2m, rwy["lat1"], rwy["lon1"], rwy["lat2"], rwy["lon2"], displace, reverse
         # we didn't find the requested airport/rwy so die!
         print("Request not found in database.  apt_id:", apt_id, "rwy_id:", rwy_id)
         print(apt)
@@ -80,11 +85,11 @@ class PositionInit:
         return nedref, ned1, ned2, angle, length, hdg_deg
 
     def takeoff(self, id, rwy):
-        alt_m, lat1, lon1, lat2, lon2, reverse = self.find_runway(id, rwy)
+        alt_m, lat1, lon1, lat2, lon2, displace, reverse = self.find_runway(id, rwy)
         nedref, ned1, ned2, angle, len, hdg_deg = self.runway_stats(lat1, lon1, lat2, lon2, alt_m)
 
         # takeoff start 100' from end of runway
-        dist = 100 * ft2m
+        dist = 100 * ft2m + displace
         if not reverse:
             takeoff_ned = [ ned1[0] + sin(angle)*dist, ned1[1] + cos(angle)*dist, 0 ]
         elif reverse:
@@ -97,12 +102,12 @@ class PositionInit:
         return takeoff_lla, hdg_deg
 
     def touchdown(self, id, rwy):
-        alt_m, lat1, lon1, lat2, lon2, reverse = self.find_runway(id, rwy)
+        alt_m, lat1, lon1, lat2, lon2, displace, reverse = self.find_runway(id, rwy)
         nedref, ned1, ned2, angle, len, hdg_deg = self.runway_stats(lat1, lon1, lat2, lon2, alt_m)
         print("reverse:", reverse)
 
         # assume TD is 1000' from end of runway
-        dist = 1000 * ft2m
+        dist = 1000 * ft2m + displace
         if not reverse:
             td_ned = [ ned1[0] + sin(angle)*dist, ned1[1] + cos(angle)*dist, 0 ]
         elif reverse:
@@ -117,7 +122,7 @@ class PositionInit:
     def final_approach(self, id, rwy, dist_nm, gs_deg=3 ):
         dist_m = dist_nm * 1852
 
-        alt_m, lat1, lon1, lat2, lon2, reverse = self.find_runway(id, rwy)
+        alt_m, lat1, lon1, lat2, lon2, displace, reverse = self.find_runway(id, rwy)
         nedref, ned1, ned2, angle, len, hdg_deg = self.runway_stats(lat1, lon1, lat2, lon2, alt_m)
 
         td_lla, td_ned, hdg_deg = self.touchdown(id, rwy)
@@ -134,7 +139,10 @@ class PositionInit:
         return pt_lla, hdg_deg
 
     def pattern_entry(self, id, rwy):
-        alt_m, lat1, lon1, lat2, lon2, reverse = self.find_runway(id, rwy)
+        # todo, probably not handling displaced thresholds in this case
+        # correctly ... some how need to find the midpoint after subtracting the
+        # displacement on both ends.
+        alt_m, lat1, lon1, lat2, lon2, displace, reverse = self.find_runway(id, rwy)
         nedref, ned1, ned2, angle, len, hdg_deg = self.runway_stats(lat1, lon1, lat2, lon2, alt_m)
 
         # 45 degree left downwind entry @ pattern altitude

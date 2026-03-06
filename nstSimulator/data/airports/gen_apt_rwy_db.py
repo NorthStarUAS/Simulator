@@ -46,7 +46,9 @@ with gzip.open(args.aptdat, "r") as f:
                 lon1 = float(tokens[10])
                 lat2 = float(tokens[18])
                 lon2 = float(tokens[19])
-                rwy = { "rwy1": rwy1, "rwy2": rwy2, "lat1": lat1, "lon1": lon1, "lat2": lat2, "lon2": lon2 }
+                disp1 = float(tokens[11])
+                disp2 = float(tokens[20])
+                rwy = { "rwy1": rwy1, "rwy2": rwy2, "lat1": lat1, "lon1": lon1, "lat2": lat2, "lon2": lon2, "disp1": disp1, "disp2": disp2 }
                 apt["rwys"].append(rwy)
         else:
             apt_rwy_db[id] = apt
