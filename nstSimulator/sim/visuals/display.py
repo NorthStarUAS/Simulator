@@ -1,3 +1,4 @@
+import json
 import socket
 
 from PropertyTree import PropertyNode
@@ -51,17 +52,23 @@ class Display():
                 # burn through all pending packets so we don't get behind
                 data, addr = self.sock_in.recvfrom(1024)
                 if data is not None:
-                    values = terrain_v2()
-                    values.unpack(data)
-                    diff_lat = abs(pos_node.getDouble("lat_geod_deg") - values.latitude_deg)
-                    diff_lon = abs(pos_node.getDouble("long_gc_deg") - values.longitude_deg)
+                    values = json.loads(data.decode())
+                    # print("values:", values)
+                    diff_lat = abs(pos_node.getDouble("lat_geod_deg") - values['latitude_deg'])
+                    diff_lon = abs(pos_node.getDouble("long_gc_deg") - values['longitude_deg'])
                     if diff_lat < 0.01 and diff_lon < 0.01:
                         # print("set terrain elevation from visual system: %.1f" % self.terrain_height_m)
-                        pos_node.setDouble("visual_terrain_elevation_m", values.terrain_height_m)
+                        pos_node.setDouble("visual_terrain_elevation_m", values['terrain_height_m'])
                     else:
                         print("ignoring elevation from previous position")
-        except:
-            pass # no more pending data
+        except BlockingIOError:
+            # no more pending data
+            pass
+        except Exception as e:
+            import traceback
+            print("--- FULL ERROR TRACEBACK ---")
+            traceback.print_exc()
+            print("----------------------------")
 
     def update(self):
         self.send()
