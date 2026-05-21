@@ -359,9 +359,9 @@
                           <independentVar>aero/alpha-rad</independentVar>
                           <tableData>
                               -1.5700	1.5000
-                              -0.2600	0.0560
+                              -0.2600	0.14
                               0.0000	0.0280
-                              0.2600	0.0560
+                              0.2600	0.14
                               1.5700	1.5000
                           </tableData>
                       </table>
