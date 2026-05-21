@@ -101,7 +101,7 @@ sim.setup_initial_conditions(pos_lla, hdg_deg, vc_kts)
 
 sim.SetTurb(turbSeverity=0, vWind20_mps=2, vWindHeading_deg=45) # Trim with wind, no turbulence
 
-fcs = FCSMgr()
+# fcs = FCSMgr()
 
 start_time = time.time()
 dt=1/args.hz
@@ -109,8 +109,8 @@ dt=1/args.hz
 def update():
     joystick.update()
     hil.read()
-    if sim.trimmed:
-        fcs.update(dt)
+    # if sim.trimmed:
+    #     fcs.update(dt)
     # sim.UpdateTerrainElevation()
     if time.time() - start_time >= 1:
         print("calling sim.update()")
