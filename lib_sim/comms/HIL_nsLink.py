@@ -73,7 +73,7 @@ class HIL():
 
         msg = imu_v6()
         msg.props2msg(imu_node)
-        print("az:", msg.az_mps2)
+        # print("az:", msg.az_mps2)
         msg.index = 0
         try:
             buf = msg.pack()
@@ -84,6 +84,8 @@ class HIL():
             print(ex)
 
         msg = inceptors_v2()
+        # print("pc joystick inceptors:")
+        # inceptors_node.pretty_print()
         msg.props2msg(inceptors_node)
         msg.master_switch = True
         msg.motor_enable = True
@@ -121,13 +123,12 @@ class HIL():
                 # print("nothing to receive")
 
         if data is not None:
-            print("  got data")
             # trust message integrity because this is a udp link
             packet_id = data[2]
             len_lo = data[3]
             len_hi = data[4]
             packet_len = len_hi*256 + len_lo
-            print(packet_len)
+            print("  got data:", packet_id, packet_len)
             payload = data[5:5+packet_len]
             if packet_id == effectors_v1_id:
                 if self.start_time is None:
